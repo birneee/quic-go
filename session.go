@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"reflect"
@@ -58,6 +59,9 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
+	Store(t *handover.State)
+	TlsConf() *tls.Config
+	Clone() handshake.CryptoSetup
 }
 
 type packetInfo struct {
@@ -223,6 +227,8 @@ type session struct {
 	logID  string
 	tracer logging.ConnectionTracer
 	logger utils.Logger
+
+	ignoredRemoteAddresses []net.UDPAddr
 }
 
 var (
@@ -540,24 +546,29 @@ func (s *session) run() error {
 
 	s.timer = utils.NewTimer()
 
-	go s.cryptoStreamHandler.RunHandshake()
+	if !s.handshakeComplete {
+		go s.cryptoStreamHandler.RunHandshake()
+	}
+
 	go func() {
 		if err := s.sendQueue.Run(); err != nil {
 			s.destroyImpl(err)
 		}
 	}()
 
-	if s.perspective == protocol.PerspectiveClient {
-		select {
-		case zeroRTTParams := <-s.clientHelloWritten:
-			s.scheduleSending()
-			if zeroRTTParams != nil {
-				s.restoreTransportParameters(zeroRTTParams)
-				close(s.earlySessionReadyChan)
+	if !s.handshakeComplete {
+		if s.perspective == protocol.PerspectiveClient {
+			select {
+			case zeroRTTParams := <-s.clientHelloWritten:
+				s.scheduleSending()
+				if zeroRTTParams != nil {
+					s.restoreTransportParameters(zeroRTTParams)
+					close(s.earlySessionReadyChan)
+				}
+			case closeErr := <-s.closeChan:
+				// put the close error back into the channel, so that the run loop can receive it
+				s.closeChan <- closeErr
 			}
-		case closeErr := <-s.closeChan:
-			// put the close error back into the channel, so that the run loop can receive it
-			s.closeChan <- closeErr
 		}
 	}
 
@@ -832,6 +843,11 @@ func (s *session) handleHandshakeConfirmed() {
 }
 
 func (s *session) handlePacketImpl(rp *receivedPacket) bool {
+	// ignore packet if from a ignored remote
+	if s.isRemoteAddressIgnored(rp.remoteAddr) {
+		return false
+	}
+
 	s.sentPacketHandler.ReceivedBytes(rp.Size())
 
 	if wire.IsVersionNegotiationPacket(rp.data) {
@@ -1999,3 +2015,213 @@ func (s *session) NextSession() Session {
 	s.streamsMap.UseResetMaps()
 	return s
 }
+
+func (s *session) Handover() (handover.State, error) {
+	s.IgnoreCurrentRemoteAddress()
+	tss := handover.State{}
+	s.cryptoStreamHandler.Store(&tss)
+	return tss, nil
+}
+
+func (s *session) IgnoreCurrentRemoteAddress() {
+	s.ignoredRemoteAddresses = append(s.ignoredRemoteAddresses, *s.RemoteAddr().(*net.UDPAddr))
+}
+
+func (s *session) isRemoteAddressIgnored(addr net.Addr) bool{
+	udpAddr := *addr.(*net.UDPAddr)
+	for _, ira := range s.ignoredRemoteAddresses {
+		if ira.IP.Equal(udpAddr.IP) && ira.Port == udpAddr.Port {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *session) Clone() (Session, error) {
+	//_, err := s.Handover()
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
+	if err != nil {
+		panic(err)
+	}
+	conn := newSendPconn(pconn, s.conn.RemoteAddr())
+	packetHandlers, err := getMultiplexer().AddConn(pconn, s.config.ConnectionIDLength, s.config.StatelessResetKey, s.config.Tracer)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//cryptoStreamHandler := s.cryptoStreamHandler.Clone()
+	//
+	//session := &session{
+	//	handshakeDestConnID: s.handshakeDestConnID,
+	//	origDestConnID: s.origDestConnID,
+	//	retrySrcConnID: s.retrySrcConnID,
+	//
+	//	srcConnIDLen: s.srcConnIDLen,
+	//
+	//	perspective: s.perspective,
+	//	version: s.version,
+	//	config: s.config,
+	//
+	//	conn: conn,
+	//	sendQueue: newSendQueue(conn),
+	//
+	//	streamsMap: s.streamsMap,
+	//	connIDManager: s.connIDManager,
+	//	connIDGenerator: s.connIDGenerator,
+	//
+	//	rttStats: s.rttStats,
+	//
+	//	cryptoStreamManager: s.cryptoStreamManager,
+	//	sentPacketHandler: s.sentPacketHandler,
+	//	receivedPacketHandler: s.receivedPacketHandler,
+	//	retransmissionQueue: s.retransmissionQueue,
+	//	framer: s.framer,
+	//	windowUpdateQueue: s.windowUpdateQueue,
+	//	connFlowController: s.connFlowController,
+	//	tokenStoreKey:  s.tokenStoreKey,
+	//	tokenGenerator: s.tokenGenerator,
+	//
+	//	unpacker: s.unpacker,
+	//	frameParser: s.frameParser,
+	//	packer: s.packer,
+	//	mtuDiscoverer: s.mtuDiscoverer,
+	//
+	//	oneRTTStream: s.oneRTTStream,
+	//	cryptoStreamHandler: cryptoStreamHandler,
+	//
+	//	receivedPackets: s.receivedPackets,
+	//	sendingScheduled: s.sendingScheduled,
+	//
+	//	closeOnce: s.closeOnce,
+	//	closeChan: make(chan closeError, 1),
+	//
+	//	ctx: s.ctx,
+	//	ctxCancel: s.ctxCancel,
+	//	handshakeCtx: s.handshakeCtx,
+	//	handshakeCtxCancel: s.handshakeCtxCancel,
+	//
+	//	undecryptablePackets: s.undecryptablePackets,
+	//	undecryptablePacketsToProcess: s.undecryptablePacketsToProcess,
+	//
+	//	clientHelloWritten: s.clientHelloWritten,
+	//	earlySessionReadyChan: s.earlySessionReadyChan,
+	//	handshakeCompleteChan: s.handshakeCompleteChan,
+	//	handshakeComplete: s.handshakeComplete,
+	//	handshakeConfirmed: s.handshakeConfirmed,
+	//
+	//	receivedRetry: s.receivedRetry,
+	//	versionNegotiated: s.versionNegotiated,
+	//	receivedFirstPacket: s.receivedFirstPacket,
+	//
+	//	idleTimeout: s.idleTimeout,
+	//	sessionCreationTime: s.sessionCreationTime,
+	//	lastPacketReceivedTime: s.lastPacketReceivedTime,
+	//	firstAckElicitingPacketAfterIdleSentTime: s.firstAckElicitingPacketAfterIdleSentTime,
+	//	pacingDeadline: s.pacingDeadline,
+	//
+	//	peerParams: s.peerParams,
+	//
+	//	timer: nil,
+	//	keepAlivePingSent: s.keepAlivePingSent,
+	//	keepAliveInterval: s.keepAliveInterval,
+	//	datagramQueue: s.datagramQueue,
+	//	logID: s.logID,
+	//	tracer: nil, //TODO
+	//	logger: s.logger,
+	//
+	//	ignoredRemoteAddresses: nil,
+	//}
+	//
+	//session.preSetup()
+	////session.frameParser = s.frameParser
+	////session.rttStats = s.rttStats
+	////session.connFlowController = s.connFlowController
+	////session.framer = s.framer
+	//
+	//close(s.closeChan)
+	//
+	//go func() {
+	//	session.run() // returns as soon as the session is closed
+	//}()
+	//
+	//return session, nil
+
+	cryptoStreamHandler := s.cryptoStreamHandler.Clone()
+
+	session := newClientSession(
+		conn,
+		packetHandlers,
+		nil,
+		nil,
+		s.config,
+		cryptoStreamHandler.TlsConf(),
+		0, //TODO check
+		false,
+		s.versionNegotiated,
+		s.tracer,
+		0, //TODO check,
+		s.logger,
+		s.version,
+	).(*session)
+
+	//session.cryptoStreamHandler = cryptoStreamHandler
+	//session.sentPacketHandler = s.sentPacketHandler
+	//session.receivedPacketHandler = s.receivedPacketHandler
+	//session.handshakeComplete = true
+
+	close(s.closeChan)
+
+	go func() {
+		session.run() // returns as soon as the session is closed
+	}()
+	return session, nil
+}
+
+func (s *session) Migrate() {
+	//err := getMultiplexer().RemoveConn(s.conn)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+
+	println(s.conn.LocalAddr().String())
+
+	if conn, ok := s.conn.(*spconn); ok {
+		if packetConn, ok := conn.PacketConn.(*MigratablePacketConn); ok {
+			err := packetConn.Migrate()
+			if err != nil {
+				panic(err)
+			}
+
+			packetHandler, err := getMultiplexer().AddConn(packetConn, s.config.ConnectionIDLength, s.config.StatelessResetKey, s.config.Tracer)
+			if err != nil {
+				panic(err)
+			}
+			for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
+				packetHandler.Add(srcID, s)
+			}
+
+			println(s.conn.LocalAddr().String())
+			return // success
+		}
+	}
+	panic("unexpected types")
+
+	//oldConn := s.conn
+	//
+	//pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
+	//if err != nil {
+	//	panic(err)
+	//}
+	//s.conn = newSendPconn(pconn, s.conn.RemoteAddr())
+	//
+	//err = oldConn.Close()
+	//if err != nil {
+	//	panic(err)
+	//}
+}
+

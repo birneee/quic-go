@@ -3,6 +3,7 @@ package quic
 import (
 	"context"
 	"errors"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"time"
@@ -197,6 +198,12 @@ type Session interface {
 	// ReceiveMessage gets a message received in a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
 	ReceiveMessage() ([]byte, error)
+	// Handover creates state that is used for connection handover.
+	// Session will ignore all incoming packets from the current destination
+	Handover() (handover.State, error)
+	//TODO remove
+	Clone() (Session, error)
+	Migrate()
 }
 
 // An EarlySession is a session that is handshaking.

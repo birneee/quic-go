@@ -2,9 +2,11 @@ package handshake
 
 import (
 	"bytes"
+	"crypto/cipher"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"sync"
@@ -143,6 +145,38 @@ type cryptoSetup struct {
 	aead          *updatableAEAD
 	has1RTTSealer bool
 	has1RTTOpener bool
+}
+
+func (h *cryptoSetup) TlsConf() *tls.Config {
+	return h.tlsConf
+}
+
+func (h *cryptoSetup) Clone() CryptoSetup {
+	return &cryptoSetup{
+		tlsConf:                   h.tlsConf,
+		initialStream:             h.initialStream,
+		initialSealer:             h.initialSealer,
+		initialOpener:             h.initialOpener,
+		handshakeStream:           h.handshakeStream,
+		aead:                      h.aead.Clone(),
+		readEncLevel:              protocol.EncryptionInitial,
+		writeEncLevel:             protocol.EncryptionInitial,
+		runner:                    h.runner,
+		ourParams:                 h.ourParams,
+		paramsChan:                h.paramsChan,
+		rttStats:                  h.rttStats,
+		tracer:                    h.tracer,
+		logger:                    h.logger,
+		perspective:               h.perspective,
+		handshakeDone:             h.handshakeDone,
+		alertChan:                 make(chan uint8),
+		clientHelloWrittenChan:    make(chan *wire.TransportParameters, 1),
+		messageChan:               make(chan []byte, 100),
+		isReadingHandshakeMessage: h.isReadingHandshakeMessage,
+		closeChan:                 make(chan struct{}),
+		version:                   h.version,
+		conn: h.conn,
+	}
 }
 
 var (
@@ -792,9 +826,21 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 	if !h.has1RTTOpener {
 		return nil, ErrKeysNotYetAvailable
 	}
+	//TODO remove
+	if h.aead.numSentWithCurrentKey == 0 && h.aead.numRcvdWithCurrentKey == 0 {
+		h.aead = h.aead.Clone()
+	}
 	return h.aead, nil
 }
 
 func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
+}
+
+func (h *cryptoSetup) RcvAEAD() (cipher.AEAD, error) {
+	return h.aead.rcvAEAD, nil
+}
+
+func (h *cryptoSetup) Store(s *handover.State) {
+	s.AeadState = h.aead.store()
 }
