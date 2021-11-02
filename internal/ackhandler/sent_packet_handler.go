@@ -725,7 +725,7 @@ func (h *sentPacketHandler) SendMode() SendMode {
 	// Only send ACKs if we're congestion limited.
 	if !h.congestion.CanSend(h.bytesInFlight) {
 		if h.logger.Debug() {
-			h.logger.Debugf("Congestion limited: bytes in flight %d, window %d", h.bytesInFlight, h.congestion.GetCongestionWindow())
+			//h.logger.Debugf("Congestion limited: bytes in flight %d, window %d", h.bytesInFlight, h.congestion.GetCongestionWindow())
 		}
 		return SendAck
 	}

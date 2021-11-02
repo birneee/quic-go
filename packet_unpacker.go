@@ -49,6 +49,11 @@ func newPacketUnpacker(cs handshake.CryptoSetup, version protocol.VersionNumber)
 	}
 }
 
+//func newPacketUnpackerFromAeadState(state handover.AeadState) unpacker{
+//	handshake.NewCryptoSetupClient()
+//	return newPacketUnpacker()
+//}
+
 // If the reserved bits are invalid, the error is wire.ErrInvalidReservedBits.
 // If any other error occurred when parsing the header, the error is of type headerParseError.
 // If decrypting the payload fails for any reason, the error is the error returned by the AEAD.

@@ -50,6 +50,7 @@ func (h *sendQueue) Available() <-chan struct{} {
 	return h.available
 }
 
+//TODO inspect
 func (h *sendQueue) Run() error {
 	defer close(h.runStopped)
 	var shouldClose bool

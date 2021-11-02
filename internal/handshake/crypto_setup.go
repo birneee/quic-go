@@ -175,7 +175,7 @@ func (h *cryptoSetup) Clone() CryptoSetup {
 		isReadingHandshakeMessage: h.isReadingHandshakeMessage,
 		closeChan:                 make(chan struct{}),
 		version:                   h.version,
-		conn: h.conn,
+		conn:                      h.conn,
 	}
 }
 
@@ -827,9 +827,9 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 		return nil, ErrKeysNotYetAvailable
 	}
 	//TODO remove
-	if h.aead.numSentWithCurrentKey == 0 && h.aead.numRcvdWithCurrentKey == 0 {
-		h.aead = h.aead.Clone()
-	}
+	//if h.aead.numSentWithCurrentKey == 0 && h.aead.numRcvdWithCurrentKey == 0 {
+	//	h.aead = h.aead.Clone()
+	//}
 	return h.aead, nil
 }
 
@@ -843,4 +843,11 @@ func (h *cryptoSetup) RcvAEAD() (cipher.AEAD, error) {
 
 func (h *cryptoSetup) Store(s *handover.State) {
 	s.AeadState = h.aead.store()
+}
+
+func (h *cryptoSetup) PeerDisableActiveMigration() bool {
+	if h.peerParams == nil {
+		return false
+	}
+	return h.peerParams.DisableActiveMigration
 }

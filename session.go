@@ -62,6 +62,10 @@ type cryptoStreamHandler interface {
 	Store(t *handover.State)
 	TlsConf() *tls.Config
 	Clone() handshake.CryptoSetup
+	// PeerDisableActiveMigration
+	//
+	// returns false if parameter is not available yet
+	PeerDisableActiveMigration() bool
 }
 
 type packetInfo struct {
@@ -229,6 +233,7 @@ type session struct {
 	logger utils.Logger
 
 	ignoredRemoteAddresses []net.UDPAddr
+	runner                 sessionRunner
 }
 
 var (
@@ -268,6 +273,7 @@ var newSession = func(
 		tracer:                tracer,
 		logger:                logger,
 		version:               v,
+		runner:                runner,
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -305,16 +311,17 @@ var newSession = func(
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
 	params := &wire.TransportParameters{
-		InitialMaxStreamDataBidiLocal:   protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxStreamDataBidiRemote:  protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxStreamDataUni:         protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxData:                  protocol.ByteCount(s.config.InitialConnectionReceiveWindow),
-		MaxIdleTimeout:                  s.config.MaxIdleTimeout,
-		MaxBidiStreamNum:                protocol.StreamNum(s.config.MaxIncomingStreams),
-		MaxUniStreamNum:                 protocol.StreamNum(s.config.MaxIncomingUniStreams),
-		MaxAckDelay:                     protocol.MaxAckDelayInclGranularity,
-		AckDelayExponent:                protocol.AckDelayExponent,
-		DisableActiveMigration:          true,
+		InitialMaxStreamDataBidiLocal:  protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxStreamDataBidiRemote: protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxStreamDataUni:        protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxData:                 protocol.ByteCount(s.config.InitialConnectionReceiveWindow),
+		MaxIdleTimeout:                 s.config.MaxIdleTimeout,
+		MaxBidiStreamNum:               protocol.StreamNum(s.config.MaxIncomingStreams),
+		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
+		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
+		AckDelayExponent:               protocol.AckDelayExponent,
+		//DisableActiveMigration:          true,
+		DisableActiveMigration:          false,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
@@ -400,6 +407,7 @@ var newClientSession = func(
 		tracer:                tracer,
 		versionNegotiated:     hasNegotiatedVersion,
 		version:               v,
+		runner:                runner,
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -441,9 +449,10 @@ var newClientSession = func(
 		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
-		DisableActiveMigration:         true,
-		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID:      srcConnID,
+		//DisableActiveMigration:         true,
+		DisableActiveMigration:    false,
+		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID: srcConnID,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -842,7 +851,67 @@ func (s *session) handleHandshakeConfirmed() {
 	}
 }
 
+func unpackShortHeaderPacketWithState(rp *receivedPacket, state handover.State) *unpackedPacket {
+	hdr, encryptedData, rest, err := wire.ParsePacket(rp.data, state.SrcConnectionIDLength)
+	data := make([]byte, len(encryptedData))
+	copy(data, encryptedData)
+	if err != nil {
+		panic(err)
+	}
+	if len(rest) != 0 {
+		panic("multiple packets")
+	}
+	aead := handshake.RestoreUpdatableAEAD(state.AeadState, nil, nil, nil)
+	extHdr, err := unpackHeader(aead, hdr, data, state.Version)
+	if err != nil {
+		panic(err)
+	}
+	extHdrLen := extHdr.ParsedLen()
+	extHdr.PacketNumber = aead.DecodePacketNumber(extHdr.PacketNumber, extHdr.PacketNumberLen)
+	decrypted, err := aead.Open(data[extHdrLen:extHdrLen], data[extHdrLen:], rp.rcvTime, extHdr.PacketNumber, extHdr.KeyPhase, data[:extHdrLen])
+	if err != nil {
+		panic(err)
+	}
+	up := unpackedPacket{
+		hdr:             extHdr,
+		packetNumber:    extHdr.PacketNumber,
+		encryptionLevel: protocol.Encryption1RTT,
+		data:            decrypted,
+	}
+	return &up
+}
+
+func getFrames(receivedPacket *receivedPacket, state handover.State) []wire.Frame {
+	unpackedPacket := unpackShortHeaderPacketWithState(receivedPacket, state)
+	frameParser := wire.NewFrameParser(state.SupportsDatagrams, state.Version)
+	reader := bytes.NewReader(unpackedPacket.data)
+	frames := make([]wire.Frame, 0)
+	for {
+		frame, err := frameParser.ParseNext(reader, unpackedPacket.encryptionLevel)
+		if err != nil {
+			panic(err)
+		}
+		if frame == nil {
+			break
+		}
+		frames = append(frames, frame)
+	}
+	return frames
+}
+
 func (s *session) handlePacketImpl(rp *receivedPacket) bool {
+	//TODO remove, just for testing
+	//if s.handshakeComplete {
+	//	state := s.Store()
+	//	hdr, _, _, _ := wire.ParsePacket(rp.data, state.SrcConnectionIDLength)
+	//	if !hdr.IsLongHeader {
+	//		up := unpackShortHeaderPacketWithState(rp, state)
+	//		_ = up
+	//		frames := getFrames(rp.Clone(), state)
+	//		_ = frames
+	//	}
+	//}
+
 	// ignore packet if from a ignored remote
 	if s.isRemoteAddressIgnored(rp.remoteAddr) {
 		return false
@@ -947,6 +1016,20 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	}
 
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
+
+	// TODO make migration secure
+	if err != handshake.ErrDecryptionFailed && s.perspective == protocol.PerspectiveServer && !s.cryptoStreamHandler.PeerDisableActiveMigration() {
+		if s.conn.RemoteAddr().String() != p.remoteAddr.String() {
+			s.conn.SetCurrentRemoteAddr(p.remoteAddr)
+			println("migrate") //TODO remove
+			s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
+			//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+			s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr))
+			s.rttStats.OnConnectionMigration()
+			//TODO
+		}
+	}
+
 	if err != nil {
 		switch err {
 		case handshake.ErrKeysDropped:
@@ -2023,11 +2106,20 @@ func (s *session) Handover() (handover.State, error) {
 	return tss, nil
 }
 
+func (s *session) Store() handover.State {
+	tss := handover.State{
+		SrcConnectionIDLength: s.config.ConnectionIDLength,
+		Version:               s.version,
+	}
+	s.cryptoStreamHandler.Store(&tss)
+	return tss
+}
+
 func (s *session) IgnoreCurrentRemoteAddress() {
 	s.ignoredRemoteAddresses = append(s.ignoredRemoteAddresses, *s.RemoteAddr().(*net.UDPAddr))
 }
 
-func (s *session) isRemoteAddressIgnored(addr net.Addr) bool{
+func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
 	udpAddr := *addr.(*net.UDPAddr)
 	for _, ira := range s.ignoredRemoteAddresses {
 		if ira.IP.Equal(udpAddr.IP) && ira.Port == udpAddr.Port {
@@ -2181,35 +2273,59 @@ func (s *session) Clone() (Session, error) {
 	return session, nil
 }
 
+func (s *session) GetAeadState() handover.AeadState {
+	state := handover.State{}
+	s.cryptoStreamHandler.Store(&state)
+	return state.AeadState
+}
+
 func (s *session) Migrate() {
 	//err := getMultiplexer().RemoveConn(s.conn)
 	//if err != nil {
 	//	panic(err)
 	//}
+	//
+	//println(s.conn.LocalAddr().String())
+	//
+	//for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
+	//	s.runner.Remove(srcID)
+	//}
 
-
-	println(s.conn.LocalAddr().String())
-
-	if conn, ok := s.conn.(*spconn); ok {
-		if packetConn, ok := conn.PacketConn.(*MigratablePacketConn); ok {
-			err := packetConn.Migrate()
-			if err != nil {
-				panic(err)
-			}
-
-			packetHandler, err := getMultiplexer().AddConn(packetConn, s.config.ConnectionIDLength, s.config.StatelessResetKey, s.config.Tracer)
-			if err != nil {
-				panic(err)
-			}
-			for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
-				packetHandler.Add(srcID, s)
-			}
-
-			println(s.conn.LocalAddr().String())
-			return // success
-		}
+	conn, ok := s.conn.(*spconn)
+	if !ok {
+		panic("unexpected types")
 	}
-	panic("unexpected types")
+	pconn, ok := conn.PacketConn.(*MigratablePacketConn)
+	if !ok {
+		panic("unexpected types")
+	}
+
+	err := pconn.Migrate()
+	if err != nil {
+		panic(err)
+	}
+
+	//pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//runner, err := getMultiplexer().AddConn(pconn, s.config.ConnectionIDLength, s.config.StatelessResetKey, s.config.Tracer)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//conn := newSendPconn(pconn, s.conn.RemoteAddr())
+	//s.conn = conn
+	//
+	//for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
+	//	runner.Add(srcID, s)
+	//}
+	//s.runner = runner
+	//
+	//println(s.conn.LocalAddr().String())
+
+	//panic("unexpected types")
 
 	//oldConn := s.conn
 	//
@@ -2224,4 +2340,3 @@ func (s *session) Migrate() {
 	//	panic(err)
 	//}
 }
-

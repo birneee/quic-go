@@ -204,6 +204,8 @@ type Session interface {
 	//TODO remove
 	Clone() (Session, error)
 	Migrate()
+	//TODO remove
+	Store() handover.State
 }
 
 // An EarlySession is a session that is handshaking.

@@ -57,13 +57,18 @@ func (m *MigratablePacketConn) Migrate() error {
 	}
 	m.internal = conn
 
-	err = oldConn.Close()
-	if err != nil {
-		return err
-	}
+	go func() {
+		time.Sleep(time.Second)
+		err = oldConn.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	//err = oldConn.Close()
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
-
-
-

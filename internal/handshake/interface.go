@@ -97,6 +97,7 @@ type CryptoSetup interface {
 	Store(t *handover.State)
 	TlsConf() *tls.Config
 	Clone() CryptoSetup
+	PeerDisableActiveMigration() bool
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.

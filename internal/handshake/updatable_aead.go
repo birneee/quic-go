@@ -43,8 +43,8 @@ type updatableAEAD struct {
 	numSentWithCurrentKey   uint64
 	rcvAEAD                 cipher.AEAD
 	sendAEAD                cipher.AEAD
-	rcvTrafficSecret 		[]byte
-	sendTrafficSecret 		[]byte
+	rcvTrafficSecret        []byte
+	sendTrafficSecret       []byte
 	// caches cipher.AEAD.Overhead(). This speeds up calls to Overhead().
 	aeadOverhead int
 
@@ -64,14 +64,13 @@ type updatableAEAD struct {
 	// use a single slice to avoid allocations
 	nonceBuf []byte
 
-	firstRcvTrafficSecret 		[]byte
-	firstSendTrafficSecret 		[]byte
+	firstRcvTrafficSecret  []byte
+	firstSendTrafficSecret []byte
 }
-
 
 //TODO state is not yet copied completely
 func (a *updatableAEAD) Clone() *updatableAEAD {
-	return restoreUpdatableAEAD(a.store(), a.rttStats, a.tracer, a.logger)
+	return RestoreUpdatableAEAD(a.store(), a.rttStats, a.tracer, a.logger)
 }
 
 func (a *updatableAEAD) store() handover.AeadState {
@@ -80,13 +79,13 @@ func (a *updatableAEAD) store() handover.AeadState {
 	//}
 
 	return handover.AeadState{
-		KeyPhase: a.keyPhase,
-		HighestRcvdPN: a.highestRcvdPN,
-		SuiteId: a.suite.ID,
-		FirstRcvTrafficSecret: a.firstRcvTrafficSecret,
+		KeyPhase:               a.keyPhase,
+		HighestRcvdPN:          a.highestRcvdPN,
+		SuiteId:                a.suite.ID,
+		FirstRcvTrafficSecret:  a.firstRcvTrafficSecret,
 		FirstSendTrafficSecret: a.firstSendTrafficSecret,
-		RcvTrafficSecret: a.rcvTrafficSecret,
-		SendTrafficSecret: a.sendTrafficSecret,
+		RcvTrafficSecret:       a.rcvTrafficSecret,
+		SendTrafficSecret:      a.sendTrafficSecret,
 	}
 }
 
@@ -108,7 +107,7 @@ func newUpdatableAEAD(rttStats *utils.RTTStats, tracer logging.ConnectionTracer,
 	}
 }
 
-func restoreUpdatableAEAD(state handover.AeadState, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+func RestoreUpdatableAEAD(state handover.AeadState, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
 	aead := newUpdatableAEAD(
 		rttStats,
 		tracer,
