@@ -197,6 +197,9 @@ type Session interface {
 	// ReceiveMessage gets a message received in a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
 	ReceiveMessage() ([]byte, error)
+	// Migrate session to new UDP socket.
+	// Returns new UDP address.
+	Migrate() (*net.UDPAddr, error)
 }
 
 // An EarlySession is a session that is handshaking.
@@ -309,6 +312,9 @@ type Listener interface {
 	Addr() net.Addr
 	// Accept returns new sessions. It should be called in a loop.
 	Accept(context.Context) (Session, error)
+	// Migrate listener to new UDP socket.
+	// Returns new UDP address.
+	Migrate() (*net.UDPAddr, error)
 }
 
 // An EarlyListener listens for incoming QUIC connections,

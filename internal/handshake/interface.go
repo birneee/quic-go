@@ -92,6 +92,7 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
+	PeerParameters() *wire.TransportParameters
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.

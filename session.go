@@ -58,6 +58,7 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
+	PeerParameters() *wire.TransportParameters
 }
 
 type packetInfo struct {
@@ -308,7 +309,7 @@ var newSession = func(
 		MaxUniStreamNum:                 protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                     protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:                protocol.AckDelayExponent,
-		DisableActiveMigration:          true,
+		DisableActiveMigration:          false,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
@@ -435,7 +436,7 @@ var newClientSession = func(
 		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
-		DisableActiveMigration:         true,
+		DisableActiveMigration:         false,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
 	}
@@ -931,6 +932,18 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	}
 
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
+
+	// handle changed remote address
+	// TODO improve migration: make secure, send path challenge, reset path states
+	if err != handshake.ErrDecryptionFailed && s.cryptoStreamHandler.PeerParameters() != nil &&
+		!s.cryptoStreamHandler.PeerParameters().DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
+		s.conn.SetCurrentRemoteAddr(p.remoteAddr)
+		s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
+		//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr))
+		s.rttStats.OnConnectionMigration()
+	}
+
 	if err != nil {
 		switch err {
 		case handshake.ErrKeysDropped:
@@ -1998,4 +2011,17 @@ func (s *session) NextSession() Session {
 	<-s.HandshakeComplete().Done()
 	s.streamsMap.UseResetMaps()
 	return s
+}
+
+func (s *session) Migrate() (*net.UDPAddr, error) {
+	conn, ok := s.conn.(*spconn)
+	if !ok {
+		panic("unexpected types")
+	}
+	pconn, ok := conn.PacketConn.(*MigratableUDPConn)
+	if !ok {
+		panic("unexpected types")
+	}
+
+	return pconn.Migrate()
 }

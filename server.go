@@ -137,7 +137,7 @@ func listenAddr(addr string, tlsConf *tls.Config, config *Config, acceptEarly bo
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp", udpAddr)
+	conn, err := ListenMigratableUDP("udp", udpAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -668,4 +668,16 @@ func (s *baseServer) sendVersionNegotiationPacket(p *receivedPacket, hdr *wire.H
 	if _, err := s.conn.WritePacket(data, p.remoteAddr, p.info.OOB()); err != nil {
 		s.logger.Debugf("Error sending Version Negotiation: %s", err)
 	}
+}
+
+func (s *baseServer) Migrate() (*net.UDPAddr, error) {
+	basicConn, ok := s.conn.(*basicConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	migratableConn, ok := basicConn.PacketConn.(*MigratableUDPConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	return migratableConn.Migrate()
 }

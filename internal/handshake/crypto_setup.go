@@ -798,3 +798,10 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
 }
+
+// PeerParameters
+//
+// Returned value can be null
+func (h *cryptoSetup) PeerParameters() *wire.TransportParameters {
+	return h.peerParams
+}
