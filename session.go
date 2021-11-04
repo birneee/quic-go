@@ -1017,17 +1017,14 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
 
-	// TODO make migration secure
-	if err != handshake.ErrDecryptionFailed && s.perspective == protocol.PerspectiveServer && !s.cryptoStreamHandler.PeerDisableActiveMigration() {
-		if s.conn.RemoteAddr().String() != p.remoteAddr.String() {
-			s.conn.SetCurrentRemoteAddr(p.remoteAddr)
-			println("migrate") //TODO remove
-			s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
-			//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
-			s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr))
-			s.rttStats.OnConnectionMigration()
-			//TODO
-		}
+	// handle changed remote address
+	// TODO improve migration: make secure, send path challenge, reset path states
+	if err != handshake.ErrDecryptionFailed && !s.cryptoStreamHandler.PeerDisableActiveMigration() && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
+		s.conn.SetCurrentRemoteAddr(p.remoteAddr)
+		s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
+		//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr))
+		s.rttStats.OnConnectionMigration()
 	}
 
 	if err != nil {
@@ -2279,64 +2276,15 @@ func (s *session) GetAeadState() handover.AeadState {
 	return state.AeadState
 }
 
-func (s *session) Migrate() {
-	//err := getMultiplexer().RemoveConn(s.conn)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//println(s.conn.LocalAddr().String())
-	//
-	//for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
-	//	s.runner.Remove(srcID)
-	//}
-
+func (s *session) Migrate() (*net.UDPAddr, error) {
 	conn, ok := s.conn.(*spconn)
 	if !ok {
 		panic("unexpected types")
 	}
-	pconn, ok := conn.PacketConn.(*MigratablePacketConn)
+	pconn, ok := conn.PacketConn.(*MigratableUDPConn)
 	if !ok {
 		panic("unexpected types")
 	}
 
-	err := pconn.Migrate()
-	if err != nil {
-		panic(err)
-	}
-
-	//pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//runner, err := getMultiplexer().AddConn(pconn, s.config.ConnectionIDLength, s.config.StatelessResetKey, s.config.Tracer)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//conn := newSendPconn(pconn, s.conn.RemoteAddr())
-	//s.conn = conn
-	//
-	//for _, srcID := range s.connIDGenerator.activeSrcConnIDs {
-	//	runner.Add(srcID, s)
-	//}
-	//s.runner = runner
-	//
-	//println(s.conn.LocalAddr().String())
-
-	//panic("unexpected types")
-
-	//oldConn := s.conn
-	//
-	//pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
-	//if err != nil {
-	//	panic(err)
-	//}
-	//s.conn = newSendPconn(pconn, s.conn.RemoteAddr())
-	//
-	//err = oldConn.Close()
-	//if err != nil {
-	//	panic(err)
-	//}
+	return pconn.Migrate()
 }

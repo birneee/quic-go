@@ -110,7 +110,7 @@ func dialAddrContext(
 	if err != nil {
 		return nil, err
 	}
-	udpConn, err := ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	udpConn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, err
 	}

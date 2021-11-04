@@ -103,6 +103,18 @@ type baseServer struct {
 	logger utils.Logger
 }
 
+func (s *baseServer) Migrate() (*net.UDPAddr, error) {
+	basicConn, ok := s.conn.(*basicConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	migratableConn, ok := basicConn.PacketConn.(*MigratableUDPConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	return migratableConn.Migrate()
+}
+
 var (
 	_ Listener             = &baseServer{}
 	_ unknownPacketHandler = &baseServer{}
@@ -137,7 +149,7 @@ func listenAddr(addr string, tlsConf *tls.Config, config *Config, acceptEarly bo
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp", udpAddr)
+	conn, err := ListenMigratableUDP("udp", udpAddr)
 	if err != nil {
 		return nil, err
 	}

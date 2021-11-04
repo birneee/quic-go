@@ -203,7 +203,9 @@ type Session interface {
 	Handover() (handover.State, error)
 	//TODO remove
 	Clone() (Session, error)
-	Migrate()
+	// Migrate session to new UDP socket.
+	// Returns new UDP address.
+	Migrate() (*net.UDPAddr, error)
 	//TODO remove
 	Store() handover.State
 }
@@ -318,6 +320,9 @@ type Listener interface {
 	Addr() net.Addr
 	// Accept returns new sessions. It should be called in a loop.
 	Accept(context.Context) (Session, error)
+	// Migrate listener to new UDP socket.
+	// Returns new UDP address.
+	Migrate() (*net.UDPAddr, error)
 }
 
 // An EarlyListener listens for incoming QUIC connections,
