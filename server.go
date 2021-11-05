@@ -103,18 +103,6 @@ type baseServer struct {
 	logger utils.Logger
 }
 
-func (s *baseServer) Migrate() (*net.UDPAddr, error) {
-	basicConn, ok := s.conn.(*basicConn)
-	if !ok {
-		panic("unexpected type")
-	}
-	migratableConn, ok := basicConn.PacketConn.(*MigratableUDPConn)
-	if !ok {
-		panic("unexpected type")
-	}
-	return migratableConn.Migrate()
-}
-
 var (
 	_ Listener             = &baseServer{}
 	_ unknownPacketHandler = &baseServer{}

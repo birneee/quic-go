@@ -1,7 +1,9 @@
 package handshake
 
 import (
+	"crypto/tls"
 	"errors"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"time"
