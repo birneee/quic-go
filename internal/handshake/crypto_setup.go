@@ -2,11 +2,9 @@ package handshake
 
 import (
 	"bytes"
-	"crypto/cipher"
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"sync"
@@ -845,9 +843,9 @@ func (h *cryptoSetup) Store(s *handover.State) {
 	s.AeadState = h.aead.store()
 }
 
-func (h *cryptoSetup) PeerDisableActiveMigration() bool {
-	if h.peerParams == nil {
-		return false
-	}
-	return h.peerParams.DisableActiveMigration
+// PeerParameters
+//
+// Returned value can be null
+func (h *cryptoSetup) PeerParameters() *wire.TransportParameters {
+	return h.peerParams
 }

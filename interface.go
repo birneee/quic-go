@@ -3,7 +3,6 @@ package quic
 import (
 	"context"
 	"errors"
-	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"time"

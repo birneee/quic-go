@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"reflect"
@@ -59,13 +58,13 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
+	// PeerParameters
+	//
+	// returns nil if parameters are not available yet
+	PeerParameters() *wire.TransportParameters
 	Store(t *handover.State)
 	TlsConf() *tls.Config
 	Clone() handshake.CryptoSetup
-	// PeerDisableActiveMigration
-	//
-	// returns false if parameter is not available yet
-	PeerDisableActiveMigration() bool
 }
 
 type packetInfo struct {
@@ -311,16 +310,15 @@ var newSession = func(
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
 	params := &wire.TransportParameters{
-		InitialMaxStreamDataBidiLocal:  protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxStreamDataBidiRemote: protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxStreamDataUni:        protocol.ByteCount(s.config.InitialStreamReceiveWindow),
-		InitialMaxData:                 protocol.ByteCount(s.config.InitialConnectionReceiveWindow),
-		MaxIdleTimeout:                 s.config.MaxIdleTimeout,
-		MaxBidiStreamNum:               protocol.StreamNum(s.config.MaxIncomingStreams),
-		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
-		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
-		AckDelayExponent:               protocol.AckDelayExponent,
-		//DisableActiveMigration:          true,
+		InitialMaxStreamDataBidiLocal:   protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxStreamDataBidiRemote:  protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxStreamDataUni:         protocol.ByteCount(s.config.InitialStreamReceiveWindow),
+		InitialMaxData:                  protocol.ByteCount(s.config.InitialConnectionReceiveWindow),
+		MaxIdleTimeout:                  s.config.MaxIdleTimeout,
+		MaxBidiStreamNum:                protocol.StreamNum(s.config.MaxIncomingStreams),
+		MaxUniStreamNum:                 protocol.StreamNum(s.config.MaxIncomingUniStreams),
+		MaxAckDelay:                     protocol.MaxAckDelayInclGranularity,
+		AckDelayExponent:                protocol.AckDelayExponent,
 		DisableActiveMigration:          false,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
@@ -449,10 +447,9 @@ var newClientSession = func(
 		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
-		//DisableActiveMigration:         true,
-		DisableActiveMigration:    false,
-		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID: srcConnID,
+		DisableActiveMigration:         false,
+		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID:      srcConnID,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -1019,7 +1016,8 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 
 	// handle changed remote address
 	// TODO improve migration: make secure, send path challenge, reset path states
-	if err != handshake.ErrDecryptionFailed && !s.cryptoStreamHandler.PeerDisableActiveMigration() && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
+	if err != handshake.ErrDecryptionFailed && s.cryptoStreamHandler.PeerParameters() != nil &&
+		!s.cryptoStreamHandler.PeerParameters().DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
 		s.conn.SetCurrentRemoteAddr(p.remoteAddr)
 		s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
 		//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8

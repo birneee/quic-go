@@ -681,3 +681,15 @@ func (s *baseServer) sendVersionNegotiationPacket(p *receivedPacket, hdr *wire.H
 		s.logger.Debugf("Error sending Version Negotiation: %s", err)
 	}
 }
+
+func (s *baseServer) Migrate() (*net.UDPAddr, error) {
+	basicConn, ok := s.conn.(*basicConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	migratableConn, ok := basicConn.PacketConn.(*MigratableUDPConn)
+	if !ok {
+		panic("unexpected type")
+	}
+	return migratableConn.Migrate()
+}

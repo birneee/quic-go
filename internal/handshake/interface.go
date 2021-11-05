@@ -1,9 +1,7 @@
 package handshake
 
 import (
-	"crypto/tls"
 	"errors"
-	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"time"
@@ -97,7 +95,7 @@ type CryptoSetup interface {
 	Store(t *handover.State)
 	TlsConf() *tls.Config
 	Clone() CryptoSetup
-	PeerDisableActiveMigration() bool
+	PeerParameters() *wire.TransportParameters
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.
