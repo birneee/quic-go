@@ -836,3 +836,13 @@ func (h *sentPacketHandler) SetHandshakeConfirmed() {
 	// Make sure the timer is armed now, if necessary.
 	h.setLossDetectionTimer()
 }
+
+func (h *sentPacketHandler) HighestSentPacketNumber() protocol.PacketNumber {
+	return h.appDataPackets.history.highestSent
+}
+
+// SetHighestSentPacketNumber is used for connection handover
+func (h *sentPacketHandler) SetHighestSentPacketNumber(pn protocol.PacketNumber) {
+	h.appDataPackets.pns.SetNext(pn + 1)
+	h.appDataPackets.history.highestSent = pn
+}

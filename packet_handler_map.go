@@ -465,3 +465,19 @@ func (h *packetHandlerMap) maybeSendStatelessReset(p *receivedPacket, connID pro
 		h.logger.Debugf("Error sending Stateless Reset: %s", err)
 	}
 }
+
+// SrcConnectionId returns an associated connection id with this handler
+func (h *packetHandlerMap) SrcConnectionId(handler packetHandler) protocol.ConnectionID {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	for srcConnIdStr, entry := range h.handlers {
+		if entry.packetHandler == handler {
+			srcConnId, err := protocol.ParseConnectionID(srcConnIdStr)
+			if err != nil {
+				panic(err)
+			}
+			return srcConnId
+		}
+	}
+	panic("packet handler not found")
+}

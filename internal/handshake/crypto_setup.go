@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"sync"
@@ -799,9 +800,57 @@ func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
 }
 
-// PeerParameters
-//
-// Returned value can be null
-func (h *cryptoSetup) PeerParameters() *wire.TransportParameters {
-	return h.peerParams
+func (h *cryptoSetup) StoreHandoverState(s *handover.State) {
+	if h.extraConf.MaxEarlyData != 0 {
+		panic("0RTT handover not supported")
+	}
+	if !h.clientHelloWritten {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTOpener {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTSealer {
+		panic("illegal handover state")
+	}
+	if h.readEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	if h.writeEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	s.SrcTransportParameters = *h.ourParams
+	s.DestTransportParameters = *h.peerParams
+	h.aead.store(s)
+}
+
+func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Addr, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, tlsConf *tls.Config) (CryptoSetup, error) {
+	cs, _ := newCryptoSetup(
+		nil,
+		nil,
+		nil,
+		&state.SrcTransportParameters,
+		nil,
+		tlsConf,
+		false,
+		rttStats,
+		tracer,
+		logger,
+		perspective,
+		state.Version,
+	)
+	cs.clientHelloWritten = true
+	cs.has1RTTOpener = true
+	cs.has1RTTSealer = true
+	cs.peerParams = &state.DestTransportParameters
+	cs.aead = restoreUpdatableAEAD(state, rttStats, tracer, logger)
+	cs.readEncLevel = protocol.Encryption1RTT
+	cs.writeEncLevel = protocol.Encryption1RTT
+	close(cs.handshakeDone)
+	remoteAddr, err := state.GetParsedRemoteAddress()
+	if err != nil {
+		return nil, err
+	}
+	cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
+	return cs, nil
 }

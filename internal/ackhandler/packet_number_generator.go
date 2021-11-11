@@ -8,6 +8,8 @@ import (
 type packetNumberGenerator interface {
 	Peek() protocol.PacketNumber
 	Pop() protocol.PacketNumber
+	// SetNext is used for connection handover
+	SetNext(pn protocol.PacketNumber)
 }
 
 type sequentialPacketNumberGenerator struct {
@@ -73,4 +75,14 @@ func (p *skippingPacketNumberGenerator) generateNewSkip() {
 	// make sure that there are never two consecutive packet numbers that are skipped
 	p.nextToSkip = p.next + 2 + protocol.PacketNumber(p.rng.Int31n(int32(2*p.period)))
 	p.period = utils.MinPacketNumber(2*p.period, p.maxPeriod)
+}
+
+// SetNext is used for connection handover
+func (p *sequentialPacketNumberGenerator) SetNext(pn protocol.PacketNumber) {
+	p.next = pn
+}
+
+// SetNext is used for connection handover
+func (p *skippingPacketNumberGenerator) SetNext(pn protocol.PacketNumber) {
+	p.next = pn
 }

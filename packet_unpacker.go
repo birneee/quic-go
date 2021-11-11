@@ -194,3 +194,8 @@ func unpackHeader(hd headerDecryptor, hdr *wire.Header, data []byte, version pro
 	}
 	return extHdr, parseErr
 }
+
+// SetCryptoSetup is used for connection handover
+func (u *packetUnpacker) SetCryptoSetup(cs handshake.CryptoSetup) {
+	u.cs = cs
+}

@@ -2,6 +2,7 @@ package handshake
 
 import (
 	"errors"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
 	"time"
@@ -92,7 +93,7 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
-	PeerParameters() *wire.TransportParameters
+	StoreHandoverState(t *handover.State)
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.

@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 )
@@ -66,4 +67,11 @@ func (c ConnectionID) String() string {
 		return "(empty)"
 	}
 	return fmt.Sprintf("%x", c.Bytes())
+}
+
+// ParseConnectionID parses a hexadecimal connection ID
+//
+// connID == ParseConnectionID(string(connId))
+func ParseConnectionID(id string) (ConnectionID, error) {
+	return hex.DecodeString(id)
 }

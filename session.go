@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
+	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -26,6 +29,8 @@ import (
 
 type unpacker interface {
 	Unpack(hdr *wire.Header, rcvTime time.Time, data []byte) (*unpackedPacket, error)
+	// SetCryptoSetup is used for connection handover
+	SetCryptoSetup(cs handshake.CryptoSetup)
 }
 
 type streamGetter interface {
@@ -58,7 +63,7 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
-	PeerParameters() *wire.TransportParameters
+	StoreHandoverState(t *handover.State)
 }
 
 type packetInfo struct {
@@ -99,6 +104,8 @@ type sessionRunner interface {
 	ReplaceWithClosed(protocol.ConnectionID, packetHandler)
 	AddResetToken(protocol.StatelessResetToken, packetHandler)
 	RemoveResetToken(protocol.StatelessResetToken)
+	// SrcConnectionId returns an associated connection id with this handler
+	SrcConnectionId(handler packetHandler) protocol.ConnectionID
 }
 
 type handshakeRunner struct {
@@ -224,6 +231,9 @@ type session struct {
 	logID  string
 	tracer logging.ConnectionTracer
 	logger utils.Logger
+
+	ignoredRemoteAddresses []net.UDPAddr
+	runner                 sessionRunner
 }
 
 var (
@@ -263,6 +273,7 @@ var newSession = func(
 		tracer:                tracer,
 		logger:                logger,
 		version:               v,
+		runner:                runner,
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -395,6 +406,7 @@ var newClientSession = func(
 		tracer:                tracer,
 		versionNegotiated:     hasNegotiatedVersion,
 		version:               v,
+		runner:                runner,
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -541,24 +553,29 @@ func (s *session) run() error {
 
 	s.timer = utils.NewTimer()
 
-	go s.cryptoStreamHandler.RunHandshake()
+	if !s.handshakeComplete {
+		go s.cryptoStreamHandler.RunHandshake()
+	}
+
 	go func() {
 		if err := s.sendQueue.Run(); err != nil {
 			s.destroyImpl(err)
 		}
 	}()
 
-	if s.perspective == protocol.PerspectiveClient {
-		select {
-		case zeroRTTParams := <-s.clientHelloWritten:
-			s.scheduleSending()
-			if zeroRTTParams != nil {
-				s.restoreTransportParameters(zeroRTTParams)
-				close(s.earlySessionReadyChan)
+	if !s.handshakeComplete {
+		if s.perspective == protocol.PerspectiveClient {
+			select {
+			case zeroRTTParams := <-s.clientHelloWritten:
+				s.scheduleSending()
+				if zeroRTTParams != nil {
+					s.restoreTransportParameters(zeroRTTParams)
+					close(s.earlySessionReadyChan)
+				}
+			case closeErr := <-s.closeChan:
+				// put the close error back into the channel, so that the run loop can receive it
+				s.closeChan <- closeErr
 			}
-		case closeErr := <-s.closeChan:
-			// put the close error back into the channel, so that the run loop can receive it
-			s.closeChan <- closeErr
 		}
 	}
 
@@ -833,6 +850,12 @@ func (s *session) handleHandshakeConfirmed() {
 }
 
 func (s *session) handlePacketImpl(rp *receivedPacket) bool {
+
+	// ignore packet if from a ignored remote
+	if s.isRemoteAddressIgnored(rp.remoteAddr) {
+		return false
+	}
+
 	s.sentPacketHandler.ReceivedBytes(rp.Size())
 
 	if wire.IsVersionNegotiationPacket(rp.data) {
@@ -935,8 +958,8 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 
 	// handle changed remote address
 	// TODO improve migration: make secure, send path challenge, reset path states
-	if err != handshake.ErrDecryptionFailed && s.cryptoStreamHandler.PeerParameters() != nil &&
-		!s.cryptoStreamHandler.PeerParameters().DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
+	if err != handshake.ErrDecryptionFailed && s.peerParams != nil &&
+		!s.peerParams.DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
 		s.conn.SetCurrentRemoteAddr(p.remoteAddr)
 		s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
 		//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
@@ -1804,6 +1827,9 @@ func (s *session) sendPacket() (bool, error) {
 }
 
 func (s *session) sendPackedPacket(packet *packedPacket, now time.Time) {
+	if s.isRemoteAddressIgnored(s.conn.RemoteAddr()) {
+		return
+	}
 	if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && packet.IsAckEliciting() {
 		s.firstAckElicitingPacketAfterIdleSentTime = now
 	}
@@ -1814,6 +1840,9 @@ func (s *session) sendPackedPacket(packet *packedPacket, now time.Time) {
 }
 
 func (s *session) sendConnectionClose(e error) ([]byte, error) {
+	if s.isRemoteAddressIgnored(s.conn.RemoteAddr()) {
+		return nil, nil
+	}
 	var packet *coalescedPacket
 	var err error
 	var transportErr *qerr.TransportError
@@ -2013,6 +2042,132 @@ func (s *session) NextSession() Session {
 	return s
 }
 
+// Handover creates state that is used for connection handover.
+// Session will ignore all incoming packets from the current destination
+func (s *session) Handover() (handover.State, error) {
+	//TODO validate supported options
+	if s.config.EnableDatagrams {
+		panic("option is currently not supported")
+	}
+
+	srcConnID := s.runner.SrcConnectionId(s)
+	s.closeSilent()
+	tss := handover.State{
+		SrcConnectionID:         srcConnID,
+		DestConnectionID:        s.connIDManager.Get(),
+		Version:                 s.version,
+		RemoteAddress:           s.conn.RemoteAddr().String(),
+		HighestSentPacketNumber: s.sentPacketHandler.HighestSentPacketNumber(),
+		DestTransportParameters: *s.peerParams,
+	}
+	s.cryptoStreamHandler.StoreHandoverState(&tss)
+	return tss, nil
+}
+
+func (s *session) IgnoreCurrentRemoteAddress() {
+	s.ignoredRemoteAddresses = append(s.ignoredRemoteAddresses, *s.RemoteAddr().(*net.UDPAddr))
+}
+
+func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
+	udpAddr := *addr.(*net.UDPAddr)
+	for _, ira := range s.ignoredRemoteAddresses {
+		if ira.IP.Equal(udpAddr.IP) && ira.Port == udpAddr.Port {
+			return true
+		}
+	}
+	return false
+}
+
+// close session without sending any packets to the peer
+func (s *session) closeSilent() {
+	s.IgnoreCurrentRemoteAddress()
+	s.closeLocal(nil)
+}
+
+//TODO remove
+func (s *session) Clone() (Session, error) {
+	state, err := s.Handover()
+	if err != nil {
+		return nil, err
+	}
+	stateJson, err := json.Marshal(state)
+	if err != nil {
+		return nil, err
+	}
+	os.WriteFile("handover_state.json", stateJson, 0644)
+	state = handover.State{}
+	err = json.Unmarshal(stateJson, &state)
+	if err != nil {
+		return nil, err
+	}
+	return RestoreClientSessionFromHandoverState(state, s.config.Tracer, s.logger)
+}
+
+func RestoreClientSessionFromHandoverState(state handover.State, tracer logging.Tracer, logger utils.Logger) (Session, error) {
+	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
+	if err != nil {
+		return nil, err
+	}
+	remoteAddr, err := state.GetParsedRemoteAddress()
+	if err != nil {
+		return nil, err
+	}
+	conn := newSendPconn(pconn, remoteAddr)
+
+	config := &Config{}
+	config.Tracer = tracer
+	config = populateClientConfig(config, false)
+	tlsConf := &tls.Config{}
+
+	tracingID := nextSessionTracingID()
+	var connTracer logging.ConnectionTracer
+	if config.Tracer != nil {
+		connTracer = config.Tracer.TracerForConnection(
+			context.WithValue(context.Background(), SessionTracingKey, tracingID),
+			protocol.PerspectiveClient,
+			state.DestConnectionID,
+		)
+	}
+
+	packetHandlers, err := getMultiplexer().AddConn(pconn, state.SrcConnectionID.Len(), config.StatelessResetKey, tracer)
+	if err != nil {
+		return nil, err
+	}
+
+	session := newClientSession(
+		conn,
+		packetHandlers,
+		state.DestConnectionID,
+		state.SrcConnectionID,
+		config,
+		tlsConf,
+		0,
+		false,
+		false,
+		connTracer,
+		tracingID,
+		logger,
+		state.Version,
+	).(*session)
+	packetHandlers.Add(state.SrcConnectionID, session)
+
+	cryptoStreamHandler, err := handshake.RestoreCryptoSetupFromHandoverState(state, conn.LocalAddr(), logging.PerspectiveClient, connTracer, logger, session.rttStats, tlsConf)
+	if err != nil {
+		return nil, err
+	}
+
+	session.setCryptoSetup(cryptoStreamHandler.(handshake.CryptoSetup))
+	session.peerParams = &state.DestTransportParameters
+	session.handleHandshakeComplete()
+	session.handleHandshakeConfirmed()
+	session.sentPacketHandler.SetHighestSentPacketNumber(state.HighestSentPacketNumber)
+
+	go func() {
+		session.run() // returns as soon as the session is closed
+	}()
+	return session, nil
+}
+
 func (s *session) Migrate() (*net.UDPAddr, error) {
 	conn, ok := s.conn.(*spconn)
 	if !ok {
@@ -2024,4 +2179,12 @@ func (s *session) Migrate() (*net.UDPAddr, error) {
 	}
 
 	return pconn.Migrate()
+}
+
+// setCryptoSetup is used for connection handover
+func (s *session) setCryptoSetup(cs handshake.CryptoSetup) {
+	s.cryptoStreamHandler = cs
+	s.packer.SetCryptoSetup(cs)
+	s.unpacker.SetCryptoSetup(cs)
+	s.cryptoStreamManager.SetCryptoSetup(cs)
 }

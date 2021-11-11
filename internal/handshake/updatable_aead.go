@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"time"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -42,6 +43,8 @@ type updatableAEAD struct {
 	numSentWithCurrentKey   uint64
 	rcvAEAD                 cipher.AEAD
 	sendAEAD                cipher.AEAD
+	rcvTrafficSecret        []byte
+	sendTrafficSecret       []byte
 	// caches cipher.AEAD.Overhead(). This speeds up calls to Overhead().
 	aeadOverhead int
 
@@ -60,6 +63,9 @@ type updatableAEAD struct {
 
 	// use a single slice to avoid allocations
 	nonceBuf []byte
+
+	firstRcvTrafficSecret  []byte
+	firstSendTrafficSecret []byte
 }
 
 var (
@@ -97,6 +103,8 @@ func (a *updatableAEAD) rollKeys() {
 	a.prevRcvAEAD = a.rcvAEAD
 	a.rcvAEAD = a.nextRcvAEAD
 	a.sendAEAD = a.nextSendAEAD
+	a.rcvTrafficSecret = a.nextRcvTrafficSecret
+	a.sendTrafficSecret = a.nextSendTrafficSecret
 
 	a.nextRcvTrafficSecret = a.getNextTrafficSecret(a.suite.Hash, a.nextRcvTrafficSecret)
 	a.nextSendTrafficSecret = a.getNextTrafficSecret(a.suite.Hash, a.nextSendTrafficSecret)
@@ -118,7 +126,11 @@ func (a *updatableAEAD) getNextTrafficSecret(hash crypto.Hash, ts []byte) []byte
 // For the server, this function is called after SetWriteKey.
 func (a *updatableAEAD) SetReadKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
 	a.rcvAEAD = createAEAD(suite, trafficSecret)
-	a.headerDecrypter = newHeaderProtector(suite, trafficSecret, false)
+	a.rcvTrafficSecret = trafficSecret
+	if a.firstRcvTrafficSecret == nil {
+		a.firstRcvTrafficSecret = trafficSecret
+	}
+	a.headerDecrypter = newHeaderProtector(suite, a.firstRcvTrafficSecret, false)
 	if a.suite == nil {
 		a.setAEADParameters(a.rcvAEAD, suite)
 	}
@@ -131,7 +143,11 @@ func (a *updatableAEAD) SetReadKey(suite *qtls.CipherSuiteTLS13, trafficSecret [
 // For the server, this function is called before SetWriteKey.
 func (a *updatableAEAD) SetWriteKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
 	a.sendAEAD = createAEAD(suite, trafficSecret)
-	a.headerEncrypter = newHeaderProtector(suite, trafficSecret, false)
+	a.sendTrafficSecret = trafficSecret
+	if a.firstSendTrafficSecret == nil {
+		a.firstSendTrafficSecret = trafficSecret
+	}
+	a.headerEncrypter = newHeaderProtector(suite, a.firstSendTrafficSecret, false)
 	if a.suite == nil {
 		a.setAEADParameters(a.sendAEAD, suite)
 	}
@@ -318,4 +334,40 @@ func (a *updatableAEAD) DecryptHeader(sample []byte, firstByte *byte, hdrBytes [
 
 func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 	return a.firstPacketNumber
+}
+
+//TODO remove
+func (a *updatableAEAD) Clone() *updatableAEAD {
+	state := handover.State{}
+	a.store(&state)
+	return restoreUpdatableAEAD(state, a.rttStats, a.tracer, a.logger)
+}
+
+func (a *updatableAEAD) store(s *handover.State) {
+	s.KeyPhase = a.keyPhase
+	s.HighestReceivedPacketNumber = a.highestRcvdPN
+	s.SuiteId = a.suite.ID
+	s.FirstRcvTrafficSecret = a.firstRcvTrafficSecret
+	s.FirstSendTrafficSecret = a.firstSendTrafficSecret
+	s.RcvTrafficSecret = a.rcvTrafficSecret
+	s.SendTrafficSecret = a.sendTrafficSecret
+}
+
+func restoreUpdatableAEAD(state handover.State, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+	aead := newUpdatableAEAD(
+		rttStats,
+		tracer,
+		logger,
+	)
+
+	aead.keyPhase = state.KeyPhase
+	aead.firstRcvTrafficSecret = state.FirstRcvTrafficSecret
+	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret
+	aead.highestRcvdPN = state.HighestReceivedPacketNumber
+
+	suite := qtls.CipherSuiteTLS13ByID(state.SuiteId)
+	aead.SetReadKey(suite, state.RcvTrafficSecret)
+	aead.SetWriteKey(suite, state.SendTrafficSecret)
+
+	return aead
 }
