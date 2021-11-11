@@ -206,8 +206,6 @@ type Session interface {
 	// Migrate session to new UDP socket.
 	// Returns new UDP address.
 	Migrate() (*net.UDPAddr, error)
-	//TODO remove
-	Store() handover.State
 }
 
 // An EarlySession is a session that is handshaking.

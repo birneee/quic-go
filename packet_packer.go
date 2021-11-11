@@ -28,6 +28,8 @@ type packer interface {
 
 	HandleTransportParameters(*wire.TransportParameters)
 	SetToken([]byte)
+	// SetCryptoSetup is used for connection handover
+	SetCryptoSetup(cs handshake.CryptoSetup)
 }
 
 type sealer interface {
@@ -891,4 +893,9 @@ func (p *packetPacker) HandleTransportParameters(params *wire.TransportParameter
 	if params.MaxUDPPayloadSize != 0 {
 		p.maxPacketSize = utils.MinByteCount(p.maxPacketSize, params.MaxUDPPayloadSize)
 	}
+}
+
+// SetCryptoSetup is used for connection handover
+func (p *packetPacker) SetCryptoSetup(cs handshake.CryptoSetup) {
+	p.cryptoSetup = cs
 }

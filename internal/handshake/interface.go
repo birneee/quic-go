@@ -94,10 +94,8 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
-	Store(t *handover.State)
 	TlsConf() *tls.Config
-	Clone() CryptoSetup
-	PeerParameters() *wire.TransportParameters
+	StoreHandoverState(t *handover.State)
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.

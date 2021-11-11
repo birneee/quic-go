@@ -68,25 +68,21 @@ type updatableAEAD struct {
 	firstSendTrafficSecret []byte
 }
 
-//TODO state is not yet copied completely
+//TODO remove
 func (a *updatableAEAD) Clone() *updatableAEAD {
-	return RestoreUpdatableAEAD(a.store(), a.rttStats, a.tracer, a.logger)
+	state := handover.State{}
+	a.store(&state)
+	return RestoreUpdatableAEAD(state, a.rttStats, a.tracer, a.logger)
 }
 
-func (a *updatableAEAD) store() handover.AeadState {
-	//if a.numSentWithCurrentKey != 0 || a.numRcvdWithCurrentKey != 0 {
-	//	panic("keys are already used")
-	//}
-
-	return handover.AeadState{
-		KeyPhase:               a.keyPhase,
-		HighestRcvdPN:          a.highestRcvdPN,
-		SuiteId:                a.suite.ID,
-		FirstRcvTrafficSecret:  a.firstRcvTrafficSecret,
-		FirstSendTrafficSecret: a.firstSendTrafficSecret,
-		RcvTrafficSecret:       a.rcvTrafficSecret,
-		SendTrafficSecret:      a.sendTrafficSecret,
-	}
+func (a *updatableAEAD) store(s *handover.State) {
+	s.KeyPhase = a.keyPhase
+	s.HighestReceivedPacketNumber = a.highestRcvdPN
+	s.SuiteId = a.suite.ID
+	s.FirstRcvTrafficSecret = a.firstRcvTrafficSecret
+	s.FirstSendTrafficSecret = a.firstSendTrafficSecret
+	s.RcvTrafficSecret = a.rcvTrafficSecret
+	s.SendTrafficSecret = a.sendTrafficSecret
 }
 
 var (
@@ -107,7 +103,7 @@ func newUpdatableAEAD(rttStats *utils.RTTStats, tracer logging.ConnectionTracer,
 	}
 }
 
-func RestoreUpdatableAEAD(state handover.AeadState, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+func RestoreUpdatableAEAD(state handover.State, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
 	aead := newUpdatableAEAD(
 		rttStats,
 		tracer,
@@ -117,7 +113,7 @@ func RestoreUpdatableAEAD(state handover.AeadState, rttStats *utils.RTTStats, tr
 	aead.keyPhase = state.KeyPhase
 	aead.firstRcvTrafficSecret = state.FirstRcvTrafficSecret
 	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret
-	aead.highestRcvdPN = state.HighestRcvdPN
+	aead.highestRcvdPN = state.HighestReceivedPacketNumber
 
 	suite := qtls.CipherSuiteTLS13ByID(state.SuiteId)
 	aead.SetReadKey(suite, state.RcvTrafficSecret)

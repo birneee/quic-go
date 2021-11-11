@@ -151,34 +151,6 @@ func (h *cryptoSetup) TlsConf() *tls.Config {
 	return h.tlsConf
 }
 
-func (h *cryptoSetup) Clone() CryptoSetup {
-	return &cryptoSetup{
-		tlsConf:                   h.tlsConf,
-		initialStream:             h.initialStream,
-		initialSealer:             h.initialSealer,
-		initialOpener:             h.initialOpener,
-		handshakeStream:           h.handshakeStream,
-		aead:                      h.aead.Clone(),
-		readEncLevel:              protocol.EncryptionInitial,
-		writeEncLevel:             protocol.EncryptionInitial,
-		runner:                    h.runner,
-		ourParams:                 h.ourParams,
-		paramsChan:                h.paramsChan,
-		rttStats:                  h.rttStats,
-		tracer:                    h.tracer,
-		logger:                    h.logger,
-		perspective:               h.perspective,
-		handshakeDone:             h.handshakeDone,
-		alertChan:                 make(chan uint8),
-		clientHelloWrittenChan:    make(chan *wire.TransportParameters, 1),
-		messageChan:               make(chan []byte, 100),
-		isReadingHandshakeMessage: h.isReadingHandshakeMessage,
-		closeChan:                 make(chan struct{}),
-		version:                   h.version,
-		conn:                      h.conn,
-	}
-}
-
 var (
 	_ qtls.RecordLayer = &cryptoSetup{}
 	_ CryptoSetup      = &cryptoSetup{}
@@ -826,10 +798,6 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 	if !h.has1RTTOpener {
 		return nil, ErrKeysNotYetAvailable
 	}
-	//TODO remove
-	//if h.aead.numSentWithCurrentKey == 0 && h.aead.numRcvdWithCurrentKey == 0 {
-	//	h.aead = h.aead.Clone()
-	//}
 	return h.aead, nil
 }
 
@@ -841,13 +809,57 @@ func (h *cryptoSetup) RcvAEAD() (cipher.AEAD, error) {
 	return h.aead.rcvAEAD, nil
 }
 
-func (h *cryptoSetup) Store(s *handover.State) {
-	s.AeadState = h.aead.store()
+func (h *cryptoSetup) StoreHandoverState(s *handover.State) {
+	if h.extraConf.MaxEarlyData != 0 {
+		panic("0RTT handover not supported")
+	}
+	if !h.clientHelloWritten {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTOpener {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTSealer {
+		panic("illegal handover state")
+	}
+	if h.readEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	if h.writeEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	s.SrcTransportParameters = *h.ourParams
+	s.DestTransportParameters = *h.peerParams
+	h.aead.store(s)
 }
 
-// PeerParameters
-//
-// Returned value can be null
-func (h *cryptoSetup) PeerParameters() *wire.TransportParameters {
-	return h.peerParams
+func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Addr, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, tlsConf *tls.Config) (CryptoSetup, error) {
+	cs, _ := newCryptoSetup(
+		nil,
+		nil,
+		nil,
+		&state.SrcTransportParameters,
+		nil,
+		tlsConf,
+		false,
+		rttStats,
+		tracer,
+		logger,
+		perspective,
+		state.Version,
+	)
+	cs.clientHelloWritten = true
+	cs.has1RTTOpener = true
+	cs.has1RTTSealer = true
+	cs.peerParams = &state.DestTransportParameters
+	cs.aead = RestoreUpdatableAEAD(state, rttStats, tracer, logger)
+	cs.readEncLevel = protocol.Encryption1RTT
+	cs.writeEncLevel = protocol.Encryption1RTT
+	close(cs.handshakeDone)
+	remoteAddr, err := state.GetParsedRemoteAddress()
+	if err != nil {
+		return nil, err
+	}
+	cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
+	return cs, nil
 }

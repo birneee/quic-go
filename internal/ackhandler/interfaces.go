@@ -50,6 +50,10 @@ type SentPacketHandler interface {
 
 	GetLossDetectionTimeout() time.Time
 	OnLossDetectionTimeout() error
+
+	HighestSentPacketNumber() protocol.PacketNumber
+	// SetHighestSentPacketNumber is used for connection handover
+	SetHighestSentPacketNumber(pn protocol.PacketNumber)
 }
 
 type sentPacketTracker interface {
