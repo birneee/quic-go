@@ -819,6 +819,12 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State) {
 	if h.writeEncLevel != protocol.Encryption1RTT {
 		panic("illegal handover state")
 	}
+	if h.ourParams.DisableActiveMigration {
+		panic("illegal handover state")
+	}
+	if h.peerParams.DisableActiveMigration {
+		panic("illegal handover state")
+	}
 	s.SrcTransportParameters = *h.ourParams
 	s.DestTransportParameters = *h.peerParams
 	h.aead.store(s)
