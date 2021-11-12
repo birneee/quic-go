@@ -2090,11 +2090,11 @@ func (s *session) Clone() (Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	stateJson, err := json.Marshal(state)
+	stateJson, err := json.MarshalIndent(state, "", "    ")
 	if err != nil {
 		return nil, err
 	}
-	os.WriteFile("handover_state.json", stateJson, 0644)
+	_ = os.WriteFile("handover_state.json", stateJson, 0644)
 	state = handover.State{}
 	err = json.Unmarshal(stateJson, &state)
 	if err != nil {
@@ -2163,7 +2163,7 @@ func RestoreClientSessionFromHandoverState(state handover.State, tracer logging.
 	session.sentPacketHandler.SetHighestSentPacketNumber(state.HighestSentPacketNumber)
 
 	go func() {
-		session.run() // returns as soon as the session is closed
+		_ = session.run() // returns as soon as the session is closed
 	}()
 	return session, nil
 }
