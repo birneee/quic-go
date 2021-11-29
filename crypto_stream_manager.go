@@ -59,8 +59,3 @@ func (m *cryptoStreamManager) HandleCryptoFrame(frame *wire.CryptoFrame, encLeve
 		}
 	}
 }
-
-// SetCryptoSetup is used for connection handover
-func (m *cryptoStreamManager) SetCryptoSetup(ch cryptoDataHandler) {
-	m.cryptoHandler = ch
-}
