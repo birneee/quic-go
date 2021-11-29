@@ -10,7 +10,6 @@ import (
 //
 // Packet connection that supports migration of IP address and UDP port
 type MigratableUDPConn struct {
-	net.PacketConn
 	internal   *net.UDPConn
 	maxRetries int
 }
