@@ -3,6 +3,8 @@ package quic
 import (
 	"net"
 	"os"
+	"reflect"
+	"syscall"
 	"time"
 )
 
@@ -12,6 +14,11 @@ import (
 type MigratableUDPConn struct {
 	internal   *net.UDPConn
 	maxRetries int
+	// to restore after
+	deadline      *time.Time
+	readDeadline  *time.Time
+	writeDeadline *time.Time
+	readBuffer    *int
 }
 
 func ListenMigratableUDP(network string, laddr *net.UDPAddr) (*MigratableUDPConn, error) {
@@ -57,26 +64,33 @@ func (m *MigratableUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) 
 
 // If error is returned it should no longer be retried
 func (m *MigratableUDPConn) handleError(err error, retryCount *int) error {
-	if opErr, ok := err.(*net.OpError); ok {
-		if sysErr, ok := opErr.Err.(*os.SyscallError); ok {
-			switch sysErr.Error() {
-			case "sendto: network is unreachable":
-				// reopen and retry, because it could be caused of migration
-				if *retryCount < m.maxRetries {
-					err = m.Reopen()
-					if err != nil {
-						return err
+	switch err := err.(type) {
+	case *net.OpError:
+		switch err := err.Err.(type) {
+		case *os.SyscallError:
+			switch err := err.Err.(type) {
+			case syscall.Errno:
+				if err.Error() == "network is unreachable" {
+					// reopen and retry, because it could be caused of migration
+					if *retryCount < m.maxRetries {
+						err := m.Reopen()
+						if err != nil {
+							return err
+						}
+						return nil
 					}
-					return nil
 				}
 			}
-		} else if opErr.Err.Error() == "use of closed network connection" {
-			// retry, because it could be caused of migration
-			if *retryCount < m.maxRetries {
-				// give socket migration some time
-				time.Sleep(10 * time.Millisecond)
-				*retryCount++
-				return nil
+		default:
+			// use reflect, because type is not public
+			if reflect.TypeOf(err).String() == "poll.errNetClosing" {
+				// retry, because it could be caused of migration
+				if *retryCount < m.maxRetries {
+					// give socket migration some time
+					time.Sleep(10 * time.Millisecond)
+					*retryCount++
+					return nil
+				}
 			}
 		}
 	}
@@ -92,15 +106,27 @@ func (m *MigratableUDPConn) LocalAddr() net.Addr {
 }
 
 func (m *MigratableUDPConn) SetDeadline(t time.Time) error {
+	m.deadline = &t
 	return m.internal.SetDeadline(t)
 }
 
 func (m *MigratableUDPConn) SetReadDeadline(t time.Time) error {
+	m.readDeadline = &t
 	return m.internal.SetReadDeadline(t)
 }
 
 func (m *MigratableUDPConn) SetWriteDeadline(t time.Time) error {
+	m.writeDeadline = &t
 	return m.internal.SetWriteDeadline(t)
+}
+
+func (m *MigratableUDPConn) SetReadBuffer(bytes int) error {
+	m.readBuffer = &bytes
+	return m.internal.SetReadBuffer(bytes)
+}
+
+func (m *MigratableUDPConn) SyscallConn() (syscall.RawConn, error) {
+	return m.internal.SyscallConn()
 }
 
 // Reopen new UDP socket on same address
@@ -114,6 +140,10 @@ func (m *MigratableUDPConn) Reopen() error {
 		return err
 	}
 	m.internal = conn
+	err = m.applyConfig()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -130,6 +160,38 @@ func (m *MigratableUDPConn) Migrate() (*net.UDPAddr, error) {
 		return nil, err
 	}
 	m.internal = conn
-
+	err = m.applyConfig()
+	if err != nil {
+		return nil, err
+	}
 	return conn.LocalAddr().(*net.UDPAddr), nil
+}
+
+// apply config to the current internal UDP connection
+func (m *MigratableUDPConn) applyConfig() error {
+	if m.deadline != nil {
+		err := m.internal.SetDeadline(*m.deadline)
+		if err != nil {
+			return err
+		}
+	}
+	if m.readDeadline != nil {
+		err := m.internal.SetReadDeadline(*m.readDeadline)
+		if err != nil {
+			return err
+		}
+	}
+	if m.writeDeadline != nil {
+		err := m.internal.SetWriteDeadline(*m.writeDeadline)
+		if err != nil {
+			return err
+		}
+	}
+	if m.readBuffer != nil {
+		err := m.internal.SetReadBuffer(*m.readBuffer)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
