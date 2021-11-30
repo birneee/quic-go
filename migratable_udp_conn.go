@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// check at compile time that interfaces satisfies interfaces
+var _ net.PacketConn = &MigratableUDPConn{}
+var _ interface {
+	SyscallConn() (syscall.RawConn, error)
+} = &MigratableUDPConn{}
+var _ interface{ SetReadBuffer(int) error } = &MigratableUDPConn{}
+
 // MigratableUDPConn
 //
 // Packet connection that supports migration of IP address and UDP port
