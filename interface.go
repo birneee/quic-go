@@ -197,6 +197,9 @@ type Session interface {
 	// ReceiveMessage gets a message received in a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
 	ReceiveMessage() ([]byte, error)
+	// MigrateUDPSocket migrates connection to a new UDP socket.
+	// Returns new UDP address.
+	MigrateUDPSocket() (*net.UDPAddr, error)
 }
 
 // An EarlySession is a session that is handshaking.

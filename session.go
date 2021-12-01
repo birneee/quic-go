@@ -2027,3 +2027,16 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 	s.conn.SetCurrentRemoteAddr(remoteAddr)
 	s.rttStats.OnConnectionMigration()
 }
+
+func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
+	conn, ok := s.conn.(*spconn)
+	if !ok {
+		panic("unexpected types")
+	}
+	pconn, ok := conn.PacketConn.(*MigratableUDPConn)
+	if !ok {
+		panic("unexpected types")
+	}
+
+	return pconn.MigrateUDPSocket()
+}

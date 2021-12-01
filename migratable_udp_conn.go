@@ -180,9 +180,9 @@ func (m *MigratableUDPConn) Reopen() error {
 	return nil
 }
 
-// Migrate connection to new UDP socket.
+// MigrateUDPSocket migrates to a new UDP socket.
 // Returns new UDP address.
-func (m *MigratableUDPConn) Migrate() (*net.UDPAddr, error) {
+func (m *MigratableUDPConn) MigrateUDPSocket() (*net.UDPAddr, error) {
 	err := m.internal.Close()
 	if err != nil {
 		return nil, err
