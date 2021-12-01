@@ -931,6 +931,21 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	}
 
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
+
+	// handle changed remote address (migration)
+	// TODO only react to non-probing packets
+	// TODO improve migration: make secure, send path challenge
+	// TODO validate path
+	// TODO use new connection ID from the peer
+	// TODO reset congestion controller and RTT estimate
+	// TODO re-validate ECN capability
+	if err != handshake.ErrDecryptionFailed &&
+		s.config.EnableActiveMigration &&
+		s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
+		s.handshakeConfirmed {
+		s.updatePath(p.remoteAddr)
+	}
+
 	if err != nil {
 		switch err {
 		case handshake.ErrKeysDropped:
@@ -1998,4 +2013,17 @@ func (s *session) NextSession() Session {
 	<-s.HandshakeComplete().Done()
 	s.streamsMap.UseResetMaps()
 	return s
+}
+
+// update path to peer
+// migrate to new remote address
+// TODO check if path is validated
+func (s *session) updatePath(remoteAddr net.Addr) {
+	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
+	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+	if s.tracer != nil {
+		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr))
+	}
+	s.conn.SetCurrentRemoteAddr(remoteAddr)
+	s.rttStats.OnConnectionMigration()
 }
