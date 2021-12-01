@@ -293,6 +293,9 @@ type Config struct {
 	// Datagrams will only be available when both peers enable datagram support.
 	EnableDatagrams bool
 	Tracer          logging.Tracer
+	// EnableActiveMigration oppositely sets the disable_active_migration transport parameter.
+	// If not set, it will default to false.
+	EnableActiveMigration bool
 }
 
 // ConnectionState records basic details about a QUIC connection

@@ -308,7 +308,7 @@ var newSession = func(
 		MaxUniStreamNum:                 protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                     protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:                protocol.AckDelayExponent,
-		DisableActiveMigration:          true,
+		DisableActiveMigration:          !s.config.EnableActiveMigration,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
@@ -435,7 +435,7 @@ var newClientSession = func(
 		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
-		DisableActiveMigration:         true,
+		DisableActiveMigration:         !s.config.EnableActiveMigration,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
 	}
