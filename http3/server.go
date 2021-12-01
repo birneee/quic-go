@@ -508,7 +508,7 @@ func ListenAndServe(addr, certFile, keyFile string, handler http.Handler) error 
 	if err != nil {
 		return err
 	}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
+	udpConn, err := quic.ListenMigratableUDP("udp", udpAddr)
 	if err != nil {
 		return err
 	}

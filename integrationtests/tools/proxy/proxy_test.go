@@ -3,6 +3,7 @@ package quicproxy
 import (
 	"bytes"
 	"fmt"
+	"github.com/lucas-clemente/quic-go"
 	"net"
 	"runtime/pprof"
 	"strconv"
@@ -69,7 +70,7 @@ var _ = Describe("QUIC Proxy", func() {
 			// check that the proxy port is in use
 			addr, err := net.ResolveUDPAddr("udp", "localhost:"+strconv.Itoa(proxy.LocalPort()))
 			Expect(err).ToNot(HaveOccurred())
-			_, err = net.ListenUDP("udp", addr)
+			_, err = quic.ListenMigratableUDP("udp", addr)
 			Expect(err).To(MatchError(fmt.Sprintf("listen udp 127.0.0.1:%d: bind: address already in use", proxy.LocalPort())))
 			Expect(proxy.Close()).To(Succeed()) // stopping is tested in the next test
 		})
@@ -93,7 +94,7 @@ var _ = Describe("QUIC Proxy", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// sometimes it takes a while for the OS to free the port
 			Eventually(func() error {
-				ln, err := net.ListenUDP("udp", addr)
+				ln, err := quic.ListenMigratableUDP("udp", addr)
 				if err != nil {
 					return err
 				}
@@ -106,7 +107,7 @@ var _ = Describe("QUIC Proxy", func() {
 		It("stops listening for proxied connections", func() {
 			serverAddr, err := net.ResolveUDPAddr("udp", "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			serverConn, err := net.ListenUDP("udp", serverAddr)
+			serverConn, err := quic.ListenMigratableUDP("udp", serverAddr)
 			Expect(err).ToNot(HaveOccurred())
 			defer serverConn.Close()
 
@@ -137,7 +138,7 @@ var _ = Describe("QUIC Proxy", func() {
 
 	Context("Proxy tests", func() {
 		var (
-			serverConn            *net.UDPConn
+			serverConn            *quic.MigratableUDPConn
 			serverNumPacketsSent  int32
 			serverReceivedPackets chan packetData
 			clientConn            *net.UDPConn
@@ -162,7 +163,7 @@ var _ = Describe("QUIC Proxy", func() {
 			// in production this would be a QUIC server
 			raddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 			Expect(err).ToNot(HaveOccurred())
-			serverConn, err = net.ListenUDP("udp", raddr)
+			serverConn, err = quic.ListenMigratableUDP("udp", raddr)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {

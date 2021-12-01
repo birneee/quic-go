@@ -420,7 +420,7 @@ var _ = Describe("Timeout tests", func() {
 		It("deals with an erroring packet conn, on the server side", func() {
 			addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			conn, err := net.ListenUDP("udp", addr)
+			conn, err := quic.ListenMigratableUDP("udp", addr)
 			Expect(err).ToNot(HaveOccurred())
 			maxPackets := mrand.Int31n(25)
 			fmt.Fprintf(GinkgoWriter, "blocking connection after %d packets\n", maxPackets)
@@ -494,7 +494,7 @@ var _ = Describe("Timeout tests", func() {
 
 			addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			conn, err := net.ListenUDP("udp", addr)
+			conn, err := quic.ListenMigratableUDP("udp", addr)
 			Expect(err).ToNot(HaveOccurred())
 			maxPackets := mrand.Int31n(25)
 			fmt.Fprintf(GinkgoWriter, "blocking connection after %d packets\n", maxPackets)

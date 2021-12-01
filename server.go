@@ -137,7 +137,7 @@ func listenAddr(addr string, tlsConf *tls.Config, config *Config, acceptEarly bo
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp", udpAddr)
+	conn, err := ListenMigratableUDP("udp", udpAddr)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package quicproxy
 
 import (
+	"github.com/lucas-clemente/quic-go"
 	"net"
 	"sort"
 	"sync"
@@ -144,7 +145,7 @@ type QuicProxy struct {
 
 	closeChan chan struct{}
 
-	conn       *net.UDPConn
+	conn       *quic.MigratableUDPConn
 	serverAddr *net.UDPAddr
 
 	dropPacket  DropCallback
@@ -165,7 +166,7 @@ func NewQuicProxy(local string, opts *Opts) (*QuicProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp", laddr)
+	conn, err := quic.ListenMigratableUDP("udp", laddr)
 	if err != nil {
 		return nil, err
 	}
