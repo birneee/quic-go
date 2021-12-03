@@ -20,10 +20,10 @@ import (
 )
 
 var _ = Describe("OOB Conn Test", func() {
-	runServer := func(network, address string) (*MigratableUDPConn, <-chan *receivedPacket) {
+	runServer := func(network, address string) (*net.UDPConn, <-chan *receivedPacket) {
 		addr, err := net.ResolveUDPAddr(network, address)
 		Expect(err).ToNot(HaveOccurred())
-		udpConn, err := ListenMigratableUDP(network, addr)
+		udpConn, err := net.ListenUDP(network, addr)
 		Expect(err).ToNot(HaveOccurred())
 		oobConn, err := newConn(udpConn)
 		Expect(err).ToNot(HaveOccurred())
@@ -227,7 +227,7 @@ var _ = Describe("OOB Conn Test", func() {
 
 			addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			udpConn, err := ListenMigratableUDP("udp", addr)
+			udpConn, err := net.ListenUDP("udp", addr)
 			Expect(err).ToNot(HaveOccurred())
 			oobConn, err := newConn(udpConn)
 			Expect(err).ToNot(HaveOccurred())
