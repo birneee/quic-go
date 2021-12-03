@@ -844,5 +844,6 @@ func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
 func (h *sentPacketHandler) SetHighest1RTTPacketNumber(pn protocol.PacketNumber) {
 	h.appDataPackets.pns.SetNext(pn + 1)
 	h.appDataPackets.history.highestSent = pn
-	h.ReceivedPacket(protocol.Encryption1RTT)
+	// validate peer address
+	h.ReceivedPacket(protocol.EncryptionHandshake)
 }
