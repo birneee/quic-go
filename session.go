@@ -2028,15 +2028,48 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 	s.rttStats.OnConnectionMigration()
 }
 
-func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
-	conn, ok := s.conn.(*spconn)
-	if !ok {
-		panic("unexpected types")
+// Returns nil when handshake is confirmed,
+// otherwise return error
+func (s *session) awaitHandshakeConfirmed() error {
+	for {
+		if s.handshakeConfirmed {
+			return nil // handshake is done
+		}
+		select {
+		case <-s.ctx.Done():
+			//TODO wrap cause if close is caused by error
+			return fmt.Errorf("session closed before handshake confirmed")
+		case <-time.After(time.Millisecond):
+			continue
+		}
 	}
-	pconn, ok := conn.PacketConn.(*MigratableUDPConn)
-	if !ok {
-		panic("unexpected types")
+}
+
+func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
+	err := s.awaitHandshakeConfirmed()
+	if err != nil {
+		return nil, fmt.Errorf("migration failed: %w", err)
 	}
 
-	return pconn.MigrateUDPSocket()
+	if s.peerParams.DisableActiveMigration {
+		return nil, errors.New("peer disabled active migration")
+	}
+
+	switch conn := s.conn.(type) {
+	case *sconn:
+		switch conn := conn.connection.(type) {
+		case *basicConn:
+			switch conn := conn.PacketConn.(type) {
+			case *MigratableUDPConn:
+				return conn.MigrateUDPSocket()
+			}
+		}
+	case *spconn:
+		switch conn := conn.PacketConn.(type) {
+		case *MigratableUDPConn:
+			return conn.MigrateUDPSocket()
+		}
+	}
+
+	return nil, errors.New("unexpected type")
 }
