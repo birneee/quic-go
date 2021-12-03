@@ -322,7 +322,7 @@ var newSession = func(
 		MaxUniStreamNum:                 protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                     protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:                protocol.AckDelayExponent,
-		DisableActiveMigration:          false,
+		DisableActiveMigration:          !s.config.EnableActiveMigration,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
@@ -452,7 +452,7 @@ var newClientSession = func(
 		MaxUniStreamNum:                protocol.StreamNum(s.config.MaxIncomingUniStreams),
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
-		DisableActiveMigration:         false,
+		DisableActiveMigration:         !s.config.EnableActiveMigration,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
 	}
@@ -928,19 +928,6 @@ func (s *session) handlePacketImpl(rp *receivedPacket) bool {
 	return processed
 }
 
-// update/migrate path to peer
-// TODO check if path is validated
-func (s *session) updatePath(remoteAddr net.Addr) {
-	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
-	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
-	if s.tracer != nil {
-		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr))
-	}
-	s.conn.SetCurrentRemoteAddr(remoteAddr)
-	s.rttStats.OnConnectionMigration()
-	s.ignoreReceived1RTTPacketsUntilMigration = false
-}
-
 func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /* was the packet successfully processed */ {
 	var wasQueued bool
 
@@ -974,7 +961,7 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
 
-	// handle changed remote address
+	// handle changed remote address (migration)
 	// TODO only react to non-probing packets
 	// TODO improve migration: make secure, send path challenge
 	// TODO validate path
@@ -982,8 +969,8 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	// TODO reset congestion controller and RTT estimate
 	// TODO re-validate ECN capability
 	if err != handshake.ErrDecryptionFailed &&
-		s.peerParams != nil &&
-		!s.peerParams.DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
+		s.config.EnableActiveMigration &&
+		s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
 		s.handshakeConfirmed {
 		s.updatePath(p.remoteAddr)
 	}
@@ -2165,12 +2152,64 @@ func (s *session) Handover(closeSilent bool) (handover.State, error) {
 	return state, nil
 }
 
-func (s *session) srcConnIDs() []protocol.ConnectionID {
-	connIDs := make([]protocol.ConnectionID, len(s.connIDGenerator.activeSrcConnIDs))
-	for _, id := range s.connIDGenerator.activeSrcConnIDs {
-		connIDs = append(connIDs, id)
+// update path to peer
+// migrate to new remote address
+// TODO check if path is validated
+func (s *session) updatePath(remoteAddr net.Addr) {
+	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
+	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+	if s.tracer != nil {
+		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr))
 	}
-	return connIDs
+	s.conn.SetCurrentRemoteAddr(remoteAddr)
+	s.rttStats.OnConnectionMigration()
+	s.ignoreReceived1RTTPacketsUntilMigration = false
+}
+
+// Returns nil when handshake is confirmed,
+// otherwise return error
+func (s *session) awaitHandshakeConfirmed() error {
+	for {
+		if s.handshakeConfirmed {
+			return nil // handshake is done
+		}
+		select {
+		case <-s.ctx.Done():
+			//TODO wrap cause if close is caused by error
+			return fmt.Errorf("session closed before handshake confirmed")
+		case <-time.After(time.Millisecond):
+			continue
+		}
+	}
+}
+
+func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
+	err := s.awaitHandshakeConfirmed()
+	if err != nil {
+		return nil, fmt.Errorf("migration failed: %w", err)
+	}
+
+	if s.peerParams.DisableActiveMigration {
+		return nil, errors.New("peer disabled active migration")
+	}
+
+	switch conn := s.conn.(type) {
+	case *sconn:
+		switch conn := conn.connection.(type) {
+		case *basicConn:
+			switch conn := conn.PacketConn.(type) {
+			case *MigratableUDPConn:
+				return conn.MigrateUDPSocket()
+			}
+		}
+	case *spconn:
+		switch conn := conn.PacketConn.(type) {
+		case *MigratableUDPConn:
+			return conn.MigrateUDPSocket()
+		}
+	}
+
+	return nil, errors.New("unexpected type")
 }
 
 // IgnoreCurrentRemoteAddress adds current remote address to ignore list.
@@ -2411,19 +2450,6 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 		_ = s.run() // returns as soon as the session is closed
 	}()
 	return s, nil
-}
-
-func (s *session) Migrate() (*net.UDPAddr, error) {
-	conn, ok := s.conn.(*spconn)
-	if !ok {
-		panic("unexpected types")
-	}
-	pconn, ok := conn.PacketConn.(*MigratableUDPConn)
-	if !ok {
-		panic("unexpected types")
-	}
-
-	return pconn.Migrate()
 }
 
 func (s *session) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {

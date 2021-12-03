@@ -127,5 +127,6 @@ func populateConfig(config *Config) *Config {
 		Tracer:                           config.Tracer,
 		IgnoreReceived1RTTPacketsUntilFirstPathMigration: config.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
 		LoggerPrefix: config.LoggerPrefix,
+		EnableActiveMigration:            config.EnableActiveMigration,
 	}
 }

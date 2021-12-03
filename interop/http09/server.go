@@ -62,7 +62,7 @@ func (s *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	conn, err := net.ListenUDP("udp", udpAddr)
+	conn, err := quic.ListenMigratableUDP("udp", udpAddr)
 	if err != nil {
 		return err
 	}

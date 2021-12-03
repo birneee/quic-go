@@ -27,14 +27,14 @@ var _ = Describe("Datagram test", func() {
 
 			var (
 				proxy                  *quicproxy.QuicProxy
-				serverConn, clientConn *net.UDPConn
+				serverConn, clientConn *quic.MigratableUDPConn
 				dropped, total         int32
 			)
 
 			startServerAndProxy := func() {
 				addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
-				serverConn, err = net.ListenUDP("udp", addr)
+				serverConn, err = quic.ListenMigratableUDP("udp", addr)
 				Expect(err).ToNot(HaveOccurred())
 				ln, err := quic.Listen(
 					serverConn,
@@ -90,7 +90,7 @@ var _ = Describe("Datagram test", func() {
 			BeforeEach(func() {
 				addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
-				clientConn, err = net.ListenUDP("udp", addr)
+				clientConn, err = quic.ListenMigratableUDP("udp", addr)
 				Expect(err).ToNot(HaveOccurred())
 			})
 

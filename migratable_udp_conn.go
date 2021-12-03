@@ -10,6 +10,7 @@ import (
 
 // check at compile time that interfaces satisfies interfaces
 var _ net.PacketConn = &MigratableUDPConn{}
+var _ net.Conn = &MigratableUDPConn{}
 var _ interface {
 	SyscallConn() (syscall.RawConn, error)
 } = &MigratableUDPConn{}
@@ -37,6 +38,20 @@ func ListenMigratableUDP(network string, laddr *net.UDPAddr) (*MigratableUDPConn
 		internal:   conn,
 		maxRetries: 5,
 	}, nil
+}
+
+func (m *MigratableUDPConn) Read(b []byte) (n int, err error) {
+	//TODO handle errors caused by migration
+	return m.internal.Read(b)
+}
+
+func (m *MigratableUDPConn) Write(b []byte) (n int, err error) {
+	//TODO handle errors caused by migration
+	return m.internal.Write(b)
+}
+
+func (m *MigratableUDPConn) RemoteAddr() net.Addr {
+	return m.internal.RemoteAddr()
 }
 
 func (m *MigratableUDPConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
@@ -154,9 +169,9 @@ func (m *MigratableUDPConn) Reopen() error {
 	return nil
 }
 
-// Migrate connection to new UDP socket.
+// MigrateUDPSocket migrates to a new UDP socket.
 // Returns new UDP address.
-func (m *MigratableUDPConn) Migrate() (*net.UDPAddr, error) {
+func (m *MigratableUDPConn) MigrateUDPSocket() (*net.UDPAddr, error) {
 	err := m.internal.Close()
 	if err != nil {
 		return nil, err
@@ -201,4 +216,14 @@ func (m *MigratableUDPConn) applyConfig() error {
 		}
 	}
 	return nil
+}
+
+func (m *MigratableUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
+	//TODO handle errors caused by migration
+	return m.internal.ReadFromUDP(b)
+}
+
+func (m *MigratableUDPConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
+	//TODO handle errors caused by migration
+	return m.internal.WriteToUDP(b, addr)
 }

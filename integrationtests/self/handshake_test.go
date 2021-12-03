@@ -259,7 +259,7 @@ var _ = Describe("Handshake tests", func() {
 
 				It("errors if the server name doesn't match", func() {
 					runServer(getTLSConfig())
-					conn, err := net.ListenUDP("udp", nil)
+					conn, err := quic.ListenMigratableUDP("udp", nil)
 					Expect(err).ToNot(HaveOccurred())
 					_, err = quic.Dial(
 						conn,
@@ -357,7 +357,7 @@ var _ = Describe("Handshake tests", func() {
 			// prepare a (single) packet conn for dialing to the server
 			laddr, err := net.ResolveUDPAddr("udp", "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			pconn, err = net.ListenUDP("udp", laddr)
+			pconn, err = quic.ListenMigratableUDP("udp", laddr)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

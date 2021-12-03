@@ -30,7 +30,7 @@ var _ = Describe("MITM test", func() {
 
 			var (
 				proxy                  *quicproxy.QuicProxy
-				serverConn, clientConn *net.UDPConn
+				serverConn, clientConn *quic.MigratableUDPConn
 				serverSess             quic.Session
 				serverConfig           *quic.Config
 			)
@@ -38,7 +38,7 @@ var _ = Describe("MITM test", func() {
 			startServerAndProxy := func(delayCb quicproxy.DelayCallback, dropCb quicproxy.DropCallback) {
 				addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
-				serverConn, err = net.ListenUDP("udp", addr)
+				serverConn, err = quic.ListenMigratableUDP("udp", addr)
 				Expect(err).ToNot(HaveOccurred())
 				ln, err := quic.Listen(serverConn, getTLSConfig(), serverConfig)
 				Expect(err).ToNot(HaveOccurred())
@@ -69,7 +69,7 @@ var _ = Describe("MITM test", func() {
 				})
 				addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
-				clientConn, err = net.ListenUDP("udp", addr)
+				clientConn, err = quic.ListenMigratableUDP("udp", addr)
 				Expect(err).ToNot(HaveOccurred())
 			})
 

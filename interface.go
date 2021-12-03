@@ -202,9 +202,9 @@ type Session interface {
 	// Handover creates state that is used for connection handover.
 	// Session will ignore all incoming packets from the current destination
 	Handover(close bool) (handover.State, error)
-	// Migrate session to new UDP socket.
+	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
-	Migrate() (*net.UDPAddr, error)
+	MigrateUDPSocket() (*net.UDPAddr, error)
 	// UseProxy
 	// TODO
 	UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error
@@ -311,6 +311,9 @@ type Config struct {
 	// LoggerPrefix add prefix to every log line.
 	// if nil, "client" or "server" are used as prefix
 	LoggerPrefix string
+	// EnableActiveMigration oppositely sets the disable_active_migration transport parameter.
+	// If not set, it will default to false.
+	EnableActiveMigration bool
 }
 
 // ConnectionState records basic details about a QUIC connection
@@ -327,9 +330,6 @@ type Listener interface {
 	Addr() net.Addr
 	// Accept returns new sessions. It should be called in a loop.
 	Accept(context.Context) (Session, error)
-	// Migrate listener to new UDP socket.
-	// Returns new UDP address.
-	Migrate() (*net.UDPAddr, error)
 }
 
 // An EarlyListener listens for incoming QUIC connections,

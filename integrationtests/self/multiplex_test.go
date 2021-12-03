@@ -75,7 +75,7 @@ var _ = Describe("Multiplexing", func() {
 
 					addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 					Expect(err).ToNot(HaveOccurred())
-					conn, err := net.ListenUDP("udp", addr)
+					conn, err := quic.ListenMigratableUDP("udp", addr)
 					Expect(err).ToNot(HaveOccurred())
 					defer conn.Close()
 
@@ -109,7 +109,7 @@ var _ = Describe("Multiplexing", func() {
 
 					addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 					Expect(err).ToNot(HaveOccurred())
-					conn, err := net.ListenUDP("udp", addr)
+					conn, err := quic.ListenMigratableUDP("udp", addr)
 					Expect(err).ToNot(HaveOccurred())
 					defer conn.Close()
 
@@ -138,7 +138,7 @@ var _ = Describe("Multiplexing", func() {
 				It("connects to itself", func() {
 					addr, err := net.ResolveUDPAddr("udp", "localhost:0")
 					Expect(err).ToNot(HaveOccurred())
-					conn, err := net.ListenUDP("udp", addr)
+					conn, err := quic.ListenMigratableUDP("udp", addr)
 					Expect(err).ToNot(HaveOccurred())
 					defer conn.Close()
 
@@ -168,13 +168,13 @@ var _ = Describe("Multiplexing", func() {
 					}
 					addr1, err := net.ResolveUDPAddr("udp", "localhost:0")
 					Expect(err).ToNot(HaveOccurred())
-					conn1, err := net.ListenUDP("udp", addr1)
+					conn1, err := quic.ListenMigratableUDP("udp", addr1)
 					Expect(err).ToNot(HaveOccurred())
 					defer conn1.Close()
 
 					addr2, err := net.ResolveUDPAddr("udp", "localhost:0")
 					Expect(err).ToNot(HaveOccurred())
-					conn2, err := net.ListenUDP("udp", addr2)
+					conn2, err := quic.ListenMigratableUDP("udp", addr2)
 					Expect(err).ToNot(HaveOccurred())
 					defer conn2.Close()
 

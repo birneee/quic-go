@@ -77,7 +77,7 @@ var _ = Describe("HTTP tests", func() {
 
 		addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:0")
 		Expect(err).NotTo(HaveOccurred())
-		conn, err := net.ListenUDP("udp", addr)
+		conn, err := quic.ListenMigratableUDP("udp", addr)
 		Expect(err).NotTo(HaveOccurred())
 		port = strconv.Itoa(conn.LocalAddr().(*net.UDPAddr).Port)
 

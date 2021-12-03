@@ -14,7 +14,7 @@ var _ = Describe("Windows Conn Test", func() {
 	It("works on IPv4", func() {
 		addr, err := net.ResolveUDPAddr("udp4", "localhost:0")
 		Expect(err).ToNot(HaveOccurred())
-		udpConn, err := net.ListenUDP("udp4", addr)
+		udpConn, err := ListenMigratableUDP("udp4", addr)
 		Expect(err).ToNot(HaveOccurred())
 		conn, err := newConn(udpConn)
 		Expect(err).ToNot(HaveOccurred())
@@ -24,7 +24,7 @@ var _ = Describe("Windows Conn Test", func() {
 	It("works on IPv6", func() {
 		addr, err := net.ResolveUDPAddr("udp6", "[::1]:0")
 		Expect(err).ToNot(HaveOccurred())
-		udpConn, err := net.ListenUDP("udp6", addr)
+		udpConn, err := ListenMigratableUDP("udp6", addr)
 		Expect(err).ToNot(HaveOccurred())
 		conn, err := newConn(udpConn)
 		Expect(err).ToNot(HaveOccurred())
