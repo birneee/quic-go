@@ -15,7 +15,6 @@ var _ interface {
 	SyscallConn() (syscall.RawConn, error)
 } = &MigratableUDPConn{}
 var _ interface{ SetReadBuffer(int) error } = &MigratableUDPConn{}
-var _ OOBCapablePacketConn = &MigratableUDPConn{}
 
 // MigratableUDPConn
 //
@@ -150,16 +149,6 @@ func (m *MigratableUDPConn) SetReadBuffer(bytes int) error {
 
 func (m *MigratableUDPConn) SyscallConn() (syscall.RawConn, error) {
 	return m.internal.SyscallConn()
-}
-
-func (m *MigratableUDPConn) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error) {
-	//TODO handle errors caused by migration
-	return m.internal.ReadMsgUDP(b, oob)
-}
-
-func (m *MigratableUDPConn) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
-	//TODO handle errors caused by migration
-	return m.internal.WriteMsgUDP(b, oob, addr)
 }
 
 // Reopen new UDP socket on same address
