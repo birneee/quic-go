@@ -77,6 +77,20 @@ func (mr *MockSentPacketHandlerMockRecorder) HasPacingBudget() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasPacingBudget", reflect.TypeOf((*MockSentPacketHandler)(nil).HasPacingBudget))
 }
 
+// Highest1RTTPacketNumber mocks base method.
+func (m *MockSentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Highest1RTTPacketNumber")
+	ret0, _ := ret[0].(protocol.PacketNumber)
+	return ret0
+}
+
+// Highest1RTTPacketNumber indicates an expected call of Highest1RTTPacketNumber.
+func (mr *MockSentPacketHandlerMockRecorder) Highest1RTTPacketNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).Highest1RTTPacketNumber))
+}
+
 // OnLossDetectionTimeout mocks base method.
 func (m *MockSentPacketHandler) OnLossDetectionTimeout() error {
 	m.ctrl.T.Helper()
@@ -211,6 +225,18 @@ func (m *MockSentPacketHandler) SetHandshakeConfirmed() {
 func (mr *MockSentPacketHandlerMockRecorder) SetHandshakeConfirmed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHandshakeConfirmed", reflect.TypeOf((*MockSentPacketHandler)(nil).SetHandshakeConfirmed))
+}
+
+// SetHighest1RTTPacketNumber mocks base method.
+func (m *MockSentPacketHandler) SetHighest1RTTPacketNumber(arg0 protocol.PacketNumber) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetHighest1RTTPacketNumber", arg0)
+}
+
+// SetHighest1RTTPacketNumber indicates an expected call of SetHighest1RTTPacketNumber.
+func (mr *MockSentPacketHandlerMockRecorder) SetHighest1RTTPacketNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHighest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).SetHighest1RTTPacketNumber), arg0)
 }
 
 // SetMaxDatagramSize mocks base method.

@@ -837,12 +837,12 @@ func (h *sentPacketHandler) SetHandshakeConfirmed() {
 	h.setLossDetectionTimer()
 }
 
-func (h *sentPacketHandler) HighestSentPacketNumber() protocol.PacketNumber {
-	return h.appDataPackets.history.highestSent
+func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	return h.appDataPackets.pns.Peek() - 1
 }
 
-// SetHighestSentPacketNumber is used for connection handover
-func (h *sentPacketHandler) SetHighestSentPacketNumber(pn protocol.PacketNumber) {
+func (h *sentPacketHandler) SetHighest1RTTPacketNumber(pn protocol.PacketNumber) {
 	h.appDataPackets.pns.SetNext(pn + 1)
 	h.appDataPackets.history.highestSent = pn
+	h.ReceivedPacket(protocol.Encryption1RTT)
 }

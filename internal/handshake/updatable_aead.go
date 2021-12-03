@@ -336,24 +336,16 @@ func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 	return a.firstPacketNumber
 }
 
-//TODO remove
-func (a *updatableAEAD) Clone() *updatableAEAD {
-	state := handover.State{}
-	a.store(&state)
-	return restoreUpdatableAEAD(state, a.rttStats, a.tracer, a.logger)
-}
-
-func (a *updatableAEAD) store(s *handover.State) {
+func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 	s.KeyPhase = a.keyPhase
-	s.HighestReceivedPacketNumber = a.highestRcvdPN
 	s.SuiteId = a.suite.ID
-	s.FirstRcvTrafficSecret = a.firstRcvTrafficSecret
-	s.FirstSendTrafficSecret = a.firstSendTrafficSecret
-	s.RcvTrafficSecret = a.rcvTrafficSecret
-	s.SendTrafficSecret = a.sendTrafficSecret
+	s.SetFirstReceiveTrafficSecret(p, a.firstRcvTrafficSecret)
+	s.SetFirstSendTrafficSecret(p, a.firstSendTrafficSecret)
+	s.SetReceiveTrafficSecret(p, a.rcvTrafficSecret)
+	s.SetSendTrafficSecret(p, a.sendTrafficSecret)
 }
 
-func restoreUpdatableAEAD(state handover.State, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
 	aead := newUpdatableAEAD(
 		rttStats,
 		tracer,
@@ -361,13 +353,18 @@ func restoreUpdatableAEAD(state handover.State, rttStats *utils.RTTStats, tracer
 	)
 
 	aead.keyPhase = state.KeyPhase
-	aead.firstRcvTrafficSecret = state.FirstRcvTrafficSecret
-	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret
-	aead.highestRcvdPN = state.HighestReceivedPacketNumber
+	aead.firstRcvTrafficSecret = state.FirstReceiveTrafficSecret(perspective)
+	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret(perspective)
+	//aead.highestRcvdPN = state.HighestReceivedPacketNumber(perspective) //TODO add
 
 	suite := qtls.CipherSuiteTLS13ByID(state.SuiteId)
-	aead.SetReadKey(suite, state.RcvTrafficSecret)
-	aead.SetWriteKey(suite, state.SendTrafficSecret)
+	if perspective == protocol.PerspectiveClient {
+		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
+		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
+	} else {
+		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
+		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
+	}
 
 	return aead
 }

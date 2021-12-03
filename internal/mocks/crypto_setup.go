@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	handshake "github.com/lucas-clemente/quic-go/internal/handshake"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	qtls "github.com/lucas-clemente/quic-go/internal/qtls"
@@ -261,4 +262,16 @@ func (m *MockCryptoSetup) SetLargest1RTTAcked(arg0 protocol.PacketNumber) error 
 func (mr *MockCryptoSetupMockRecorder) SetLargest1RTTAcked(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLargest1RTTAcked", reflect.TypeOf((*MockCryptoSetup)(nil).SetLargest1RTTAcked), arg0)
+}
+
+// StoreHandoverState mocks base method.
+func (m *MockCryptoSetup) StoreHandoverState(arg0 *handover.State, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StoreHandoverState", arg0, arg1)
+}
+
+// StoreHandoverState indicates an expected call of StoreHandoverState.
+func (mr *MockCryptoSetupMockRecorder) StoreHandoverState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreHandoverState", reflect.TypeOf((*MockCryptoSetup)(nil).StoreHandoverState), arg0, arg1)
 }

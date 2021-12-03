@@ -6,10 +6,12 @@ package quic
 
 import (
 	context "context"
+	tls "crypto/tls"
 	net "net"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 )
 
@@ -122,6 +124,21 @@ func (mr *MockQuicSessionMockRecorder) GetVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockQuicSession)(nil).GetVersion))
 }
 
+// Handover mocks base method.
+func (m *MockQuicSession) Handover(close bool) (handover.State, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handover", close)
+	ret0, _ := ret[0].(handover.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Handover indicates an expected call of Handover.
+func (mr *MockQuicSessionMockRecorder) Handover(close interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicSession)(nil).Handover), close)
+}
+
 // HandshakeComplete mocks base method.
 func (m *MockQuicSession) HandshakeComplete() context.Context {
 	m.ctrl.T.Helper()
@@ -148,6 +165,21 @@ func (m *MockQuicSession) LocalAddr() net.Addr {
 func (mr *MockQuicSessionMockRecorder) LocalAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockQuicSession)(nil).LocalAddr))
+}
+
+// Migrate mocks base method.
+func (m *MockQuicSession) Migrate() (*net.UDPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Migrate")
+	ret0, _ := ret[0].(*net.UDPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Migrate indicates an expected call of Migrate.
+func (mr *MockQuicSessionMockRecorder) Migrate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Migrate", reflect.TypeOf((*MockQuicSession)(nil).Migrate))
 }
 
 // NextSession mocks base method.
@@ -265,6 +297,20 @@ func (m *MockQuicSession) SendMessage(arg0 []byte) error {
 func (mr *MockQuicSessionMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockQuicSession)(nil).SendMessage), arg0)
+}
+
+// UseProxy mocks base method.
+func (m *MockQuicSession) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UseProxy", proxyAddr, proxyTlsConfig)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UseProxy indicates an expected call of UseProxy.
+func (mr *MockQuicSessionMockRecorder) UseProxy(proxyAddr, proxyTlsConfig interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProxy", reflect.TypeOf((*MockQuicSession)(nil).UseProxy), proxyAddr, proxyTlsConfig)
 }
 
 // destroy mocks base method.

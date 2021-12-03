@@ -6,11 +6,13 @@ package mockquic
 
 import (
 	context "context"
+	tls "crypto/tls"
 	net "net"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 	quic "github.com/lucas-clemente/quic-go"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	qerr "github.com/lucas-clemente/quic-go/internal/qerr"
 )
 
@@ -109,6 +111,21 @@ func (mr *MockEarlySessionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockEarlySession)(nil).Context))
 }
 
+// Handover mocks base method.
+func (m *MockEarlySession) Handover(arg0 bool) (handover.State, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handover", arg0)
+	ret0, _ := ret[0].(handover.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Handover indicates an expected call of Handover.
+func (mr *MockEarlySessionMockRecorder) Handover(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockEarlySession)(nil).Handover), arg0)
+}
+
 // HandshakeComplete mocks base method.
 func (m *MockEarlySession) HandshakeComplete() context.Context {
 	m.ctrl.T.Helper()
@@ -135,6 +152,21 @@ func (m *MockEarlySession) LocalAddr() net.Addr {
 func (mr *MockEarlySessionMockRecorder) LocalAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockEarlySession)(nil).LocalAddr))
+}
+
+// Migrate mocks base method.
+func (m *MockEarlySession) Migrate() (*net.UDPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Migrate")
+	ret0, _ := ret[0].(*net.UDPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Migrate indicates an expected call of Migrate.
+func (mr *MockEarlySessionMockRecorder) Migrate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Migrate", reflect.TypeOf((*MockEarlySession)(nil).Migrate))
 }
 
 // NextSession mocks base method.
@@ -252,4 +284,18 @@ func (m *MockEarlySession) SendMessage(arg0 []byte) error {
 func (mr *MockEarlySessionMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockEarlySession)(nil).SendMessage), arg0)
+}
+
+// UseProxy mocks base method.
+func (m *MockEarlySession) UseProxy(arg0 net.Addr, arg1 *tls.Config) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UseProxy", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UseProxy indicates an expected call of UseProxy.
+func (mr *MockEarlySessionMockRecorder) UseProxy(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProxy", reflect.TypeOf((*MockEarlySession)(nil).UseProxy), arg0, arg1)
 }

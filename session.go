@@ -3,6 +3,7 @@ package quic
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -10,7 +11,6 @@ import (
 	"github.com/lucas-clemente/quic-go/handover"
 	"io"
 	"net"
-	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -29,8 +29,6 @@ import (
 
 type unpacker interface {
 	Unpack(hdr *wire.Header, rcvTime time.Time, data []byte) (*unpackedPacket, error)
-	// SetCryptoSetup is used for connection handover
-	SetCryptoSetup(cs handshake.CryptoSetup)
 }
 
 type streamGetter interface {
@@ -63,7 +61,7 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
-	StoreHandoverState(t *handover.State)
+	StoreHandoverState(t *handover.State, p protocol.Perspective)
 }
 
 type packetInfo struct {
@@ -104,8 +102,6 @@ type sessionRunner interface {
 	ReplaceWithClosed(protocol.ConnectionID, packetHandler)
 	AddResetToken(protocol.StatelessResetToken, packetHandler)
 	RemoveResetToken(protocol.StatelessResetToken)
-	// SrcConnectionId returns an associated connection id with this handler
-	SrcConnectionId(handler packetHandler) protocol.ConnectionID
 }
 
 type handshakeRunner struct {
@@ -199,11 +195,12 @@ type session struct {
 	undecryptablePackets          []*receivedPacket // undecryptable packets, waiting for a change in encryption level
 	undecryptablePacketsToProcess []*receivedPacket
 
-	clientHelloWritten    <-chan *wire.TransportParameters
-	earlySessionReadyChan chan struct{}
-	handshakeCompleteChan chan struct{} // is closed when the handshake completes
-	handshakeComplete     bool
-	handshakeConfirmed    bool
+	clientHelloWritten     <-chan *wire.TransportParameters
+	earlySessionReadyChan  chan struct{}
+	handshakeCompleteChan  chan struct{} // is closed when the handshake completes
+	handshakeConfirmedChan chan struct{} // is closed when the handshake is confirmed
+	handshakeComplete      bool
+	handshakeConfirmed     bool
 
 	receivedRetry       bool
 	versionNegotiated   bool
@@ -234,6 +231,9 @@ type session struct {
 
 	ignoredRemoteAddresses []net.UDPAddr
 	runner                 sessionRunner
+	//TODO this should not be necessary
+	cloned                                  bool
+	ignoreReceived1RTTPacketsUntilMigration bool
 }
 
 var (
@@ -262,18 +262,20 @@ var newSession = func(
 	v protocol.VersionNumber,
 ) quicSession {
 	s := &session{
-		conn:                  conn,
-		config:                conf,
-		handshakeDestConnID:   destConnID,
-		srcConnIDLen:          srcConnID.Len(),
-		tokenGenerator:        tokenGenerator,
-		oneRTTStream:          newCryptoStream(),
-		perspective:           protocol.PerspectiveServer,
-		handshakeCompleteChan: make(chan struct{}),
-		tracer:                tracer,
-		logger:                logger,
-		version:               v,
-		runner:                runner,
+		conn:                                    conn,
+		config:                                  conf,
+		handshakeDestConnID:                     destConnID,
+		srcConnIDLen:                            srcConnID.Len(),
+		tokenGenerator:                          tokenGenerator,
+		oneRTTStream:                            newCryptoStream(),
+		perspective:                             protocol.PerspectiveServer,
+		handshakeCompleteChan:                   make(chan struct{}),
+		handshakeConfirmedChan:                  make(chan struct{}),
+		tracer:                                  tracer,
+		logger:                                  logger,
+		version:                                 v,
+		runner:                                  runner,
+		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -394,19 +396,21 @@ var newClientSession = func(
 	v protocol.VersionNumber,
 ) quicSession {
 	s := &session{
-		conn:                  conn,
-		config:                conf,
-		origDestConnID:        destConnID,
-		handshakeDestConnID:   destConnID,
-		srcConnIDLen:          srcConnID.Len(),
-		perspective:           protocol.PerspectiveClient,
-		handshakeCompleteChan: make(chan struct{}),
-		logID:                 destConnID.String(),
-		logger:                logger,
-		tracer:                tracer,
-		versionNegotiated:     hasNegotiatedVersion,
-		version:               v,
-		runner:                runner,
+		conn:                                    conn,
+		config:                                  conf,
+		origDestConnID:                          destConnID,
+		handshakeDestConnID:                     destConnID,
+		srcConnIDLen:                            srcConnID.Len(),
+		perspective:                             protocol.PerspectiveClient,
+		handshakeCompleteChan:                   make(chan struct{}),
+		handshakeConfirmedChan:                  make(chan struct{}),
+		logID:                                   destConnID.String(),
+		logger:                                  logger,
+		tracer:                                  tracer,
+		versionNegotiated:                       hasNegotiatedVersion,
+		version:                                 v,
+		runner:                                  runner,
+		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -828,6 +832,7 @@ func (s *session) handleHandshakeComplete() {
 
 func (s *session) handleHandshakeConfirmed() {
 	s.handshakeConfirmed = true
+	close(s.handshakeConfirmedChan)
 	s.sentPacketHandler.SetHandshakeConfirmed()
 	s.cryptoStreamHandler.SetHandshakeConfirmed()
 
@@ -923,6 +928,19 @@ func (s *session) handlePacketImpl(rp *receivedPacket) bool {
 	return processed
 }
 
+// update/migrate path to peer
+// TODO check if path is validated
+func (s *session) updatePath(remoteAddr net.Addr) {
+	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
+	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+	if s.tracer != nil {
+		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr))
+	}
+	s.conn.SetCurrentRemoteAddr(remoteAddr)
+	s.rttStats.OnConnectionMigration()
+	s.ignoreReceived1RTTPacketsUntilMigration = false
+}
+
 func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /* was the packet successfully processed */ {
 	var wasQueued bool
 
@@ -957,14 +975,22 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	packet, err := s.unpacker.Unpack(hdr, p.rcvTime, p.data)
 
 	// handle changed remote address
-	// TODO improve migration: make secure, send path challenge, reset path states
-	if err != handshake.ErrDecryptionFailed && s.peerParams != nil &&
-		!s.peerParams.DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() {
-		s.conn.SetCurrentRemoteAddr(p.remoteAddr)
-		s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr)
-		//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
-		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), p.remoteAddr))
-		s.rttStats.OnConnectionMigration()
+	// TODO only react to non-probing packets
+	// TODO improve migration: make secure, send path challenge
+	// TODO validate path
+	// TODO use new connection ID from the peer
+	// TODO reset congestion controller and RTT estimate
+	// TODO re-validate ECN capability
+	if err != handshake.ErrDecryptionFailed &&
+		s.peerParams != nil &&
+		!s.peerParams.DisableActiveMigration && s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
+		s.handshakeConfirmed {
+		s.updatePath(p.remoteAddr)
+	}
+
+	if s.ignoreReceived1RTTPacketsUntilMigration && s.handshakeConfirmed {
+		s.logger.Debugf("Ignore packet number %d, because all 1RTT packets are ignored until path change", packet.packetNumber)
+		return false
 	}
 
 	if err != nil {
@@ -1248,7 +1274,12 @@ func (s *session) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel, d
 	wire.LogFrame(s.logger, f, false)
 	switch frame := f.(type) {
 	case *wire.CryptoFrame:
-		err = s.handleCryptoFrame(frame, encLevel)
+		//TODO cloned sessions do not support crypto frames (FIX THIS, IMPORTANT!!!!)
+		if !s.cloned || encLevel != protocol.Encryption1RTT /*|| s.perspective == protocol.PerspectiveClient*/ {
+			err = s.handleCryptoFrame(frame, encLevel)
+		} else {
+			s.logger.Errorf("drop crypto frame, not supported by handover sessions")
+		}
 	case *wire.StreamFrame:
 		err = s.handleStreamFrame(frame)
 	case *wire.AckFrame:
@@ -1788,6 +1819,11 @@ func (s *session) sendProbePacket(encLevel protocol.EncryptionLevel) error {
 }
 
 func (s *session) sendPacket() (bool, error) {
+	if s.isRemoteAddressIgnored(s.conn.RemoteAddr()) && s.handshakeComplete {
+		s.logger.Debugf("Ignore sending packets to this remote address")
+		return false, nil
+	}
+
 	if isBlocked, offset := s.connFlowController.IsNewlyBlocked(); isBlocked {
 		s.framer.QueueControlFrame(&wire.DataBlockedFrame{MaximumData: offset})
 	}
@@ -1828,6 +1864,14 @@ func (s *session) sendPacket() (bool, error) {
 
 func (s *session) sendPackedPacket(packet *packedPacket, now time.Time) {
 	if s.isRemoteAddressIgnored(s.conn.RemoteAddr()) {
+		s.logger.Debugf("Ignore sending the following packet to this remote address:")
+		s.logPacket(packet)
+		return
+	}
+	//TODO this can be removed, when server ensures HandshakeDoneFrame is sent and stream can be already opened
+	if s.ignoreReceived1RTTPacketsUntilMigration && packet.EncryptionLevel() == protocol.Encryption1RTT && s.perspective == protocol.PerspectiveClient {
+		s.logger.Debugf("Ignore sending 1RTT packets until path change")
+		s.logPacket(packet)
 		return
 	}
 	if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && packet.IsAckEliciting() {
@@ -1840,6 +1884,7 @@ func (s *session) sendPackedPacket(packet *packedPacket, now time.Time) {
 }
 
 func (s *session) sendConnectionClose(e error) ([]byte, error) {
+	//TODO try to remove
 	if s.isRemoteAddressIgnored(s.conn.RemoteAddr()) {
 		return nil, nil
 	}
@@ -2043,32 +2088,101 @@ func (s *session) NextSession() Session {
 }
 
 // Handover creates state that is used for connection handover.
-// Session will ignore all incoming packets from the current destination
-func (s *session) Handover() (handover.State, error) {
+// if closeSilent, close session without sending any packets to the peer.
+// if !closeSilent, session will drop all packets from and to the current destination.
+func (s *session) Handover(closeSilent bool) (handover.State, error) {
 	//TODO validate supported options
 	if s.config.EnableDatagrams {
 		panic("option is currently not supported")
 	}
-
-	srcConnID := s.runner.SrcConnectionId(s)
-	s.closeSilent()
-	tss := handover.State{
-		SrcConnectionID:         srcConnID,
-		DestConnectionID:        s.connIDManager.Get(),
-		Version:                 s.version,
-		RemoteAddress:           s.conn.RemoteAddr().String(),
-		HighestSentPacketNumber: s.sentPacketHandler.HighestSentPacketNumber(),
-		DestTransportParameters: *s.peerParams,
+	if !s.handshakeComplete {
+		panic("illegal handover state")
 	}
-	s.cryptoStreamHandler.StoreHandoverState(&tss)
-	return tss, nil
+
+	// wait until confirmed, as described in RFC 9000
+	_, _ = <-s.handshakeConfirmedChan
+	if !s.handshakeConfirmed {
+		panic("illegal handover state")
+	}
+
+	if closeSilent {
+		s.closeSilent() // TODO uncomment
+	} else {
+		s.IgnoreCurrentRemoteAddress()
+	}
+
+	// TODO allow handover with open streams
+	if len(s.streamsMap.(*streamsMap).incomingBidiStreams.streams) != 0 ||
+		len(s.streamsMap.(*streamsMap).outgoingBidiStreams.streams) != 0 ||
+		len(s.streamsMap.(*streamsMap).incomingUniStreams.streams) != 0 ||
+		len(s.streamsMap.(*streamsMap).outgoingUniStreams.streams) != 0 {
+		panic("illegal handover state")
+	}
+
+	state := handover.State{}
+
+	state.Version = s.version
+	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
+	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
+	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
+	s.cryptoStreamHandler.StoreHandoverState(&state, s.perspective)
+
+	activeSrcConnIDs := make([]handover.ActiveConnectionID, 0)
+	for sn, connID := range s.connIDGenerator.activeSrcConnIDs {
+		statelessResetToken := s.connIDGenerator.getStatelessResetToken(connID) //TODO maybe store history
+		activeSrcConnIDs = append(activeSrcConnIDs, handover.ActiveConnectionID{
+			SequenceNumber:      sn,
+			ConnectionID:        connID,
+			StatelessResetToken: statelessResetToken[:],
+		})
+	}
+	state.SetActiveSrcConnectionIDs(s.perspective, activeSrcConnIDs)
+
+	// store dest conn ids
+	var activeDestStatelessResetToken []byte = nil
+	if s.connIDManager.activeStatelessResetToken != nil {
+		activeDestStatelessResetToken = s.connIDManager.activeStatelessResetToken[:]
+	}
+	activeDestConnIDs := make([]handover.ActiveConnectionID, 0)
+	activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
+		SequenceNumber:      s.connIDManager.activeSequenceNumber,
+		ConnectionID:        s.connIDManager.activeConnectionID,
+		StatelessResetToken: activeDestStatelessResetToken,
+	})
+	for destConnID := s.connIDManager.queue.Front(); destConnID != nil; destConnID = destConnID.Next() {
+		activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
+			SequenceNumber:      destConnID.Value.SequenceNumber,
+			ConnectionID:        destConnID.Value.ConnectionID,
+			StatelessResetToken: destConnID.Value.StatelessResetToken[:],
+		})
+	}
+	state.SetActiveDestConnectionIDs(s.perspective, activeDestConnIDs)
+
+	if s.perspective == protocol.PerspectiveServer {
+		//state.ServerHighestConnectionIDSequenceNumber = s.connIDGenerator.highestSeq //TODO
+	}
+
+	return state, nil
 }
 
+func (s *session) srcConnIDs() []protocol.ConnectionID {
+	connIDs := make([]protocol.ConnectionID, len(s.connIDGenerator.activeSrcConnIDs))
+	for _, id := range s.connIDGenerator.activeSrcConnIDs {
+		connIDs = append(connIDs, id)
+	}
+	return connIDs
+}
+
+// IgnoreCurrentRemoteAddress adds current remote address to ignore list.
+// Session will drop all packets from and to the current destination.
 func (s *session) IgnoreCurrentRemoteAddress() {
 	s.ignoredRemoteAddresses = append(s.ignoredRemoteAddresses, *s.RemoteAddr().(*net.UDPAddr))
 }
 
 func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
+	if addr == nil {
+		return false
+	}
 	udpAddr := *addr.(*net.UDPAddr)
 	for _, ira := range s.ignoredRemoteAddresses {
 		if ira.IP.Equal(udpAddr.IP) && ira.Port == udpAddr.Port {
@@ -2084,88 +2198,219 @@ func (s *session) closeSilent() {
 	s.closeLocal(nil)
 }
 
-//TODO remove
-func (s *session) Clone() (Session, error) {
-	state, err := s.Handover()
-	if err != nil {
-		return nil, err
-	}
-	stateJson, err := json.MarshalIndent(state, "", "    ")
-	if err != nil {
-		return nil, err
-	}
-	_ = os.WriteFile("handover_state.json", stateJson, 0644)
-	state = handover.State{}
-	err = json.Unmarshal(stateJson, &state)
-	if err != nil {
-		return nil, err
-	}
-	return RestoreClientSessionFromHandoverState(state, s.config.Tracer, s.logger)
-}
+func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
+	logger := utils.DefaultLogger.WithPrefix(loggerPrefix)
 
-func RestoreClientSessionFromHandoverState(state handover.State, tracer logging.Tracer, logger utils.Logger) (Session, error) {
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
 	if err != nil {
 		return nil, err
 	}
-	remoteAddr, err := state.GetParsedRemoteAddress()
-	if err != nil {
-		return nil, err
-	}
-	conn := newSendPconn(pconn, remoteAddr)
+	remoteAddr := state.RemoteAddress(perspective)
 
-	config := &Config{}
-	config.Tracer = tracer
-	config = populateClientConfig(config, false)
+	var conn sendConn
+	if perspective == protocol.PerspectiveClient {
+		conn = newSendPconn(pconn, remoteAddr)
+	} else {
+		sconn, err := wrapConn(pconn)
+		if err != nil {
+			return nil, err
+		}
+		conn = newSendConn(sconn, remoteAddr, nil)
+	}
+
+	if perspective == protocol.PerspectiveClient {
+		conf = populateClientConfig(conf, false)
+	} else {
+		conf = populateServerConfig(conf)
+	}
+
+	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
 
 	tracingID := nextSessionTracingID()
 	var connTracer logging.ConnectionTracer
-	if config.Tracer != nil {
-		connTracer = config.Tracer.TracerForConnection(
+	if conf.Tracer != nil {
+		connTracer = conf.Tracer.TracerForConnection(
 			context.WithValue(context.Background(), SessionTracingKey, tracingID),
-			protocol.PerspectiveClient,
-			state.DestConnectionID,
+			perspective,
+			state.MinActiveDestConnectionID(perspective), //TODO maybe add field with original id
 		)
 	}
 
-	packetHandlers, err := getMultiplexer().AddConn(pconn, state.SrcConnectionID.Len(), config.StatelessResetKey, tracer)
+	runner, err := getMultiplexer().AddConn(pconn, state.SrcConnectionIDLength(perspective), conf.StatelessResetKey, conf.Tracer)
 	if err != nil {
 		return nil, err
 	}
 
-	session := newClientSession(
-		conn,
-		packetHandlers,
-		state.DestConnectionID,
-		state.SrcConnectionID,
-		config,
-		tlsConf,
+	var tokenGenerator *handshake.TokenGenerator
+	if perspective == protocol.PerspectiveServer {
+		tokenGenerator, err = handshake.NewTokenGenerator(rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	s := &session{
+		conn:                                    conn,
+		config:                                  conf,
+		origDestConnID:                          nil,
+		handshakeDestConnID:                     nil,
+		srcConnIDLen:                            state.SrcConnectionIDLength(perspective),
+		perspective:                             perspective,
+		handshakeCompleteChan:                   make(chan struct{}),
+		handshakeConfirmedChan:                  make(chan struct{}),
+		logID:                                   state.MinActiveDestConnectionID(perspective).String(), //TODO maybe add field with original id
+		logger:                                  logger,
+		tracer:                                  connTracer,
+		versionNegotiated:                       false,
+		version:                                 state.Version,
+		runner:                                  runner,
+		tokenGenerator:                          tokenGenerator,
+		cloned:                                  true,
+		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
+	}
+
+	s.connIDManager = newConnIDManager(
+		state.MinActiveDestConnectionID(perspective),
+		func(token protocol.StatelessResetToken) { runner.AddResetToken(token, s) },
+		runner.RemoveResetToken,
+		s.queueControlFrame,
+	)
+
+	s.connIDGenerator = newConnIDGenerator(
+		state.MinActiveSrcConnectionID(perspective),
+		state.MinActiveDestConnectionID(perspective),
+		func(connID protocol.ConnectionID) { runner.Add(connID, s) },
+		runner.GetStatelessResetToken,
+		runner.Remove,
+		runner.Retire,
+		runner.ReplaceWithClosed,
+		s.queueControlFrame,
+		s.version,
+	)
+
+	// this has to happen before the server calls applyTransportParameters
+	{
+		maxSN, _ := state.MaxActiveSrcConnectionID(perspective)
+		activeScrConnIDMap := make(map[uint64]protocol.ConnectionID, 0)
+		for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
+			activeScrConnIDMap[activeConnID.SequenceNumber] = activeConnID.ConnectionID
+		}
+		s.connIDGenerator.activeSrcConnIDs = activeScrConnIDMap
+		s.connIDGenerator.highestSeq = maxSN
+	}
+
+	s.preSetup()
+	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), SessionTracingKey, tracingID))
+	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
-		false,
-		false,
-		connTracer,
-		tracingID,
-		logger,
-		state.Version,
-	).(*session)
-	packetHandlers.Add(state.SrcConnectionID, session)
+		getMaxPacketSize(s.conn.RemoteAddr()),
+		s.rttStats,
+		s.perspective,
+		s.tracer,
+		s.logger,
+		s.version,
+	)
 
-	cryptoStreamHandler, err := handshake.RestoreCryptoSetupFromHandoverState(state, conn.LocalAddr(), logging.PerspectiveClient, connTracer, logger, session.rttStats, tlsConf)
+	//TODO
+	//s.sentPacketHandler.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber(perspective))
+
+	initialStream := newCryptoStream()
+	handshakeStream := newCryptoStream()
+	ownParams := state.OwnTransportParameters(perspective)
+
+	if s.config.EnableDatagrams {
+		ownParams.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
+	}
+	if s.tracer != nil {
+		s.tracer.SentTransportParameters(&ownParams)
+	}
+
+	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, conn.LocalAddr(), perspective, connTracer, logger, s.rttStats, tlsConf)
 	if err != nil {
 		return nil, err
 	}
 
-	session.setCryptoSetup(cryptoStreamHandler.(handshake.CryptoSetup))
-	session.peerParams = &state.DestTransportParameters
-	session.handleHandshakeComplete()
-	session.handleHandshakeConfirmed()
-	session.sentPacketHandler.SetHighestSentPacketNumber(state.HighestSentPacketNumber)
+	s.cryptoStreamHandler = cs
+	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
+	s.unpacker = newPacketUnpacker(cs, s.version)
+	s.packer = newPacketPacker(
+		state.MinActiveSrcConnectionID(perspective),
+		s.connIDManager.Get,
+		initialStream,
+		handshakeStream,
+		s.sentPacketHandler,
+		s.retransmissionQueue,
+		s.RemoteAddr(),
+		cs,
+		s.framer,
+		s.receivedPacketHandler,
+		s.datagramQueue,
+		s.perspective,
+		s.version,
+	)
+	if len(tlsConf.ServerName) > 0 {
+		s.tokenStoreKey = tlsConf.ServerName
+	} else {
+		s.tokenStoreKey = conn.RemoteAddr().String()
+	}
+	if s.config.TokenStore != nil {
+		if token := s.config.TokenStore.Pop(s.tokenStoreKey); token != nil {
+			s.packer.SetToken(token.data)
+		}
+	}
+
+	for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
+		runner.Add(activeConnID.ConnectionID, s)
+	}
+
+	peerParams := state.PeerTransportParameters(perspective)
+
+	s.peerParams = &peerParams
+
+	if perspective == protocol.PerspectiveClient {
+		s.handleHandshakeComplete()
+		s.handleHandshakeConfirmed()
+	} else {
+		s.handshakeComplete = true
+		s.handshakeCompleteChan = nil
+		s.undecryptablePackets = nil
+		s.connIDManager.SetHandshakeComplete()
+		s.connIDGenerator.SetHandshakeComplete()
+		s.handleHandshakeConfirmed()
+		s.sentPacketHandler.SetHighest1RTTPacketNumber(0) //TODO use packet number from state
+		s.applyTransportParameters()
+		// On the server side, the early session is ready as soon as we processed
+		// the client's transport parameters.
+		close(s.earlySessionReadyChan)
+	}
+
+	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
+		if activeConnID.ConnectionID.Equal(s.connIDManager.activeConnectionID) {
+			continue
+		}
+		var resetToken [16]byte
+		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
+		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
+			SequenceNumber:      activeConnID.SequenceNumber,
+			ConnectionID:        activeConnID.ConnectionID,
+			StatelessResetToken: resetToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//TODO send PATH_CHALLENGE instead of PING
+	err = s.sendProbePacket(protocol.Encryption1RTT)
+	if err != nil {
+		return nil, err
+	}
 
 	go func() {
-		_ = session.run() // returns as soon as the session is closed
+		_ = s.run() // returns as soon as the session is closed
 	}()
-	return session, nil
+	return s, nil
 }
 
 func (s *session) Migrate() (*net.UDPAddr, error) {
@@ -2181,10 +2426,41 @@ func (s *session) Migrate() (*net.UDPAddr, error) {
 	return pconn.Migrate()
 }
 
-// setCryptoSetup is used for connection handover
-func (s *session) setCryptoSetup(cs handshake.CryptoSetup) {
-	s.cryptoStreamHandler = cs
-	s.packer.SetCryptoSetup(cs)
-	s.unpacker.SetCryptoSetup(cs)
-	s.cryptoStreamManager.SetCryptoSetup(cs)
+func (s *session) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {
+	proxyTlsConfig.NextProtos = []string{"qproxy"}
+	proxySession, err := DialAddr(
+		proxyAddr.String(),
+		proxyTlsConfig,
+		&Config{
+			LoggerPrefix: "proxy control",
+		},
+	)
+	if err != nil {
+		return err
+	}
+	//TODO compare Sync vs non-Sync version
+	stream, err := proxySession.OpenStreamSync(context.Background())
+	if err != nil {
+		return err
+	}
+	state, err := s.Handover(false)
+	if err != nil {
+		return err
+	}
+	marshalledState, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	if s.logger.Debug() {
+		s.logger.Debugf("created handover state: %s", string(marshalledState))
+	}
+	_, err = io.Copy(stream, bytes.NewReader(marshalledState))
+	if err != nil {
+		return err
+	}
+	err = stream.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

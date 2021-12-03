@@ -210,7 +210,7 @@ func listen(conn net.PacketConn, tlsConf *tls.Config, config *Config, acceptEarl
 		running:             make(chan struct{}),
 		receivedPackets:     make(chan *receivedPacket, protocol.MaxServerUnprocessedPackets),
 		newSession:          newSession,
-		logger:              utils.DefaultLogger.WithPrefix("server"),
+		logger:              utils.DefaultLogger.WithPrefix(config.LoggerPrefix),
 		acceptEarlySessions: acceptEarly,
 	}
 	go s.run()

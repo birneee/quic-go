@@ -800,11 +800,11 @@ func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
 }
 
-func (h *cryptoSetup) StoreHandoverState(s *handover.State) {
+func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspective) {
 	if h.extraConf.MaxEarlyData != 0 {
 		panic("0RTT handover not supported")
 	}
-	if !h.clientHelloWritten {
+	if p == logging.PerspectiveClient && !h.clientHelloWritten {
 		panic("illegal handover state")
 	}
 	if !h.has1RTTOpener {
@@ -825,17 +825,20 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State) {
 	if h.peerParams.DisableActiveMigration {
 		panic("illegal handover state")
 	}
-	s.SrcTransportParameters = *h.ourParams
-	s.DestTransportParameters = *h.peerParams
-	h.aead.store(s)
+	s.SetOwnTransportParameters(p, *h.ourParams)
+	s.SetPeerTransportParameters(p, *h.peerParams)
+	h.aead.store(s, p)
 }
 
 func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Addr, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, tlsConf *tls.Config) (CryptoSetup, error) {
+	ownParams := state.OwnTransportParameters(perspective)
+	peerParams := state.PeerTransportParameters(perspective)
+
 	cs, _ := newCryptoSetup(
 		nil,
 		nil,
 		nil,
-		&state.SrcTransportParameters,
+		&ownParams,
 		nil,
 		tlsConf,
 		false,
@@ -848,15 +851,26 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 	cs.clientHelloWritten = true
 	cs.has1RTTOpener = true
 	cs.has1RTTSealer = true
-	cs.peerParams = &state.DestTransportParameters
-	cs.aead = restoreUpdatableAEAD(state, rttStats, tracer, logger)
+	cs.peerParams = &peerParams
+	cs.aead = restoreUpdatableAEAD(state, perspective, rttStats, tracer, logger)
 	cs.readEncLevel = protocol.Encryption1RTT
 	cs.writeEncLevel = protocol.Encryption1RTT
 	close(cs.handshakeDone)
-	remoteAddr, err := state.GetParsedRemoteAddress()
-	if err != nil {
-		return nil, err
+
+	remoteAddr := state.RemoteAddress(perspective)
+
+	if perspective == protocol.PerspectiveClient {
+		//cs.tlsConf.InsecureSkipVerify = true //TODO move
+		cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
+	} else {
+		cs.conn = qtls.Server(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
 	}
-	cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
+	//TODO set handshakeStatus like conn.Handshake()
+	//TODO set conn.version
+	//err := cs.conn.Handshake()
+	//if err != nil {
+	//	panic(err)
+	//}
+
 	return cs, nil
 }

@@ -42,6 +42,9 @@ func populateServerConfig(config *Config) *Config {
 	if config.AcceptToken == nil {
 		config.AcceptToken = defaultAcceptToken
 	}
+	if config.LoggerPrefix == "" {
+		config.LoggerPrefix = "server"
+	}
 	return config
 }
 
@@ -51,6 +54,9 @@ func populateClientConfig(config *Config, createdPacketConn bool) *Config {
 	config = populateConfig(config)
 	if config.ConnectionIDLength == 0 && !createdPacketConn {
 		config.ConnectionIDLength = protocol.DefaultConnectionIDLength
+	}
+	if config.LoggerPrefix == "" {
+		config.LoggerPrefix = "client"
 	}
 	return config
 }
@@ -119,5 +125,7 @@ func populateConfig(config *Config) *Config {
 		DisablePathMTUDiscovery:          config.DisablePathMTUDiscovery,
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Tracer:                           config.Tracer,
+		IgnoreReceived1RTTPacketsUntilFirstPathMigration: config.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
+		LoggerPrefix: config.LoggerPrefix,
 	}
 }

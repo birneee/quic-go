@@ -2,6 +2,7 @@ package quic
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"github.com/lucas-clemente/quic-go/handover"
 	"io"
@@ -200,12 +201,13 @@ type Session interface {
 	ReceiveMessage() ([]byte, error)
 	// Handover creates state that is used for connection handover.
 	// Session will ignore all incoming packets from the current destination
-	Handover() (handover.State, error)
-	//TODO remove
-	Clone() (Session, error)
+	Handover(close bool) (handover.State, error)
 	// Migrate session to new UDP socket.
 	// Returns new UDP address.
 	Migrate() (*net.UDPAddr, error)
+	// UseProxy
+	// TODO
+	UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error
 }
 
 // An EarlySession is a session that is handshaking.
@@ -302,6 +304,13 @@ type Config struct {
 	// Datagrams will only be available when both peers enable datagram support.
 	EnableDatagrams bool
 	Tracer          logging.Tracer
+	// IgnoreReceived1RTTPacketsUntilFirstPathMigration pauses the session directly after the handshake
+	// this is e.g. used for connection handover
+	// TODO this is no longer necessary when handover is supported at an arbitrary state
+	IgnoreReceived1RTTPacketsUntilFirstPathMigration bool
+	// LoggerPrefix add prefix to every log line.
+	// if nil, "client" or "server" are used as prefix
+	LoggerPrefix string
 }
 
 // ConnectionState records basic details about a QUIC connection

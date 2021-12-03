@@ -84,7 +84,7 @@ func DialAddrEarlyContext(
 	if err != nil {
 		return nil, err
 	}
-	utils.Logger.WithPrefix(utils.DefaultLogger, "client").Debugf("Returning early session")
+	utils.Logger.WithPrefix(utils.DefaultLogger, config.LoggerPrefix).Debugf("Returning early session")
 	return sess, nil
 }
 
@@ -272,7 +272,7 @@ func newClient(
 		config:            config,
 		version:           config.Versions[0],
 		handshakeChan:     make(chan struct{}),
-		logger:            utils.DefaultLogger.WithPrefix("client"),
+		logger:            utils.DefaultLogger.WithPrefix(config.LoggerPrefix),
 	}
 	return c, nil
 }

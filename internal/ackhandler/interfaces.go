@@ -51,9 +51,10 @@ type SentPacketHandler interface {
 	GetLossDetectionTimeout() time.Time
 	OnLossDetectionTimeout() error
 
-	HighestSentPacketNumber() protocol.PacketNumber
-	// SetHighestSentPacketNumber is used for connection handover
-	SetHighestSentPacketNumber(pn protocol.PacketNumber)
+	Highest1RTTPacketNumber() protocol.PacketNumber
+	// SetHighest1RTTPacketNumber is used for connection handover.
+	// Also validates peer address
+	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
 }
 
 type sentPacketTracker interface {
@@ -69,4 +70,5 @@ type ReceivedPacketHandler interface {
 
 	GetAlarmTimeout() time.Time
 	GetAckFrame(encLevel protocol.EncryptionLevel, onlyIfQueued bool) *wire.AckFrame
+	Highest1RTTPacketNumber() protocol.PacketNumber
 }

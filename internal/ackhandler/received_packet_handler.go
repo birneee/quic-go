@@ -134,3 +134,10 @@ func (h *receivedPacketHandler) IsPotentiallyDuplicate(pn protocol.PacketNumber,
 	}
 	panic("unexpected encryption level")
 }
+
+func (h *receivedPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	if h.lowest1RTTPacket == protocol.InvalidPacketNumber {
+		return protocol.InvalidPacketNumber
+	}
+	return h.appDataPackets.largestObserved
+}
