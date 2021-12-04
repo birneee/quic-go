@@ -670,14 +670,13 @@ func (s *baseServer) sendVersionNegotiationPacket(p *receivedPacket, hdr *wire.H
 	}
 }
 
-func (s *baseServer) Migrate() (*net.UDPAddr, error) {
-	basicConn, ok := s.conn.(*basicConn)
-	if !ok {
-		panic("unexpected type")
+func (s *baseServer) MigrateUDPSocket() (*net.UDPAddr, error) {
+	switch conn := s.conn.(type) {
+	case *basicConn:
+		switch packetConn := conn.PacketConn.(type) {
+		case *MigratableUDPConn:
+			return packetConn.MigrateUDPSocket()
+		}
 	}
-	migratableConn, ok := basicConn.PacketConn.(*MigratableUDPConn)
-	if !ok {
-		panic("unexpected type")
-	}
-	return migratableConn.Migrate()
+	return nil, errors.New("unexpected type")
 }

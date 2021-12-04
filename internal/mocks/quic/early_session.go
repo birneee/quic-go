@@ -154,19 +154,19 @@ func (mr *MockEarlySessionMockRecorder) LocalAddr() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockEarlySession)(nil).LocalAddr))
 }
 
-// Migrate mocks base method.
-func (m *MockEarlySession) Migrate() (*net.UDPAddr, error) {
+// MigrateUDPSocket mocks base method.
+func (m *MockEarlySession) MigrateUDPSocket() (*net.UDPAddr, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Migrate")
+	ret := m.ctrl.Call(m, "MigrateUDPSocket")
 	ret0, _ := ret[0].(*net.UDPAddr)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Migrate indicates an expected call of Migrate.
-func (mr *MockEarlySessionMockRecorder) Migrate() *gomock.Call {
+// MigrateUDPSocket indicates an expected call of MigrateUDPSocket.
+func (mr *MockEarlySessionMockRecorder) MigrateUDPSocket() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Migrate", reflect.TypeOf((*MockEarlySession)(nil).Migrate))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateUDPSocket", reflect.TypeOf((*MockEarlySession)(nil).MigrateUDPSocket))
 }
 
 // NextSession mocks base method.

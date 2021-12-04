@@ -330,6 +330,9 @@ type Listener interface {
 	Addr() net.Addr
 	// Accept returns new sessions. It should be called in a loop.
 	Accept(context.Context) (Session, error)
+	// MigrateUDPSocket migrates connection to a new UDP socket.
+	// Returns new UDP address.
+	MigrateUDPSocket() (*net.UDPAddr, error)
 }
 
 // An EarlyListener listens for incoming QUIC connections,
