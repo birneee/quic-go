@@ -2453,6 +2453,13 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 }
 
 func (s *session) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {
+	if !s.config.EnableActiveMigration {
+		return errors.New("active migration has to be enabled")
+	}
+	if s.peerParams.DisableActiveMigration {
+		return errors.New("active migration has to be enabled by peer")
+	}
+
 	proxyTlsConfig.NextProtos = []string{"qproxy"}
 	proxySession, err := DialAddr(
 		proxyAddr.String(),
