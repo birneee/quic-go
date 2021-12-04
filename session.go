@@ -557,7 +557,7 @@ func (s *session) run() error {
 
 	s.timer = utils.NewTimer()
 
-	if !s.handshakeComplete {
+	if !s.handshakeComplete || !s.cloned {
 		go s.cryptoStreamHandler.RunHandshake()
 	}
 
@@ -567,7 +567,7 @@ func (s *session) run() error {
 		}
 	}()
 
-	if !s.handshakeComplete {
+	if !s.handshakeComplete || !s.cloned {
 		if s.perspective == protocol.PerspectiveClient {
 			select {
 			case zeroRTTParams := <-s.clientHelloWritten:
@@ -2222,10 +2222,12 @@ func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
 	if addr == nil {
 		return false
 	}
-	udpAddr := *addr.(*net.UDPAddr)
-	for _, ira := range s.ignoredRemoteAddresses {
-		if ira.IP.Equal(udpAddr.IP) && ira.Port == udpAddr.Port {
-			return true
+	switch addr := addr.(type) {
+	case *net.UDPAddr:
+		for _, ira := range s.ignoredRemoteAddresses {
+			if ira.IP.Equal(addr.IP) && ira.Port == addr.Port {
+				return true
+			}
 		}
 	}
 	return false

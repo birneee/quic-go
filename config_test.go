@@ -81,6 +81,10 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(true))
 			case "Tracer":
 				f.Set(reflect.ValueOf(mocklogging.NewMockTracer(mockCtrl)))
+			case "IgnoreReceived1RTTPacketsUntilFirstPathMigration":
+				f.Set(reflect.ValueOf(true))
+			case "LoggerPrefix":
+				f.Set(reflect.ValueOf("server"))
 			case "EnableActiveMigration":
 				f.Set(reflect.ValueOf(true))
 			default:
