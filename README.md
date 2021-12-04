@@ -1,8 +1,13 @@
 # Fork of QUIC-GO
 
+## Security
+Due to lack of security measures, this implementation is intended for research purposes only and should not be deployed on the internet.
+
 ## Changes to Standard QUIC-GO
-- client migration (for research only)
-- server migration (for research only)
+- client migration
+- server migration
+- store and restore session
+- use encryption breaking proxy
 
 ## Guides
 
