@@ -819,12 +819,6 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	if h.writeEncLevel != protocol.Encryption1RTT {
 		panic("illegal handover state")
 	}
-	if h.ourParams.DisableActiveMigration {
-		panic("illegal handover state")
-	}
-	if h.peerParams.DisableActiveMigration {
-		panic("illegal handover state")
-	}
 	s.SetOwnTransportParameters(p, *h.ourParams)
 	s.SetPeerTransportParameters(p, *h.peerParams)
 	h.aead.store(s, p)
@@ -860,7 +854,6 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 	remoteAddr := state.RemoteAddress(perspective)
 
 	if perspective == protocol.PerspectiveClient {
-		//cs.tlsConf.InsecureSkipVerify = true //TODO move
 		cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
 	} else {
 		cs.conn = qtls.Server(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
