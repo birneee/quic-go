@@ -2093,7 +2093,7 @@ func (s *session) Handover(closeSilent bool) (handover.State, error) {
 	}
 
 	if closeSilent {
-		s.closeSilent() // TODO uncomment
+		s.destroy(errors.New("destroyed by handover"))
 	} else {
 		s.IgnoreCurrentRemoteAddress()
 	}
@@ -2231,12 +2231,6 @@ func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
 		}
 	}
 	return false
-}
-
-// close session without sending any packets to the peer
-func (s *session) closeSilent() {
-	s.IgnoreCurrentRemoteAddress()
-	s.closeLocal(nil)
 }
 
 func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
