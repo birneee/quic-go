@@ -106,6 +106,11 @@ func populateConfig(config *Config) *Config {
 		maxIncomingUniStreams = 0
 	}
 
+	initialCongestionWindow := config.InitialCongestionWindow
+	if initialCongestionWindow == 0 {
+		initialCongestionWindow = protocol.DefaultInitialCongestionWindow
+	}
+
 	return &Config{
 		Versions:                         versions,
 		HandshakeIdleTimeout:             handshakeIdleTimeout,
@@ -126,7 +131,9 @@ func populateConfig(config *Config) *Config {
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Tracer:                           config.Tracer,
 		IgnoreReceived1RTTPacketsUntilFirstPathMigration: config.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
-		LoggerPrefix: config.LoggerPrefix,
-		EnableActiveMigration:            config.EnableActiveMigration,
+		LoggerPrefix:            config.LoggerPrefix,
+		EnableActiveMigration:   config.EnableActiveMigration,
+		Proxy:                   config.Proxy,
+		InitialCongestionWindow: initialCongestionWindow,
 	}
 }

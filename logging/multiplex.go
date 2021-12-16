@@ -217,3 +217,9 @@ func (m *connTracerMultiplexer) Close() {
 		t.Close()
 	}
 }
+
+func (m *connTracerMultiplexer) UpdatedPath(newRemote net.Addr) {
+	for _, t := range m.tracers {
+		t.UpdatedPath(newRemote)
+	}
+}

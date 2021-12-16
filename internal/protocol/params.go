@@ -11,6 +11,9 @@ const InitialPacketSizeIPv4 = 1252
 // InitialPacketSizeIPv6 is the maximum packet size that we use for sending IPv6 packets.
 const InitialPacketSizeIPv6 = 1232
 
+// DefaultInitialCongestionWindow is the default initial congestion window in bytes.
+const DefaultInitialCongestionWindow = 32 * InitialPacketSizeIPv4
+
 // MaxCongestionWindowPackets is the maximum congestion window in packet.
 const MaxCongestionWindowPackets = 10000
 

@@ -484,3 +484,11 @@ func (t *connectionTracer) Debug(name, msg string) {
 	})
 	t.mutex.Unlock()
 }
+
+func (t *connectionTracer) UpdatedPath(newRemote net.Addr) {
+	t.mutex.Lock()
+	//TODO define new event type
+	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+	t.Debug("path_updated", fmt.Sprintf("migrated to %s", newRemote))
+	t.mutex.Unlock()
+}

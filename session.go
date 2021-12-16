@@ -304,6 +304,7 @@ var newSession = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		protocol.ByteCount(s.config.InitialCongestionWindow),
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -434,6 +435,7 @@ var newClientSession = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		initialPacketNumber,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		protocol.ByteCount(s.config.InitialCongestionWindow),
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -851,6 +853,13 @@ func (s *session) handleHandshakeConfirmed() {
 				s.packer.SetMaxPacketSize(size)
 			},
 		)
+	}
+
+	if s.config.Proxy != nil {
+		err := s.useProxy()
+		if err != nil {
+			s.closeLocal(err)
+		}
 	}
 }
 
@@ -1950,6 +1959,9 @@ func (s *session) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
 
 // OpenStream opens a stream
 func (s *session) OpenStream() (Stream, error) {
+	for s.ignoreReceived1RTTPacketsUntilMigration {
+		time.Sleep(100 * time.Millisecond) //TODO use a channel
+	}
 	return s.streamsMap.OpenStream()
 }
 
@@ -2159,7 +2171,7 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
 	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
 	if s.tracer != nil {
-		s.tracer.Debug("path_updated", fmt.Sprintf("migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr))
+		s.tracer.UpdatedPath(remoteAddr)
 	}
 	s.conn.SetCurrentRemoteAddr(remoteAddr)
 	s.rttStats.OnConnectionMigration()
@@ -2233,8 +2245,36 @@ func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
 	return false
 }
 
+// correct config after handover, based on own transport parameters
+func correctConfig(conf *Config, ownParams wire.TransportParameters) {
+	if uint64(ownParams.InitialMaxStreamDataBidiLocal) > conf.InitialStreamReceiveWindow {
+		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataBidiLocal)
+		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
+	}
+
+	if uint64(ownParams.InitialMaxStreamDataBidiRemote) > conf.InitialStreamReceiveWindow {
+		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataBidiRemote)
+		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
+	}
+
+	if uint64(ownParams.InitialMaxStreamDataUni) > conf.InitialStreamReceiveWindow {
+		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataUni)
+		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
+	}
+
+	if conf.InitialStreamReceiveWindow > conf.MaxStreamReceiveWindow {
+		conf.MaxStreamReceiveWindow = conf.InitialStreamReceiveWindow
+	}
+
+	if conf.InitialConnectionReceiveWindow > conf.MaxConnectionReceiveWindow {
+		conf.MaxConnectionReceiveWindow = conf.InitialConnectionReceiveWindow
+	}
+}
+
 func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
 	logger := utils.DefaultLogger.WithPrefix(loggerPrefix)
+
+	correctConfig(conf, state.OwnTransportParameters(perspective))
 
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
 	if err != nil {
@@ -2340,6 +2380,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		protocol.ByteCount(s.config.InitialCongestionWindow),
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -2403,6 +2444,22 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 
 	s.peerParams = &peerParams
 
+	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
+		if activeConnID.ConnectionID.Equal(s.connIDManager.activeConnectionID) {
+			continue
+		}
+		var resetToken [16]byte
+		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
+		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
+			SequenceNumber:      activeConnID.SequenceNumber,
+			ConnectionID:        activeConnID.ConnectionID,
+			StatelessResetToken: resetToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if perspective == protocol.PerspectiveClient {
 		s.handleHandshakeComplete()
 		s.handleHandshakeConfirmed()
@@ -2420,22 +2477,6 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 		close(s.earlySessionReadyChan)
 	}
 
-	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
-		if activeConnID.ConnectionID.Equal(s.connIDManager.activeConnectionID) {
-			continue
-		}
-		var resetToken [16]byte
-		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
-		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
-			SequenceNumber:      activeConnID.SequenceNumber,
-			ConnectionID:        activeConnID.ConnectionID,
-			StatelessResetToken: resetToken,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	//TODO send PATH_CHALLENGE instead of PING
 	err = s.sendProbePacket(protocol.Encryption1RTT)
 	if err != nil {
@@ -2448,7 +2489,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	return s, nil
 }
 
-func (s *session) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {
+func (s *session) useProxy() error {
 	if !s.config.EnableActiveMigration {
 		return errors.New("active migration has to be enabled")
 	}
@@ -2456,10 +2497,12 @@ func (s *session) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error
 		return errors.New("active migration has to be enabled by peer")
 	}
 
-	proxyTlsConfig.NextProtos = []string{"qproxy"}
 	proxySession, err := DialAddr(
-		proxyAddr.String(),
-		proxyTlsConfig,
+		s.config.Proxy.Addr.String(),
+		&tls.Config{
+			RootCAs:    s.config.Proxy.RootCAs,
+			NextProtos: []string{"qproxy"},
+		},
 		&Config{
 			LoggerPrefix: "proxy control",
 		},

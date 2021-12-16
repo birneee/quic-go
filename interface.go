@@ -2,7 +2,7 @@ package quic
 
 import (
 	"context"
-	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"github.com/lucas-clemente/quic-go/handover"
 	"io"
@@ -19,6 +19,17 @@ type StreamID = protocol.StreamID
 
 // A VersionNumber is a QUIC version number.
 type VersionNumber = protocol.VersionNumber
+
+type ByteCount = protocol.ByteCount
+
+type Perspective = protocol.Perspective
+
+const PerspectiveClient = protocol.PerspectiveClient
+const PerspectiveServer = protocol.PerspectiveServer
+
+// ConnectionFlowControlMultiplier determines how much larger the connection flow control windows needs to be relative to any stream's flow control window
+// This is the value that Chromium is using
+const ConnectionFlowControlMultiplier = protocol.ConnectionFlowControlMultiplier
 
 const (
 	// VersionDraft29 is IETF QUIC draft-29
@@ -205,9 +216,6 @@ type Session interface {
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
-	// UseProxy
-	// TODO
-	UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error
 }
 
 // An EarlySession is a session that is handshaking.
@@ -314,6 +322,11 @@ type Config struct {
 	// EnableActiveMigration oppositely sets the disable_active_migration transport parameter.
 	// If not set, it will default to false.
 	EnableActiveMigration bool
+	// The Proxy to use
+	// if nil, no proxy is used
+	Proxy *ProxyConfig
+	// The InitialCongestionWindow to use, in bytes
+	InitialCongestionWindow uint32
 }
 
 // ConnectionState records basic details about a QUIC connection
@@ -344,4 +357,11 @@ type EarlyListener interface {
 	Addr() net.Addr
 	// Accept returns new early sessions. It should be called in a loop.
 	Accept(context.Context) (EarlySession, error)
+}
+
+type ProxyConfig struct {
+	// the proxy address to use
+	Addr *net.UDPAddr
+	// used for verifying proxy certificates
+	RootCAs *x509.CertPool
 }
