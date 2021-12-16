@@ -277,3 +277,9 @@ func (s *State) SetPeerTransportParameters(perspective protocol.Perspective, tp 
 		s.ClientTransportParameters = tp
 	}
 }
+
+// Clone
+//TODO deep copy
+func (s *State) Clone() *State {
+	return &*s
+}
