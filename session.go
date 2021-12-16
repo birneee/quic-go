@@ -2247,6 +2247,9 @@ func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
 
 // correct config after handover, based on own transport parameters
 func correctConfig(conf *Config, ownParams wire.TransportParameters) {
+	if conf == nil {
+		return
+	}
 	if uint64(ownParams.InitialMaxStreamDataBidiLocal) > conf.InitialStreamReceiveWindow {
 		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataBidiLocal)
 		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)

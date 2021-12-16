@@ -87,6 +87,10 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf("server"))
 			case "EnableActiveMigration":
 				f.Set(reflect.ValueOf(true))
+			case "Proxy":
+				f.Set(reflect.ValueOf(&ProxyConfig{}))
+			case "InitialCongestionWindow":
+				f.Set(reflect.ValueOf(uint32(10000)))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}

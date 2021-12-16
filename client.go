@@ -80,6 +80,9 @@ func DialAddrEarlyContext(
 	tlsConf *tls.Config,
 	config *Config,
 ) (EarlySession, error) {
+	if config == nil {
+		config = &Config{}
+	}
 	sess, err := dialAddrContext(ctx, addr, tlsConf, config, true)
 	if err != nil {
 		return nil, err

@@ -74,6 +74,7 @@ func (t *customConnTracer) LossTimerExpired(logging.TimerType, logging.Encryptio
 func (t *customConnTracer) LossTimerCanceled()                                                 {}
 func (t *customConnTracer) Debug(string, string)                                               {}
 func (t *customConnTracer) Close()                                                             {}
+func (t *customConnTracer) UpdatedPath(net.Addr)                                               {}
 
 var _ = Describe("Handshake tests", func() {
 	addTracers := func(pers protocol.Perspective, conf *quic.Config) *quic.Config {

@@ -6,7 +6,6 @@ package mockquic
 
 import (
 	context "context"
-	tls "crypto/tls"
 	net "net"
 	reflect "reflect"
 
@@ -284,18 +283,4 @@ func (m *MockEarlySession) SendMessage(arg0 []byte) error {
 func (mr *MockEarlySessionMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockEarlySession)(nil).SendMessage), arg0)
-}
-
-// UseProxy mocks base method.
-func (m *MockEarlySession) UseProxy(arg0 net.Addr, arg1 *tls.Config) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UseProxy", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UseProxy indicates an expected call of UseProxy.
-func (mr *MockEarlySessionMockRecorder) UseProxy(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProxy", reflect.TypeOf((*MockEarlySession)(nil).UseProxy), arg0, arg1)
 }

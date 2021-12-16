@@ -350,3 +350,15 @@ func (mr *MockConnectionTracerMockRecorder) UpdatedPTOCount(arg0 interface{}) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatedPTOCount", reflect.TypeOf((*MockConnectionTracer)(nil).UpdatedPTOCount), arg0)
 }
+
+// UpdatedPath mocks base method.
+func (m *MockConnectionTracer) UpdatedPath(arg0 net.Addr) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdatedPath", arg0)
+}
+
+// UpdatedPath indicates an expected call of UpdatedPath.
+func (mr *MockConnectionTracerMockRecorder) UpdatedPath(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatedPath", reflect.TypeOf((*MockConnectionTracer)(nil).UpdatedPath), arg0)
+}

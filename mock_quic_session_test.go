@@ -6,7 +6,6 @@ package quic
 
 import (
 	context "context"
-	tls "crypto/tls"
 	net "net"
 	reflect "reflect"
 
@@ -297,20 +296,6 @@ func (m *MockQuicSession) SendMessage(arg0 []byte) error {
 func (mr *MockQuicSessionMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockQuicSession)(nil).SendMessage), arg0)
-}
-
-// UseProxy mocks base method.
-func (m *MockQuicSession) UseProxy(proxyAddr net.Addr, proxyTlsConfig *tls.Config) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UseProxy", proxyAddr, proxyTlsConfig)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UseProxy indicates an expected call of UseProxy.
-func (mr *MockQuicSessionMockRecorder) UseProxy(proxyAddr, proxyTlsConfig interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProxy", reflect.TypeOf((*MockQuicSession)(nil).UseProxy), proxyAddr, proxyTlsConfig)
 }
 
 // destroy mocks base method.

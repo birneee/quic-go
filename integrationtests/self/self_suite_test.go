@@ -373,6 +373,7 @@ func (t *connTracer) LossTimerExpired(logging.TimerType, logging.EncryptionLevel
 func (t *connTracer) LossTimerCanceled()                                                 {}
 func (t *connTracer) Debug(string, string)                                               {}
 func (t *connTracer) Close()                                                             {}
+func (t *connTracer) UpdatedPath(net.Addr)                                               {}
 
 type packet struct {
 	time   time.Time
