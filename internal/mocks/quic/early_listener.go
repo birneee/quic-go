@@ -78,3 +78,18 @@ func (mr *MockEarlyListenerMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockEarlyListener)(nil).Close))
 }
+
+// MigrateUDPSocket mocks base method.
+func (m *MockEarlyListener) MigrateUDPSocket() (*net.UDPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrateUDPSocket")
+	ret0, _ := ret[0].(*net.UDPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MigrateUDPSocket indicates an expected call of MigrateUDPSocket.
+func (mr *MockEarlyListenerMockRecorder) MigrateUDPSocket() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateUDPSocket", reflect.TypeOf((*MockEarlyListener)(nil).MigrateUDPSocket))
+}
