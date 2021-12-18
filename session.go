@@ -2500,21 +2500,10 @@ func (s *session) useProxy() error {
 		return errors.New("active migration has to be enabled by peer")
 	}
 
-	proxySession, err := DialAddr(
-		s.config.Proxy.Addr.String(),
-		&tls.Config{
-			RootCAs:    s.config.Proxy.RootCAs,
-			NextProtos: []string{"qproxy"},
-		},
-		&Config{
-			LoggerPrefix: "proxy control",
-		},
+	proxyControlSession, err := DialProxyAddr(s.config.Proxy.Addr.String(),
+		s.config.Proxy.TlsConf,
+		s.config.Proxy.Config,
 	)
-	if err != nil {
-		return err
-	}
-	//TODO compare Sync vs non-Sync version
-	stream, err := proxySession.OpenStreamSync(context.Background())
 	if err != nil {
 		return err
 	}
@@ -2529,11 +2518,7 @@ func (s *session) useProxy() error {
 	if s.logger.Debug() {
 		s.logger.Debugf("created handover state: %s", string(marshalledState))
 	}
-	_, err = io.Copy(stream, bytes.NewReader(marshalledState))
-	if err != nil {
-		return err
-	}
-	err = stream.Close()
+	err = proxyControlSession.SendHandover(&state)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@ package quic
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto/tls"
 	"errors"
 	"github.com/lucas-clemente/quic-go/handover"
 	"io"
@@ -357,11 +357,16 @@ type EarlyListener interface {
 	Addr() net.Addr
 	// Accept returns new early sessions. It should be called in a loop.
 	Accept(context.Context) (EarlySession, error)
+	// MigrateUDPSocket migrates connection to a new UDP socket.
+	// Returns new UDP address.
+	MigrateUDPSocket() (*net.UDPAddr, error)
 }
 
 type ProxyConfig struct {
 	// the proxy address to use
 	Addr *net.UDPAddr
-	// used for verifying proxy certificates
-	RootCAs *x509.CertPool
+	// used for proxy control connection
+	Config *Config
+	// used for proxy control connection
+	TlsConf *tls.Config
 }
