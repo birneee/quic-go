@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -867,6 +868,9 @@ func (s *session) handlePacketImpl(rp *receivedPacket) bool {
 
 	// ignore packet if from a ignored remote
 	if s.isRemoteAddressIgnored(rp.remoteAddr) {
+		if s.tracer != nil {
+			s.tracer.DroppedPacket(logging.PacketTypeNotDetermined, rp.Size(), logging.PacketDropWaitForMigration)
+		}
 		return false
 	}
 
@@ -985,6 +989,9 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 	}
 
 	if s.ignoreReceived1RTTPacketsUntilMigration && s.handshakeConfirmed {
+		if s.tracer != nil {
+			s.tracer.DroppedPacket(logging.PacketTypeFromHeader(hdr), p.Size(), logging.PacketDropWaitForMigration)
+		}
 		s.logger.Debugf("Ignore packet number %d, because all 1RTT packets are ignored until path change", packet.packetNumber)
 		return false
 	}
@@ -2121,6 +2128,11 @@ func (s *session) Handover(closeSilent bool) (handover.State, error) {
 	state := handover.State{}
 
 	state.Version = s.version
+	var err error
+	state.LogConnectionID, err = hex.DecodeString(s.logID)
+	if err != nil {
+		return handover.State{}, err
+	}
 	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
 	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
 	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
@@ -2159,6 +2171,10 @@ func (s *session) Handover(closeSilent bool) (handover.State, error) {
 
 	if s.perspective == protocol.PerspectiveServer {
 		//state.ServerHighestConnectionIDSequenceNumber = s.connIDGenerator.highestSeq //TODO
+	}
+
+	if s.tracer != nil {
+		s.tracer.Debug("hquic_handover_state_created", "")
 	}
 
 	return state, nil
@@ -2311,7 +2327,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 		connTracer = conf.Tracer.TracerForConnection(
 			context.WithValue(context.Background(), SessionTracingKey, tracingID),
 			perspective,
-			state.MinActiveDestConnectionID(perspective), //TODO maybe add field with original id
+			state.LogConnectionID, //TODO maybe add field with original id
 		)
 	}
 
@@ -2337,7 +2353,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 		perspective:                             perspective,
 		handshakeCompleteChan:                   make(chan struct{}),
 		handshakeConfirmedChan:                  make(chan struct{}),
-		logID:                                   state.MinActiveDestConnectionID(perspective).String(), //TODO maybe add field with original id
+		logID:                                   state.LogConnectionID.String(),
 		logger:                                  logger,
 		tracer:                                  connTracer,
 		versionNegotiated:                       false,

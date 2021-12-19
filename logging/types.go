@@ -56,6 +56,9 @@ const (
 	PacketDropUnexpectedVersion
 	// PacketDropDuplicate is used when a duplicate packet is received
 	PacketDropDuplicate
+	// PacketDropWaitForMigration is used when packets from current path are ignored
+	// TODO not standardized
+	PacketDropWaitForMigration
 )
 
 // TimerType is the type of the loss detection timer
