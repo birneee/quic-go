@@ -15,8 +15,10 @@ import (
 	"github.com/lucas-clemente/quic-go/quicvarint"
 	"io"
 	"net"
+	"reflect"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 // TLS unexpected_message alert
@@ -858,15 +860,12 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 		cs.conn = qtls.Server(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
 	}
 
-	//handshakeState := reflect.ValueOf(cs.conn).Elem().FieldByName("handshakeStatus")
-	//handshakeState = reflect.NewAt(handshakeState.Type(), unsafe.Pointer(handshakeState.UnsafeAddr())).Elem()
-	//handshakeState.Set(reflect.ValueOf(uint32(1)))
-	//TODO set handshakeStatus like conn.Handshake()
-	//TODO set conn.version
-	//err := cs.conn.Handshake()
-	//if err != nil {
-	//	panic(err)
-	//}
+	// TODO set handshakeStatus like conn.Handshake()
+	// TODO find safe way to set vers
+	conn := reflect.ValueOf(cs.conn).Elem()
+	vers := conn.FieldByName("vers")
+	vers = reflect.NewAt(vers.Type(), unsafe.Pointer(vers.UnsafeAddr())).Elem()
+	vers.Set(reflect.ValueOf(uint16(qtls.VersionTLS13)))
 
 	return cs, nil
 }

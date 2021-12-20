@@ -1277,12 +1277,7 @@ func (s *session) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel, d
 	wire.LogFrame(s.logger, f, false)
 	switch frame := f.(type) {
 	case *wire.CryptoFrame:
-		//TODO cloned sessions do not support crypto frames (FIX THIS, IMPORTANT!!!!)
-		if !s.cloned || encLevel != protocol.Encryption1RTT /*|| s.perspective == protocol.PerspectiveClient*/ {
-			err = s.handleCryptoFrame(frame, encLevel)
-		} else {
-			s.logger.Errorf("drop crypto frame, not supported by handover sessions")
-		}
+		err = s.handleCryptoFrame(frame, encLevel)
 	case *wire.StreamFrame:
 		err = s.handleStreamFrame(frame)
 	case *wire.AckFrame:

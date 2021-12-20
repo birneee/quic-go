@@ -51,6 +51,7 @@ const (
 	Encryption0RTT = qtls.Encryption0RTT
 	// EncryptionApplication is the application data encryption level
 	EncryptionApplication = qtls.EncryptionApplication
+	VersionTLS13          = qtls.VersionTLS13
 )
 
 // AEADAESGCMTLS13 creates a new AES-GCM AEAD for TLS 1.3
