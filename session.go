@@ -2288,8 +2288,6 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
 	logger := utils.DefaultLogger.WithPrefix(loggerPrefix)
 
-	correctConfig(conf, state.OwnTransportParameters(perspective))
-
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
 	if err != nil {
 		return nil, err
@@ -2312,6 +2310,8 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	} else {
 		conf = populateServerConfig(conf)
 	}
+
+	correctConfig(conf, state.OwnTransportParameters(perspective))
 
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
@@ -2495,6 +2495,11 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	err = s.sendProbePacket(protocol.Encryption1RTT)
 	if err != nil {
 		return nil, err
+	}
+
+	// update max_data
+	if ByteCount(conf.InitialConnectionReceiveWindow) > ownParams.InitialMaxData {
+		s.queueControlFrame(&wire.MaxDataFrame{MaximumData: ByteCount(conf.InitialConnectionReceiveWindow)})
 	}
 
 	go func() {
