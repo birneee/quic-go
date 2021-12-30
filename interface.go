@@ -31,6 +31,15 @@ const PerspectiveServer = protocol.PerspectiveServer
 // This is the value that Chromium is using
 const ConnectionFlowControlMultiplier = protocol.ConnectionFlowControlMultiplier
 
+// DefaultInitialCongestionWindow is the default initial congestion window in number of packets.
+const DefaultInitialCongestionWindow = protocol.DefaultInitialCongestionWindow
+
+// DefaultMinCongestionWindow is the default minimum congestion window in number of packets.
+const DefaultMinCongestionWindow = protocol.DefaultMinCongestionWindow
+
+// DefaultMaxCongestionWindow is the maximum congestion window in packet.
+const DefaultMaxCongestionWindow = protocol.DefaultMaxCongestionWindow
+
 const (
 	// VersionDraft29 is IETF QUIC draft-29
 	VersionDraft29 = protocol.VersionDraft29
@@ -325,8 +334,10 @@ type Config struct {
 	// The Proxy to use
 	// if nil, no proxy is used
 	Proxy *ProxyConfig
-	// The InitialCongestionWindow to use, in bytes
+	// The InitialCongestionWindow to use, in number of packets
 	InitialCongestionWindow uint32
+	MinCongestionWindow     uint32
+	MaxCongestionWindow     uint32
 }
 
 // ConnectionState records basic details about a QUIC connection

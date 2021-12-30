@@ -305,7 +305,9 @@ var newSession = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		protocol.ByteCount(s.config.InitialCongestionWindow),
+		s.config.InitialCongestionWindow,
+		s.config.MinCongestionWindow,
+		s.config.MaxCongestionWindow,
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -436,7 +438,9 @@ var newClientSession = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		initialPacketNumber,
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		protocol.ByteCount(s.config.InitialCongestionWindow),
+		s.config.InitialCongestionWindow,
+		s.config.MinCongestionWindow,
+		s.config.MaxCongestionWindow,
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -2394,7 +2398,9 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		protocol.ByteCount(s.config.InitialCongestionWindow),
+		s.config.InitialCongestionWindow,
+		s.config.MinCongestionWindow,
+		s.config.MaxCongestionWindow,
 		s.rttStats,
 		s.perspective,
 		s.tracer,
@@ -2500,6 +2506,12 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	// update max_data
 	if ByteCount(conf.InitialConnectionReceiveWindow) > ownParams.InitialMaxData {
 		s.queueControlFrame(&wire.MaxDataFrame{MaximumData: ByteCount(conf.InitialConnectionReceiveWindow)})
+	}
+
+	// update max_data
+	// TODO for all streams, when streams are created
+	if ByteCount(conf.InitialStreamReceiveWindow) > ownParams.InitialMaxStreamDataBidiLocal {
+		s.queueControlFrame(&wire.MaxStreamDataFrame{StreamID: 0, MaximumStreamData: ByteCount(conf.InitialConnectionReceiveWindow)})
 	}
 
 	go func() {

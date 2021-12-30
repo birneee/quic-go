@@ -106,9 +106,25 @@ func populateConfig(config *Config) *Config {
 		maxIncomingUniStreams = 0
 	}
 
+	minCongestionWindow := config.MinCongestionWindow
+	if minCongestionWindow == 0 {
+		minCongestionWindow = protocol.DefaultMinCongestionWindow
+	}
+
+	maxCongestionWindow := config.MaxCongestionWindow
+	if maxCongestionWindow == 0 {
+		maxCongestionWindow = protocol.DefaultMaxCongestionWindow
+	}
+
 	initialCongestionWindow := config.InitialCongestionWindow
 	if initialCongestionWindow == 0 {
 		initialCongestionWindow = protocol.DefaultInitialCongestionWindow
+	}
+	if initialCongestionWindow < minCongestionWindow {
+		initialCongestionWindow = minCongestionWindow
+	}
+	if initialCongestionWindow > maxCongestionWindow {
+		initialCongestionWindow = maxCongestionWindow
 	}
 
 	return &Config{
@@ -135,5 +151,7 @@ func populateConfig(config *Config) *Config {
 		EnableActiveMigration:   config.EnableActiveMigration,
 		Proxy:                   config.Proxy,
 		InitialCongestionWindow: initialCongestionWindow,
+		MinCongestionWindow:     minCongestionWindow,
+		MaxCongestionWindow:     maxCongestionWindow,
 	}
 }

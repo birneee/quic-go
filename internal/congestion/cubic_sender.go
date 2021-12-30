@@ -12,10 +12,9 @@ import (
 const (
 	// maxDatagramSize is the default maximum packet size used in the Linux TCP implementation.
 	// Used in QUIC for congestion window computations in bytes.
-	initialMaxDatagramSize     = protocol.ByteCount(protocol.InitialPacketSizeIPv4)
-	maxBurstPackets            = 3
-	renoBeta                   = 0.7 // Reno backoff factor.
-	minCongestionWindowPackets = 2
+	initialMaxDatagramSize = protocol.ByteCount(protocol.InitialPacketSizeIPv4)
+	maxBurstPackets        = 3
+	renoBeta               = 0.7 // Reno backoff factor.
 )
 
 type cubicSender struct {
@@ -43,6 +42,12 @@ type cubicSender struct {
 	// Congestion window in packets.
 	congestionWindow protocol.ByteCount
 
+	// in number of packets.
+	minCongestionWindowPackets protocol.ByteCount
+
+	// in number of packets.
+	maxCongestionWindowPackets protocol.ByteCount
+
 	// Slow start congestion window in bytes, aka ssthresh.
 	slowStartThreshold protocol.ByteCount
 
@@ -68,17 +73,20 @@ func NewCubicSender(
 	clock Clock,
 	rttStats *utils.RTTStats,
 	initialMaxDatagramSize protocol.ByteCount,
-	initialCongestionWindow protocol.ByteCount,
+	initialCongestionWindow uint32,
+	minCongestionWindow uint32,
+	maxCongestionWindow uint32,
 	reno bool,
 	tracer logging.ConnectionTracer,
 ) *cubicSender {
-	initialCongestionWindow = (initialCongestionWindow / initialMaxDatagramSize) * initialMaxDatagramSize // floor number to multiple of datagram size
 	return newCubicSender(
 		clock,
 		rttStats,
 		reno,
 		initialMaxDatagramSize,
-		initialCongestionWindow,
+		protocol.ByteCount(initialCongestionWindow)*initialMaxDatagramSize,
+		protocol.ByteCount(minCongestionWindow),
+		protocol.ByteCount(maxCongestionWindow),
 		protocol.MaxCongestionWindowPackets*initialMaxDatagramSize,
 		tracer,
 	)
@@ -90,6 +98,8 @@ func newCubicSender(
 	reno bool,
 	initialMaxDatagramSize,
 	initialCongestionWindow,
+	minCongestionWindowPackets,
+	maxCongestionWindowPackets,
 	initialMaxCongestionWindow protocol.ByteCount,
 	tracer logging.ConnectionTracer,
 ) *cubicSender {
@@ -101,6 +111,8 @@ func newCubicSender(
 		initialCongestionWindow:    initialCongestionWindow,
 		initialMaxCongestionWindow: initialMaxCongestionWindow,
 		congestionWindow:           initialCongestionWindow,
+		minCongestionWindowPackets: minCongestionWindowPackets,
+		maxCongestionWindowPackets: maxCongestionWindowPackets,
 		slowStartThreshold:         protocol.MaxByteCount,
 		cubic:                      NewCubic(clock),
 		clock:                      clock,
@@ -126,11 +138,11 @@ func (c *cubicSender) HasPacingBudget() bool {
 }
 
 func (c *cubicSender) maxCongestionWindow() protocol.ByteCount {
-	return c.maxDatagramSize * protocol.MaxCongestionWindowPackets
+	return c.maxDatagramSize * c.maxCongestionWindowPackets
 }
 
 func (c *cubicSender) minCongestionWindow() protocol.ByteCount {
-	return c.maxDatagramSize * minCongestionWindowPackets
+	return c.maxDatagramSize * c.minCongestionWindowPackets
 }
 
 func (c *cubicSender) OnPacketSent(
