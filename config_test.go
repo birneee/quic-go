@@ -90,7 +90,11 @@ var _ = Describe("Config", func() {
 			case "Proxy":
 				f.Set(reflect.ValueOf(&ProxyConfig{}))
 			case "InitialCongestionWindow":
-				f.Set(reflect.ValueOf(uint32(10000)))
+				f.Set(reflect.ValueOf(uint32(DefaultInitialCongestionWindow)))
+			case "MinCongestionWindow":
+				f.Set(reflect.ValueOf(uint32(DefaultMinCongestionWindow)))
+			case "MaxCongestionWindow":
+				f.Set(reflect.ValueOf(uint32(DefaultMaxCongestionWindow)))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}
