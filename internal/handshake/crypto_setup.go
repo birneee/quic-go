@@ -147,6 +147,10 @@ type cryptoSetup struct {
 	has1RTTOpener bool
 }
 
+func (h *cryptoSetup) TlsConn() *qtls.Conn {
+	return h.conn
+}
+
 var (
 	_ qtls.RecordLayer = &cryptoSetup{}
 	_ CryptoSetup      = &cryptoSetup{}

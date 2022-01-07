@@ -94,6 +94,7 @@ type CryptoSetup interface {
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
 	StoreHandoverState(t *handover.State, p protocol.Perspective)
+	TlsConn() *qtls.Conn
 }
 
 // ConnWithVersion is the connection used in the ClientHelloInfo.

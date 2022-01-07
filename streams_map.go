@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/internal/xse"
 	"net"
 	"sync"
 
@@ -60,6 +61,7 @@ type streamsMap struct {
 	incomingBidiStreams *incomingBidiStreamsMap
 	incomingUniStreams  *incomingUniStreamsMap
 	reset               bool
+	xseCryptoSetup      xse.CryptoSetup
 }
 
 var _ streamManager = &streamsMap{}
@@ -85,17 +87,27 @@ func newStreamsMap(
 }
 
 func (m *streamsMap) initMaps() {
+	//TODO only if agreed in handshake
+	useXse := false
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(id, m.sender, m.newFlowController(id), m.version)
+			if useXse {
+				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+			} else {
+				return newStream(id, m.sender, m.newFlowController(id), m.version)
+			}
 		},
 		m.sender.queueControlFrame,
 	)
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), m.version)
+			if useXse {
+				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+			} else {
+				return newStream(id, m.sender, m.newFlowController(id), m.version)
+			}
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -103,14 +115,22 @@ func (m *streamsMap) initMaps() {
 	m.outgoingUniStreams = newOutgoingUniStreamsMap(
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id), m.version)
+			if useXse {
+				return xseSendStreamI{xse.NewSendStream(newSendStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+			} else {
+				return newSendStream(id, m.sender, m.newFlowController(id), m.version)
+			}
 		},
 		m.sender.queueControlFrame,
 	)
 	m.incomingUniStreams = newIncomingUniStreamsMap(
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
-			return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
+			if useXse {
+				return xseReceiveStreamI{xse.NewReceiveStream(newReceiveStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+			} else {
+				return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
+			}
 		},
 		m.maxIncomingUniStreams,
 		m.sender.queueControlFrame,
@@ -314,4 +334,8 @@ func (m *streamsMap) UseResetMaps() {
 	m.mutex.Lock()
 	m.reset = false
 	m.mutex.Unlock()
+}
+
+func (m *streamsMap) SetXseCryptoSetup(xseSealer xse.CryptoSetup) {
+	m.xseCryptoSetup = xseSealer
 }

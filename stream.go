@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"github.com/lucas-clemente/quic-go/internal/xse"
 	"net"
 	"os"
 	"sync"
@@ -85,6 +86,8 @@ type stream struct {
 }
 
 var _ Stream = &stream{}
+var _ streamI = &stream{}
+var _ xse.Stream = &stream{}
 
 // newStream creates a new Stream
 func newStream(streamID protocol.StreamID,
@@ -146,4 +149,16 @@ func (s *stream) checkIfCompleted() {
 	if s.sendStreamCompleted && s.receiveStreamCompleted {
 		s.sender.onStreamCompleted(s.StreamID())
 	}
+}
+
+func (s *stream) ReceiveStream() xse.ReceiveStream {
+	return &s.receiveStream
+}
+
+func (s *stream) SendStream() xse.SendStream {
+	return &s.sendStream
+}
+
+func (s *stream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
 }

@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	wire "github.com/lucas-clemente/quic-go/internal/wire"
+	xse "github.com/lucas-clemente/quic-go/internal/xse"
 )
 
 // MockStreamManager is a mock of StreamManager interface.
@@ -204,6 +205,18 @@ func (m *MockStreamManager) ResetFor0RTT() {
 func (mr *MockStreamManagerMockRecorder) ResetFor0RTT() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetFor0RTT", reflect.TypeOf((*MockStreamManager)(nil).ResetFor0RTT))
+}
+
+// SetXseCryptoSetup mocks base method.
+func (m *MockStreamManager) SetXseCryptoSetup(arg0 xse.CryptoSetup) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetXseCryptoSetup", arg0)
+}
+
+// SetXseCryptoSetup indicates an expected call of SetXseCryptoSetup.
+func (mr *MockStreamManagerMockRecorder) SetXseCryptoSetup(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXseCryptoSetup", reflect.TypeOf((*MockStreamManager)(nil).SetXseCryptoSetup), arg0)
 }
 
 // UpdateLimits mocks base method.

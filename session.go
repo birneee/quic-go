@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go/handover"
+	"github.com/lucas-clemente/quic-go/internal/xse"
 	"io"
 	"net"
 	"reflect"
@@ -52,6 +53,8 @@ type streamManager interface {
 	CloseWithError(error)
 	ResetFor0RTT()
 	UseResetMaps()
+	// TODO set this in constructor
+	SetXseCryptoSetup(xse.CryptoSetup)
 }
 
 type cryptoStreamHandler interface {
@@ -363,6 +366,7 @@ var newSession = func(
 		s.version,
 	)
 	s.cryptoStreamHandler = cs
+	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.packer = newPacketPacker(
 		srcConnID,
 		s.connIDManager.Get,
@@ -491,6 +495,7 @@ var newClientSession = func(
 	)
 	s.clientHelloWritten = clientHelloWritten
 	s.cryptoStreamHandler = cs
+	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
 	s.unpacker = newPacketUnpacker(cs, s.version)
 	s.packer = newPacketPacker(
@@ -2428,6 +2433,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	}
 
 	s.cryptoStreamHandler = cs
+	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
 	s.unpacker = newPacketUnpacker(cs, s.version)
 	s.packer = newPacketPacker(

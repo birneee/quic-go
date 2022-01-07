@@ -3,6 +3,7 @@ package quic
 import (
 	"context"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/internal/xse"
 	"sync"
 	"time"
 
@@ -58,8 +59,9 @@ type sendStream struct {
 }
 
 var (
-	_ SendStream  = &sendStream{}
-	_ sendStreamI = &sendStream{}
+	_ SendStream     = &sendStream{}
+	_ sendStreamI    = &sendStream{}
+	_ xse.SendStream = &sendStream{}
 )
 
 func newSendStream(
@@ -485,4 +487,24 @@ func (s *sendStream) signalWrite() {
 	case s.writeChan <- struct{}{}:
 	default:
 	}
+}
+
+func (s *sendStream) HasData() bool {
+	return s.hasData()
+}
+
+func (s *sendStream) HandleStopSendingFrame(frame *wire.StopSendingFrame) {
+	s.handleStopSendingFrame(frame)
+}
+
+func (s *sendStream) PopStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool) {
+	return s.popStreamFrame(maxBytes)
+}
+
+func (s *sendStream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
+}
+
+func (s *sendStream) UpdateSendWindow(count protocol.ByteCount) {
+	s.updateSendWindow(count)
 }

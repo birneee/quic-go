@@ -9,6 +9,8 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/utils"
 )
 
+var CreateAEAD = createAEAD
+
 func createAEAD(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) cipher.AEAD {
 	key := hkdfExpandLabel(suite.Hash, trafficSecret, []byte{}, "quic key", suite.KeyLen)
 	iv := hkdfExpandLabel(suite.Hash, trafficSecret, []byte{}, "quic iv", suite.IVLen())
