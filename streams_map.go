@@ -61,7 +61,9 @@ type streamsMap struct {
 	incomingBidiStreams *incomingBidiStreamsMap
 	incomingUniStreams  *incomingUniStreamsMap
 	reset               bool
-	xseCryptoSetup      xse.CryptoSetup
+	// if nil, XSE-QUIC extension is not used
+	xseCryptoSetup xse.CryptoSetup
+	config         *Config
 }
 
 var _ streamManager = &streamsMap{}
@@ -73,6 +75,7 @@ func newStreamsMap(
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
 	version protocol.VersionNumber,
+	config *Config,
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -81,20 +84,22 @@ func newStreamsMap(
 		maxIncomingUniStreams:  maxIncomingUniStreams,
 		sender:                 sender,
 		version:                version,
+		config:                 config,
 	}
 	m.initMaps()
 	return m
 }
 
 func (m *streamsMap) initMaps() {
-	//TODO only if agreed in handshake
-	useXse := false
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			if useXse {
+			if m.xseCryptoSetup != nil {
 				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
+				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
+					panic("non XSE streams are not allowed")
+				}
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -103,9 +108,12 @@ func (m *streamsMap) initMaps() {
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			if useXse {
+			if m.xseCryptoSetup != nil {
 				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
+				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
+					panic("non XSE streams are not allowed")
+				}
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -115,9 +123,12 @@ func (m *streamsMap) initMaps() {
 	m.outgoingUniStreams = newOutgoingUniStreamsMap(
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			if useXse {
+			if m.xseCryptoSetup != nil {
 				return xseSendStreamI{xse.NewSendStream(newSendStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
+				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
+					panic("non XSE streams are not allowed")
+				}
 				return newSendStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -126,9 +137,12 @@ func (m *streamsMap) initMaps() {
 	m.incomingUniStreams = newIncomingUniStreamsMap(
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
-			if useXse {
+			if m.xseCryptoSetup != nil {
 				return xseReceiveStreamI{xse.NewReceiveStream(newReceiveStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
+				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
+					panic("non XSE streams are not allowed")
+				}
 				return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},

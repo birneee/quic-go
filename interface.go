@@ -336,8 +336,18 @@ type Config struct {
 	Proxy *ProxyConfig
 	// The InitialCongestionWindow to use, in number of packets
 	InitialCongestionWindow uint32
-	MinCongestionWindow     uint32
-	MaxCongestionWindow     uint32
+	// in number of packets
+	MinCongestionWindow uint32
+	// in number of packets
+	MaxCongestionWindow uint32
+	// Use XSE-QUIC extension.
+	// If set on the server, it will accept XSE-QUIC and normal QUIC connection handshakes.
+	// If set on the client, XSE-QUIC is enforced,
+	// if the peer does not support XSE-QUIC, the handshake terminates with a TRANSPORT_PARAMETER_ERROR.
+	// Derive an additional key in the handshake,
+	// to additionally encrypt the stream payload,
+	// before the QUIC Packet is encrypted.
+	ExtraStreamEncryption bool
 }
 
 // ConnectionState records basic details about a QUIC connection

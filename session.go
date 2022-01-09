@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go/handover"
+	"github.com/lucas-clemente/quic-go/internal/qtls"
 	"github.com/lucas-clemente/quic-go/internal/xse"
 	"io"
 	"net"
@@ -66,6 +67,7 @@ type cryptoStreamHandler interface {
 	io.Closer
 	ConnectionState() handshake.ConnectionState
 	StoreHandoverState(t *handover.State, p protocol.Perspective)
+	TlsConn() *qtls.Conn
 }
 
 type packetInfo struct {
@@ -335,6 +337,7 @@ var newSession = func(
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:       srcConnID,
 		RetrySourceConnectionID:         retrySrcConnID,
+		ExtraStreamEncryption:           s.config.ExtraStreamEncryption,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -366,7 +369,6 @@ var newSession = func(
 		s.version,
 	)
 	s.cryptoStreamHandler = cs
-	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.packer = newPacketPacker(
 		srcConnID,
 		s.connIDManager.Get,
@@ -466,6 +468,7 @@ var newClientSession = func(
 		DisableActiveMigration:         !s.config.EnableActiveMigration,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
+		ExtraStreamEncryption:          s.config.ExtraStreamEncryption,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -495,7 +498,6 @@ var newClientSession = func(
 	)
 	s.clientHelloWritten = clientHelloWritten
 	s.cryptoStreamHandler = cs
-	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
 	s.unpacker = newPacketUnpacker(cs, s.version)
 	s.packer = newPacketPacker(
@@ -546,6 +548,7 @@ func (s *session) preSetup() {
 		uint64(s.config.MaxIncomingUniStreams),
 		s.perspective,
 		s.version,
+		s.config,
 	)
 	s.framer = newFramer(s.streamsMap, s.version)
 	s.receivedPackets = make(chan *receivedPacket, protocol.MaxSessionUnprocessedPackets)
@@ -1681,6 +1684,9 @@ func (s *session) checkTransportParameters(params *wire.TransportParameters) err
 	} else if params.RetrySourceConnectionID != nil {
 		return errors.New("received retry_source_connection_id, although no Retry was performed")
 	}
+	if s.config.ExtraStreamEncryption && !params.ExtraStreamEncryption {
+		return fmt.Errorf("missing extra_stream_encryption; peer does not support the XSE-QUIC extension")
+	}
 	return nil
 }
 
@@ -1702,6 +1708,9 @@ func (s *session) applyTransportParameters() {
 	if params.PreferredAddress != nil {
 		// Retire the connection ID.
 		s.connIDManager.AddFromPreferredAddress(params.PreferredAddress.ConnectionID, params.PreferredAddress.StatelessResetToken)
+	}
+	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
+		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective))
 	}
 }
 
@@ -2433,7 +2442,6 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	}
 
 	s.cryptoStreamHandler = cs
-	s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(cs.TlsConn(), s.perspective))
 	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
 	s.unpacker = newPacketUnpacker(cs, s.version)
 	s.packer = newPacketPacker(

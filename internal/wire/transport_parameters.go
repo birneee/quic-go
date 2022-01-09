@@ -44,6 +44,8 @@ const (
 	retrySourceConnectionIDParameterID         transportParameterID = 0x10
 	// https://datatracker.ietf.org/doc/draft-ietf-quic-datagram/
 	maxDatagramFrameSizeParameterID transportParameterID = 0x20
+	// TODO Not IANA Registered! 0x40 is used temporarily (see RFC9000 section 22.3)
+	extraStreamEncryptionParameterID transportParameterID = 0x40
 )
 
 // PreferredAddress is the value encoding in the preferred_address transport parameter
@@ -85,6 +87,9 @@ type TransportParameters struct {
 	ActiveConnectionIDLimit uint64
 
 	MaxDatagramFrameSize protocol.ByteCount
+
+	// Use XSE-QUIC extension
+	ExtraStreamEncryption bool
 }
 
 // Unmarshal the transport parameters
@@ -178,6 +183,11 @@ func (p *TransportParameters) unmarshal(r *bytes.Reader, sentBy protocol.Perspec
 			}
 			connID, _ := protocol.ReadConnectionID(r, int(paramLen))
 			p.RetrySourceConnectionID = &connID
+		case extraStreamEncryptionParameterID:
+			if paramLen != 0 {
+				return fmt.Errorf("wrong length for extra_stream_encryption: %d (expected empty)", paramLen)
+			}
+			p.ExtraStreamEncryption = true
 		default:
 			r.Seek(int64(paramLen), io.SeekCurrent)
 		}
@@ -393,6 +403,11 @@ func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
 	}
 	if p.MaxDatagramFrameSize != protocol.InvalidByteCount {
 		p.marshalVarintParam(b, maxDatagramFrameSizeParameterID, uint64(p.MaxDatagramFrameSize))
+	}
+	// extra_stream_encryption
+	if p.ExtraStreamEncryption {
+		quicvarint.Write(b, uint64(extraStreamEncryptionParameterID))
+		quicvarint.Write(b, 0)
 	}
 	return b.Bytes()
 }

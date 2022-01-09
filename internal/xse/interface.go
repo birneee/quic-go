@@ -38,6 +38,7 @@ type RecordEncryptedPayload []byte
 
 const MaxDecryptedPayloadLength = ^DecryptedPayloadLength(0)
 
+// TODO add key update mechanism
 type CryptoSetup interface {
 	// Seal encrypts and authenticates plaintext, authenticates the
 	// additional data and appends the result to dst, returning the updated

@@ -153,5 +153,6 @@ func populateConfig(config *Config) *Config {
 		InitialCongestionWindow: initialCongestionWindow,
 		MinCongestionWindow:     minCongestionWindow,
 		MaxCongestionWindow:     maxCongestionWindow,
+		ExtraStreamEncryption:   config.ExtraStreamEncryption,
 	}
 }
