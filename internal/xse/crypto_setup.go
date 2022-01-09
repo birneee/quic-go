@@ -7,6 +7,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/handshake"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
+	"math/bits"
 	"sync"
 )
 
@@ -19,6 +20,7 @@ const serverXseLabel = "s xse"
 const clientXseLabel = "c xse"
 
 type baseCryptoSetup struct {
+	// reused buffer for storing the nonce
 	nonceBuf []byte
 	rcvAead  cipher.AEAD
 	sendAead cipher.AEAD
@@ -38,15 +40,15 @@ func NewCryptoSetup(rcvAead cipher.AEAD, sendAead cipher.AEAD) *baseCryptoSetup 
 
 var _ CryptoSetup = &baseCryptoSetup{}
 
-func (c *baseCryptoSetup) Seal(dst []byte, src []byte, sid protocol.StreamID, rn RecordNumber) []byte {
-	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], uint64(sid)^uint64(rn))
-	buf := c.sendAead.Seal(dst, c.nonceBuf, src, nil)
+func (c *baseCryptoSetup) Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte {
+	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], bits.Reverse64(uint64(sid))^uint64(rn))
+	buf := c.sendAead.Seal(dst, c.nonceBuf, plaintext, nil)
 	return buf
 }
 
-func (c *baseCryptoSetup) Open(encryptedPayload RecordEncryptedPayload, sid protocol.StreamID, rn RecordNumber) ([]byte, error) {
-	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], uint64(sid)^uint64(rn))
-	return c.rcvAead.Open(encryptedPayload[:0], c.nonceBuf, encryptedPayload, nil)
+func (c *baseCryptoSetup) Open(dst []byte, ciphertext RecordEncryptedPayload, sid protocol.StreamID, rn RecordNumber) ([]byte, error) {
+	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], bits.Reverse64(uint64(sid))^uint64(rn))
+	return c.rcvAead.Open(dst, c.nonceBuf, ciphertext, nil)
 }
 
 func (c *baseCryptoSetup) EncryptedRecordPayloadLength(payload DecryptedPayloadLength) uint32 {
@@ -99,14 +101,14 @@ func (c *cryptoSetup) initAead() {
 	}
 }
 
-func (c *cryptoSetup) Seal(dst []byte, src []byte, sid protocol.StreamID, rn RecordNumber) []byte {
+func (c *cryptoSetup) Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte {
 	c.initAeadOnce.Do(c.initAead)
-	return c.baseCryptoSetup.Seal(dst, src, sid, rn)
+	return c.baseCryptoSetup.Seal(dst, plaintext, sid, rn)
 }
 
-func (c *cryptoSetup) Open(payload RecordEncryptedPayload, id protocol.StreamID, number RecordNumber) ([]byte, error) {
+func (c *cryptoSetup) Open(dst []byte, ciphertext RecordEncryptedPayload, id protocol.StreamID, number RecordNumber) ([]byte, error) {
 	c.initAeadOnce.Do(c.initAead)
-	return c.baseCryptoSetup.Open(payload, id, number)
+	return c.baseCryptoSetup.Open(dst, ciphertext, id, number)
 
 }
 

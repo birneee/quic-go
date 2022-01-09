@@ -1,12 +1,11 @@
 package xse
 
-import (
-	"encoding/binary"
-)
+import "sync"
 
 type sendStream struct {
 	SendStream
 	cryptoSetup      CryptoSetup
+	mutex            sync.Mutex // used for all fields below
 	nextRecordNumber RecordNumber
 	sendBuf          []byte
 }
@@ -31,8 +30,9 @@ func (s *sendStream) Write(p []byte) (n int, err error) {
 		} else {
 			decryptedPayloadLength = DecryptedPayloadLength(len(writeNext))
 		}
-		binary.BigEndian.PutUint16(s.sendBuf[:2], uint16(decryptedPayloadLength))
-		_, err := s.SendStream.Write(s.sendBuf[:2])
+		header := RecordHeader(s.sendBuf[:2])
+		header.SetDecryptedPayloadLength(decryptedPayloadLength)
+		_, err := s.SendStream.Write(header)
 		if err != nil {
 			return len(p) - len(writeNext), err
 		}

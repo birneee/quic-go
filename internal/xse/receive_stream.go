@@ -1,7 +1,6 @@
 package xse
 
 import (
-	"encoding/binary"
 	"io"
 )
 
@@ -44,9 +43,9 @@ func (x *receiveStream) readRecordHeader() (RecordHeader, error) {
 	x.buf = x.buf[:2]
 	_, err := io.ReadFull(x.ReceiveStream, x.buf)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return RecordHeader(binary.BigEndian.Uint16(x.buf)), nil
+	return x.buf, nil
 }
 
 func (x *receiveStream) readNextRecord() error {
@@ -60,7 +59,7 @@ func (x *receiveStream) readNextRecord() error {
 	if err != nil {
 		return err
 	}
-	x.buf, err = x.xseSealer.Open(x.buf, x.StreamID(), x.nextRecordNumber)
+	x.buf, err = x.xseSealer.Open(x.buf[:0], x.buf, x.StreamID(), x.nextRecordNumber)
 	x.nextRecordNumber++
 	if err != nil {
 		return err

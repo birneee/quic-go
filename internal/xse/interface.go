@@ -2,6 +2,7 @@ package xse
 
 import (
 	"context"
+	"encoding/binary"
 	"github.com/lucas-clemente/quic-go/internal/ackhandler"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qerr"
@@ -12,21 +13,50 @@ import (
 
 type RecordNumber uint64
 
-type RecordHeader DecryptedPayloadLength
+// RecordHeader contains the decrypted payload length.
+// Must be 2 bytes long.
+type RecordHeader []byte
 
 func (r RecordHeader) DecryptedPayloadLength() DecryptedPayloadLength {
-	return DecryptedPayloadLength(r)
+	return DecryptedPayloadLength(binary.BigEndian.Uint16(r))
+}
+
+// SetDecryptedPayloadLength sets length of plaintext.
+// Must not be 0.
+// TODO error handling
+func (r RecordHeader) SetDecryptedPayloadLength(length DecryptedPayloadLength) {
+	if length == 0 {
+		panic("XSE-QUIC protocol violation: record plaintext has length 0")
+	}
+	binary.BigEndian.PutUint16(r, uint16(length))
 }
 
 type DecryptedPayloadLength uint16
 
+// RecordEncryptedPayload does not include the header
 type RecordEncryptedPayload []byte
 
 const MaxDecryptedPayloadLength = ^DecryptedPayloadLength(0)
 
 type CryptoSetup interface {
-	Seal(dst []byte, src []byte, sid protocol.StreamID, rn RecordNumber) []byte
-	Open(RecordEncryptedPayload, protocol.StreamID, RecordNumber) ([]byte, error)
+	// Seal encrypts and authenticates plaintext, authenticates the
+	// additional data and appends the result to dst, returning the updated
+	// slice.
+	//
+	// To reuse plaintext's storage for the encrypted output, use plaintext[:0]
+	// as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
+	Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte
+	// Open decrypts and authenticates ciphertext, authenticates the
+	// additional data and, if successful, appends the resulting plaintext
+	// to dst, returning the updated slice.
+	// The StreamID and the RecordNumber must match the values passed to Seal.
+	//
+	// To reuse ciphertext's storage for the decrypted output, use ciphertext[:0]
+	// as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
+	//
+	// Even if the function fails, the contents of dst, up to its capacity,
+	// may be overwritten.
+	Open(dst []byte, ciphertext RecordEncryptedPayload, sid protocol.StreamID, rn RecordNumber) ([]byte, error)
 	EncryptedRecordPayloadLength(DecryptedPayloadLength) uint32
 	MaxEncryptedRecordPayloadLength() uint32
 }
