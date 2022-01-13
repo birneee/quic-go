@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"github.com/golang/mock/gomock"
-	"github.com/lucas-clemente/quic-go/internal/handshake"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
 	"github.com/lucas-clemente/quic-go/internal/xse"
@@ -29,10 +28,9 @@ func mockSendReceiveQueue(ctrl *gomock.Controller) (xse.SendStream, xse.ReceiveS
 
 func mockCryptoSetup() xse.CryptoSetup {
 	suite := qtls.CipherSuiteTLS13ByID(tls.TLS_AES_128_GCM_SHA256)
-	key := make([]byte, suite.KeyLen)
-	rand.Read(key)
-	aead := handshake.CreateAEAD(suite, key)
-	return xse.NewCryptoSetup(aead, aead)
+	secret := make([]byte, suite.Hash.Size())
+	rand.Read(secret)
+	return xse.NewCryptoSetup(secret, secret, suite)
 }
 
 func TestShortMessage(t *testing.T) {

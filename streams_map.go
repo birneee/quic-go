@@ -63,7 +63,6 @@ type streamsMap struct {
 	reset               bool
 	// if nil, XSE-QUIC extension is not used
 	xseCryptoSetup xse.CryptoSetup
-	config         *Config
 }
 
 var _ streamManager = &streamsMap{}
@@ -75,7 +74,6 @@ func newStreamsMap(
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
 	version protocol.VersionNumber,
-	config *Config,
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -84,7 +82,6 @@ func newStreamsMap(
 		maxIncomingUniStreams:  maxIncomingUniStreams,
 		sender:                 sender,
 		version:                version,
-		config:                 config,
 	}
 	m.initMaps()
 	return m
@@ -97,9 +94,6 @@ func (m *streamsMap) initMaps() {
 			if m.xseCryptoSetup != nil {
 				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
-				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
-					panic("non XSE streams are not allowed")
-				}
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -111,9 +105,6 @@ func (m *streamsMap) initMaps() {
 			if m.xseCryptoSetup != nil {
 				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
-				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
-					panic("non XSE streams are not allowed")
-				}
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -126,9 +117,6 @@ func (m *streamsMap) initMaps() {
 			if m.xseCryptoSetup != nil {
 				return xseSendStreamI{xse.NewSendStream(newSendStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
-				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
-					panic("non XSE streams are not allowed")
-				}
 				return newSendStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -140,9 +128,6 @@ func (m *streamsMap) initMaps() {
 			if m.xseCryptoSetup != nil {
 				return xseReceiveStreamI{xse.NewReceiveStream(newReceiveStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
 			} else {
-				if m.perspective == PerspectiveClient && m.config.ExtraStreamEncryption {
-					panic("non XSE streams are not allowed")
-				}
 				return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
 			}
 		},
@@ -350,6 +335,6 @@ func (m *streamsMap) UseResetMaps() {
 	m.mutex.Unlock()
 }
 
-func (m *streamsMap) SetXseCryptoSetup(xseSealer xse.CryptoSetup) {
-	m.xseCryptoSetup = xseSealer
+func (m *streamsMap) SetXseCryptoSetup(xseCryptoSetup xse.CryptoSetup) {
+	m.xseCryptoSetup = xseCryptoSetup
 }

@@ -443,6 +443,11 @@ func (p *TransportParameters) MarshalForSessionTicket(b *bytes.Buffer) {
 	p.marshalVarintParam(b, initialMaxStreamsUniParameterID, uint64(p.MaxUniStreamNum))
 	// active_connection_id_limit
 	p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
+	// extra_stream_encryption
+	if p.ExtraStreamEncryption {
+		quicvarint.Write(b, uint64(extraStreamEncryptionParameterID))
+		quicvarint.Write(b, 0)
+	}
 }
 
 // UnmarshalFromSessionTicket unmarshals transport parameters from a session ticket.

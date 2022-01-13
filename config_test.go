@@ -95,6 +95,8 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(uint32(DefaultMinCongestionWindow)))
 			case "MaxCongestionWindow":
 				f.Set(reflect.ValueOf(uint32(DefaultMaxCongestionWindow)))
+			case "ExtraStreamEncryption":
+				f.Set(reflect.ValueOf(true))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}

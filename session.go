@@ -548,7 +548,6 @@ func (s *session) preSetup() {
 		uint64(s.config.MaxIncomingUniStreams),
 		s.perspective,
 		s.version,
-		s.config,
 	)
 	s.framer = newFramer(s.streamsMap, s.version)
 	s.receivedPackets = make(chan *receivedPacket, protocol.MaxSessionUnprocessedPackets)
@@ -1634,6 +1633,10 @@ func (s *session) restoreTransportParameters(params *wire.TransportParameters) {
 	s.connIDGenerator.SetMaxActiveConnIDs(params.ActiveConnectionIDLimit)
 	s.connFlowController.UpdateSendWindow(params.InitialMaxData)
 	s.streamsMap.UpdateLimits(params)
+
+	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
+		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective))
+	}
 }
 
 func (s *session) handleTransportParameters(params *wire.TransportParameters) {

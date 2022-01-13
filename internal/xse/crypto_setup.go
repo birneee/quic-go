@@ -4,120 +4,123 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"fmt"
-	"github.com/lucas-clemente/quic-go/internal/handshake"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
+	"github.com/lucas-clemente/quic-go/logging"
 	"math/bits"
 	"sync"
 )
 
-// label to export XSE-QUIC server key from TLS exporter_master_secret
-// (see RFC8446 Section 7.5)
-const serverXseLabel = "s xse"
+const (
+	// label to export XSE-QUIC master secret from TLS exporter_master_secret
+	// (see RFC8446 Section 7.5)
+	xseMasterSecretLabel          = "xse master"
+	clientApplicationTrafficLabel = "c ap traffic"
+	serverApplicationTrafficLabel = "s ap traffic"
+	quicKeyUpdateLabel            = "quic ku"
+)
 
-// label to export XSE-QUIC client key from TLS exporter_master_secret
-// (see RFC8446 Section 7.5)
-const clientXseLabel = "c xse"
+func applicationTrafficLabel(perspective protocol.Perspective) string {
+	if perspective == logging.PerspectiveClient {
+		return clientApplicationTrafficLabel
+	} else {
+		return serverApplicationTrafficLabel
+	}
+}
 
-type baseCryptoSetup struct {
+type cryptoSetup struct {
+	// protects all members below
+	mutex sync.Mutex
+	suite *qtls.CipherSuiteTLS13
 	// reused buffer for storing the nonce
-	nonceBuf []byte
-	rcvAead  cipher.AEAD
-	sendAead cipher.AEAD
+	nonceBuf                        []byte
+	rcvXseApplicationTrafficSecret  []byte
+	sendXseApplicationTrafficSecret []byte
+	rcvAead                         cipher.AEAD
+	sendAead                        cipher.AEAD
 }
 
 // NewCryptoSetup creates a XSE-QUIC crypto setup
-func NewCryptoSetup(rcvAead cipher.AEAD, sendAead cipher.AEAD) *baseCryptoSetup {
-	if rcvAead.NonceSize() != sendAead.NonceSize() {
-		panic("AEAD nonce sizes are different")
-	}
-	return &baseCryptoSetup{
-		nonceBuf: make([]byte, rcvAead.NonceSize()),
-		rcvAead:  rcvAead,
-		sendAead: sendAead,
-	}
+func NewCryptoSetup(rcvXseApplicationTrafficSecret []byte, sendXseApplicationTrafficSecret []byte, suite *qtls.CipherSuiteTLS13) *cryptoSetup {
+	c := &cryptoSetup{}
+
+	c.suite = suite
+
+	c.rcvXseApplicationTrafficSecret = rcvXseApplicationTrafficSecret
+	c.sendXseApplicationTrafficSecret = sendXseApplicationTrafficSecret
+
+	c.rcvAead = qtls.CreateAEAD(suite, c.rcvXseApplicationTrafficSecret)
+	c.sendAead = qtls.CreateAEAD(suite, c.sendXseApplicationTrafficSecret)
+
+	c.nonceBuf = make([]byte, c.rcvAead.NonceSize())
+	return c
 }
 
-var _ CryptoSetup = &baseCryptoSetup{}
+// NewCryptoSetupFromConn creates a XSE-QUIC crypto setup
+// TODO 0-RTT is not supported, block until 1-RTT key is available
+// TODO improve error handling
+func NewCryptoSetupFromConn(conn *qtls.Conn, perspective protocol.Perspective) *cryptoSetup {
+	c := &cryptoSetup{}
+	c.mutex.Lock()
+	go func() {
+		// TODO allow 0-RTT XSE-QUIC streams
+		// ConnectionState() blocks until handshake is done
+		cs := conn.ConnectionState()
+		c.suite = qtls.CipherSuiteTLS13ByID(cs.CipherSuite)
+		xseMasterSecret, err := (&cs).ExportKeyingMaterial(xseMasterSecretLabel, nil, c.suite.Hash.Size())
+		if err != nil {
+			panic(fmt.Errorf("failed to export xse_master_secret: %w", err))
+		}
 
-func (c *baseCryptoSetup) Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte {
+		c.rcvXseApplicationTrafficSecret = qtls.DeriveSecret(c.suite, xseMasterSecret, applicationTrafficLabel(perspective.Opposite()), nil)
+		c.sendXseApplicationTrafficSecret = qtls.DeriveSecret(c.suite, xseMasterSecret, applicationTrafficLabel(perspective), nil)
+
+		c.rcvAead = qtls.CreateAEAD(c.suite, c.rcvXseApplicationTrafficSecret)
+		c.sendAead = qtls.CreateAEAD(c.suite, c.sendXseApplicationTrafficSecret)
+
+		c.nonceBuf = make([]byte, c.rcvAead.NonceSize())
+		c.mutex.Unlock()
+	}()
+
+	return c
+}
+
+var _ CryptoSetup = &cryptoSetup{}
+
+// Update trafficSecrets and AEADs for next key phase
+// TODO remember old keys, until all streams use the new keys
+func (c *cryptoSetup) Update() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.rcvXseApplicationTrafficSecret = qtls.DeriveSecret(c.suite, c.rcvXseApplicationTrafficSecret, quicKeyUpdateLabel, nil)
+	c.sendXseApplicationTrafficSecret = qtls.DeriveSecret(c.suite, c.sendXseApplicationTrafficSecret, quicKeyUpdateLabel, nil)
+
+	c.rcvAead = qtls.CreateAEAD(c.suite, c.rcvXseApplicationTrafficSecret)
+	c.sendAead = qtls.CreateAEAD(c.suite, c.sendXseApplicationTrafficSecret)
+}
+
+func (c *cryptoSetup) Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], bits.Reverse64(uint64(sid))^uint64(rn))
 	buf := c.sendAead.Seal(dst, c.nonceBuf, plaintext, nil)
 	return buf
 }
 
-func (c *baseCryptoSetup) Open(dst []byte, ciphertext RecordEncryptedPayload, sid protocol.StreamID, rn RecordNumber) ([]byte, error) {
+func (c *cryptoSetup) Open(dst []byte, ciphertext RecordEncryptedPayload, sid protocol.StreamID, rn RecordNumber) ([]byte, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	binary.BigEndian.PutUint64(c.nonceBuf[len(c.nonceBuf)-8:], bits.Reverse64(uint64(sid))^uint64(rn))
 	return c.rcvAead.Open(dst, c.nonceBuf, ciphertext, nil)
 }
 
-func (c *baseCryptoSetup) EncryptedRecordPayloadLength(payload DecryptedPayloadLength) uint32 {
+func (c *cryptoSetup) EncryptedRecordPayloadLength(payload DecryptedPayloadLength) uint32 {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	return uint32(payload) + uint32(c.sendAead.Overhead())
 }
 
-func (c *baseCryptoSetup) MaxEncryptedRecordPayloadLength() uint32 {
-	return c.EncryptedRecordPayloadLength(MaxDecryptedPayloadLength)
-}
-
-type cryptoSetup struct {
-	conn         *qtls.Conn
-	perspective  protocol.Perspective
-	initAeadOnce sync.Once
-	*baseCryptoSetup
-}
-
-var _ CryptoSetup = &cryptoSetup{}
-
-// NewCryptoSetupFromConn creates a XSE-QUIC crypto setup
-func NewCryptoSetupFromConn(conn *qtls.Conn, perspective protocol.Perspective) CryptoSetup {
-	return &cryptoSetup{
-		conn:        conn,
-		perspective: perspective,
-	}
-}
-
-//TODO improve error handling
-func (c *cryptoSetup) initAead() {
-	state := c.conn.ConnectionState()
-	if !state.HandshakeComplete {
-		panic("handshake must be completed")
-	}
-	suite := qtls.CipherSuiteTLS13ByID(state.CipherSuite)
-	serverKey, err := (&state).ExportKeyingMaterial(serverXseLabel, nil, suite.KeyLen)
-	if err != nil {
-		panic(fmt.Errorf("failed to export key: %w", err))
-	}
-	serverAead := handshake.CreateAEAD(suite, serverKey)
-	clientKey, err := (&state).ExportKeyingMaterial(clientXseLabel, nil, suite.KeyLen)
-	if err != nil {
-		panic(fmt.Errorf("failed to export key: %w", err))
-	}
-	clientAead := handshake.CreateAEAD(suite, clientKey)
-	if c.perspective == protocol.PerspectiveClient {
-		c.baseCryptoSetup = NewCryptoSetup(serverAead, clientAead)
-	} else {
-		c.baseCryptoSetup = NewCryptoSetup(clientAead, serverAead)
-
-	}
-}
-
-func (c *cryptoSetup) Seal(dst []byte, plaintext []byte, sid protocol.StreamID, rn RecordNumber) []byte {
-	c.initAeadOnce.Do(c.initAead)
-	return c.baseCryptoSetup.Seal(dst, plaintext, sid, rn)
-}
-
-func (c *cryptoSetup) Open(dst []byte, ciphertext RecordEncryptedPayload, id protocol.StreamID, number RecordNumber) ([]byte, error) {
-	c.initAeadOnce.Do(c.initAead)
-	return c.baseCryptoSetup.Open(dst, ciphertext, id, number)
-
-}
-
-func (c *cryptoSetup) EncryptedRecordPayloadLength(length DecryptedPayloadLength) uint32 {
-	c.initAeadOnce.Do(c.initAead)
-	return c.baseCryptoSetup.EncryptedRecordPayloadLength(length)
-}
-
 func (c *cryptoSetup) MaxEncryptedRecordPayloadLength() uint32 {
-	c.initAeadOnce.Do(c.initAead)
+	// is locked by EncryptedRecordPayloadLength
 	return c.EncryptedRecordPayloadLength(MaxDecryptedPayloadLength)
 }
