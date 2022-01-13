@@ -38,9 +38,13 @@ type State struct {
 	SuiteId uint16
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
+	// TODO use header protection key instead
+	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
 	FirstServerSendTrafficSecret []byte
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
+	// TODO use header protection key instead
+	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
 	FirstClientSendTrafficSecret []byte
 	ServerSendTrafficSecret      []byte
 	ClientSendTrafficSecret      []byte

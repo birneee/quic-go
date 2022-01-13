@@ -824,7 +824,9 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	if h.writeEncLevel != protocol.Encryption1RTT {
 		panic("illegal handover state")
 	}
+	//TODO extra_stream_encryption parameter should not be part of handover
 	s.SetOwnTransportParameters(p, *h.ourParams)
+	//TODO extra_stream_encryption parameter should not be part of handover
 	s.SetPeerTransportParameters(p, *h.peerParams)
 	h.aead.store(s, p)
 }
