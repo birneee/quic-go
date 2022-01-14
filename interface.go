@@ -225,6 +225,8 @@ type Session interface {
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
+	// ExtraStreamEncrypted returns true if XSE-QUIC is used
+	ExtraStreamEncrypted() bool
 }
 
 // An EarlySession is a session that is handshaking.

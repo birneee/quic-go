@@ -2569,3 +2569,7 @@ func (s *session) useProxy() error {
 	}
 	return nil
 }
+
+func (s *session) ExtraStreamEncrypted() bool {
+	return s.config.ExtraStreamEncryption && s.peerParams.ExtraStreamEncryption
+}
