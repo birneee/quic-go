@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucas-clemente/quic-go/handover"
+	"github.com/lucas-clemente/quic-go/internal/h_quic"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qerr"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
@@ -824,10 +825,8 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	if h.writeEncLevel != protocol.Encryption1RTT {
 		panic("illegal handover state")
 	}
-	//TODO extra_stream_encryption parameter should not be part of handover
-	s.SetOwnTransportParameters(p, *h.ourParams)
-	//TODO extra_stream_encryption parameter should not be part of handover
-	s.SetPeerTransportParameters(p, *h.peerParams)
+	s.SetOwnTransportParameters(p, h_quic.FilterTransportParameters(*h.ourParams))
+	s.SetPeerTransportParameters(p, h_quic.FilterTransportParameters(*h.peerParams))
 	h.aead.store(s, p)
 }
 

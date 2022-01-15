@@ -2282,28 +2282,19 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 	if conf == nil {
 		return
 	}
-	if uint64(ownParams.InitialMaxStreamDataBidiLocal) > conf.InitialStreamReceiveWindow {
-		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataBidiLocal)
-		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
-	}
 
-	if uint64(ownParams.InitialMaxStreamDataBidiRemote) > conf.InitialStreamReceiveWindow {
-		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataBidiRemote)
-		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
-	}
+	conf.MaxStreamReceiveWindow = utils.MaxUint64V(
+		conf.MaxStreamReceiveWindow,
+		uint64(ownParams.InitialMaxStreamDataBidiLocal),
+		uint64(ownParams.InitialMaxStreamDataBidiRemote),
+		uint64(ownParams.InitialMaxStreamDataUni),
+	)
 
-	if uint64(ownParams.InitialMaxStreamDataUni) > conf.InitialStreamReceiveWindow {
-		conf.InitialStreamReceiveWindow = uint64(ownParams.InitialMaxStreamDataUni)
-		conf.InitialConnectionReceiveWindow = uint64(float64(conf.InitialStreamReceiveWindow) * protocol.ConnectionFlowControlMultiplier)
-	}
-
-	if conf.InitialStreamReceiveWindow > conf.MaxStreamReceiveWindow {
-		conf.MaxStreamReceiveWindow = conf.InitialStreamReceiveWindow
-	}
-
-	if conf.InitialConnectionReceiveWindow > conf.MaxConnectionReceiveWindow {
-		conf.MaxConnectionReceiveWindow = conf.InitialConnectionReceiveWindow
-	}
+	conf.MaxConnectionReceiveWindow = utils.MaxUint64V(
+		conf.MaxConnectionReceiveWindow,
+		conf.MaxStreamReceiveWindow,
+		uint64(ownParams.InitialMaxData),
+	)
 }
 
 func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
@@ -2556,6 +2547,10 @@ func (s *session) useProxy() error {
 	if err != nil {
 		return err
 	}
+	if s.config.Proxy.ModifyState != nil {
+		s.config.Proxy.ModifyState(&state)
+	}
+
 	marshalledState, err := json.Marshal(state)
 	if err != nil {
 		return err

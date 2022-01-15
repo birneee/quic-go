@@ -392,4 +392,6 @@ type ProxyConfig struct {
 	Config *Config
 	// used for proxy control connection
 	TlsConf *tls.Config
+	// before sending the handover state to the H-QUIC proxy, this function can be used to modify the state
+	ModifyState func(state *handover.State)
 }
