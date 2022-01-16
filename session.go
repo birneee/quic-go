@@ -2207,6 +2207,7 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 	}
 	s.conn.SetCurrentRemoteAddr(remoteAddr)
 	s.rttStats.OnConnectionMigration()
+	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
 	s.ignoreReceived1RTTPacketsUntilMigration = false
 }
 
@@ -2509,17 +2510,6 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	err = s.sendProbePacket(protocol.Encryption1RTT)
 	if err != nil {
 		return nil, err
-	}
-
-	// update max_data
-	if ByteCount(conf.InitialConnectionReceiveWindow) > ownParams.InitialMaxData {
-		s.queueControlFrame(&wire.MaxDataFrame{MaximumData: ByteCount(conf.InitialConnectionReceiveWindow)})
-	}
-
-	// update max_data
-	// TODO for all streams, when streams are created
-	if ByteCount(conf.InitialStreamReceiveWindow) > ownParams.InitialMaxStreamDataBidiLocal {
-		s.queueControlFrame(&wire.MaxStreamDataFrame{StreamID: 0, MaximumStreamData: ByteCount(conf.InitialConnectionReceiveWindow)})
 	}
 
 	go func() {

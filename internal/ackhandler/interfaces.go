@@ -55,6 +55,7 @@ type SentPacketHandler interface {
 	// SetHighest1RTTPacketNumber is used for connection handover.
 	// Also validates peer address
 	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
+	OnConnectionMigration()
 }
 
 type sentPacketTracker interface {
