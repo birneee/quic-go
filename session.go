@@ -238,8 +238,11 @@ type session struct {
 	ignoredRemoteAddresses []net.UDPAddr
 	runner                 sessionRunner
 	//TODO this should not be necessary
-	cloned                                  bool
-	ignoreReceived1RTTPacketsUntilMigration bool
+	cloned bool
+	// closed when H-QUIC handover migration is done.
+	// ignore received 1RTT packets and opening streams.
+	handoverMigrationCtx       context.Context
+	handoverMigrationCtxCancel context.CancelFunc
 }
 
 var (
@@ -268,20 +271,19 @@ var newSession = func(
 	v protocol.VersionNumber,
 ) quicSession {
 	s := &session{
-		conn:                                    conn,
-		config:                                  conf,
-		handshakeDestConnID:                     destConnID,
-		srcConnIDLen:                            srcConnID.Len(),
-		tokenGenerator:                          tokenGenerator,
-		oneRTTStream:                            newCryptoStream(),
-		perspective:                             protocol.PerspectiveServer,
-		handshakeCompleteChan:                   make(chan struct{}),
-		handshakeConfirmedChan:                  make(chan struct{}),
-		tracer:                                  tracer,
-		logger:                                  logger,
-		version:                                 v,
-		runner:                                  runner,
-		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
+		conn:                   conn,
+		config:                 conf,
+		handshakeDestConnID:    destConnID,
+		srcConnIDLen:           srcConnID.Len(),
+		tokenGenerator:         tokenGenerator,
+		oneRTTStream:           newCryptoStream(),
+		perspective:            protocol.PerspectiveServer,
+		handshakeCompleteChan:  make(chan struct{}),
+		handshakeConfirmedChan: make(chan struct{}),
+		tracer:                 tracer,
+		logger:                 logger,
+		version:                v,
+		runner:                 runner,
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -406,21 +408,20 @@ var newClientSession = func(
 	v protocol.VersionNumber,
 ) quicSession {
 	s := &session{
-		conn:                                    conn,
-		config:                                  conf,
-		origDestConnID:                          destConnID,
-		handshakeDestConnID:                     destConnID,
-		srcConnIDLen:                            srcConnID.Len(),
-		perspective:                             protocol.PerspectiveClient,
-		handshakeCompleteChan:                   make(chan struct{}),
-		handshakeConfirmedChan:                  make(chan struct{}),
-		logID:                                   destConnID.String(),
-		logger:                                  logger,
-		tracer:                                  tracer,
-		versionNegotiated:                       hasNegotiatedVersion,
-		version:                                 v,
-		runner:                                  runner,
-		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
+		conn:                   conn,
+		config:                 conf,
+		origDestConnID:         destConnID,
+		handshakeDestConnID:    destConnID,
+		srcConnIDLen:           srcConnID.Len(),
+		perspective:            protocol.PerspectiveClient,
+		handshakeCompleteChan:  make(chan struct{}),
+		handshakeConfirmedChan: make(chan struct{}),
+		logID:                  destConnID.String(),
+		logger:                 logger,
+		tracer:                 tracer,
+		versionNegotiated:      hasNegotiatedVersion,
+		version:                v,
+		runner:                 runner,
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -554,6 +555,10 @@ func (s *session) preSetup() {
 	s.closeChan = make(chan closeError, 1)
 	s.sendingScheduled = make(chan struct{}, 1)
 	s.handshakeCtx, s.handshakeCtxCancel = context.WithCancel(context.Background())
+	s.handoverMigrationCtx, s.handoverMigrationCtxCancel = context.WithCancel(context.Background())
+	if s.config.Proxy == nil && !s.config.IgnoreReceived1RTTPacketsUntilFirstPathMigration {
+		s.handoverMigrationCtxCancel()
+	}
 
 	now := time.Now()
 	s.lastPacketReceivedTime = now
@@ -999,7 +1004,7 @@ func (s *session) handleSinglePacket(p *receivedPacket, hdr *wire.Header) bool /
 		s.updatePath(p.remoteAddr)
 	}
 
-	if s.ignoreReceived1RTTPacketsUntilMigration && s.handshakeConfirmed {
+	if s.isWaitingForHandoverMigration() && s.handshakeConfirmed {
 		if s.tracer != nil {
 			s.tracer.DroppedPacket(logging.PacketTypeFromHeader(hdr), p.Size(), logging.PacketDropWaitForMigration)
 		}
@@ -1888,7 +1893,7 @@ func (s *session) sendPackedPacket(packet *packedPacket, now time.Time) {
 		return
 	}
 	//TODO this can be removed, when server ensures HandshakeDoneFrame is sent and stream can be already opened
-	if s.ignoreReceived1RTTPacketsUntilMigration && packet.EncryptionLevel() == protocol.Encryption1RTT && s.perspective == protocol.PerspectiveClient {
+	if s.isWaitingForHandoverMigration() && packet.EncryptionLevel() == protocol.Encryption1RTT && s.perspective == protocol.PerspectiveClient {
 		s.logger.Debugf("Ignore sending 1RTT packets until path change")
 		s.logPacket(packet)
 		return
@@ -1982,21 +1987,22 @@ func (s *session) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
 
 // OpenStream opens a stream
 func (s *session) OpenStream() (Stream, error) {
-	for s.ignoreReceived1RTTPacketsUntilMigration {
-		time.Sleep(100 * time.Millisecond) //TODO use a channel
-	}
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.OpenStream()
 }
 
 func (s *session) OpenStreamSync(ctx context.Context) (Stream, error) {
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.OpenStreamSync(ctx)
 }
 
 func (s *session) OpenUniStream() (SendStream, error) {
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.OpenUniStream()
 }
 
 func (s *session) OpenUniStreamSync(ctx context.Context) (SendStream, error) {
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.OpenUniStreamSync(ctx)
 }
 
@@ -2208,7 +2214,7 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 	s.conn.SetCurrentRemoteAddr(remoteAddr)
 	s.rttStats.OnConnectionMigration()
 	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
-	s.ignoreReceived1RTTPacketsUntilMigration = false
+	s.handoverMigrationCtxCancel()
 }
 
 // Returns nil when handshake is confirmed,
@@ -2353,23 +2359,22 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 	}
 
 	s := &session{
-		conn:                                    conn,
-		config:                                  conf,
-		origDestConnID:                          nil,
-		handshakeDestConnID:                     nil,
-		srcConnIDLen:                            state.SrcConnectionIDLength(perspective),
-		perspective:                             perspective,
-		handshakeCompleteChan:                   make(chan struct{}),
-		handshakeConfirmedChan:                  make(chan struct{}),
-		logID:                                   state.LogConnectionID.String(),
-		logger:                                  logger,
-		tracer:                                  connTracer,
-		versionNegotiated:                       false,
-		version:                                 state.Version,
-		runner:                                  runner,
-		tokenGenerator:                          tokenGenerator,
-		cloned:                                  true,
-		ignoreReceived1RTTPacketsUntilMigration: conf.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
+		conn:                   conn,
+		config:                 conf,
+		origDestConnID:         nil,
+		handshakeDestConnID:    nil,
+		srcConnIDLen:           state.SrcConnectionIDLength(perspective),
+		perspective:            perspective,
+		handshakeCompleteChan:  make(chan struct{}),
+		handshakeConfirmedChan: make(chan struct{}),
+		logID:                  state.LogConnectionID.String(),
+		logger:                 logger,
+		tracer:                 connTracer,
+		versionNegotiated:      false,
+		version:                state.Version,
+		runner:                 runner,
+		tokenGenerator:         tokenGenerator,
+		cloned:                 true,
 	}
 
 	s.connIDManager = newConnIDManager(
@@ -2557,4 +2562,14 @@ func (s *session) useProxy() error {
 
 func (s *session) ExtraStreamEncrypted() bool {
 	return s.config.ExtraStreamEncryption && s.peerParams.ExtraStreamEncryption
+}
+
+// does not block
+func (s *session) isWaitingForHandoverMigration() bool {
+	select {
+	case _, _ = <-s.handoverMigrationCtx.Done():
+		return false
+	default:
+		return true
+	}
 }
