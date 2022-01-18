@@ -759,6 +759,7 @@ func (h *sentPacketHandler) SetMaxDatagramSize(s protocol.ByteCount) {
 }
 
 func (h *sentPacketHandler) isAmplificationLimited() bool {
+	//TODO consider address validation token
 	if h.peerAddressValidated {
 		return false
 	}
