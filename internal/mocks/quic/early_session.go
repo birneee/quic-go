@@ -110,6 +110,20 @@ func (mr *MockEarlySessionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockEarlySession)(nil).Context))
 }
 
+// ExtraStreamEncrypted mocks base method.
+func (m *MockEarlySession) ExtraStreamEncrypted() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraStreamEncrypted")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraStreamEncrypted indicates an expected call of ExtraStreamEncrypted.
+func (mr *MockEarlySessionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraStreamEncrypted", reflect.TypeOf((*MockEarlySession)(nil).ExtraStreamEncrypted))
+}
+
 // Handover mocks base method.
 func (m *MockEarlySession) Handover(arg0 bool) (handover.State, error) {
 	m.ctrl.T.Helper()

@@ -91,6 +91,18 @@ func (mr *MockSentPacketHandlerMockRecorder) Highest1RTTPacketNumber() *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).Highest1RTTPacketNumber))
 }
 
+// OnConnectionMigration mocks base method.
+func (m *MockSentPacketHandler) OnConnectionMigration() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "OnConnectionMigration")
+}
+
+// OnConnectionMigration indicates an expected call of OnConnectionMigration.
+func (mr *MockSentPacketHandlerMockRecorder) OnConnectionMigration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnConnectionMigration", reflect.TypeOf((*MockSentPacketHandler)(nil).OnConnectionMigration))
+}
+
 // OnLossDetectionTimeout mocks base method.
 func (m *MockSentPacketHandler) OnLossDetectionTimeout() error {
 	m.ctrl.T.Helper()

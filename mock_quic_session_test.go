@@ -109,6 +109,20 @@ func (mr *MockQuicSessionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockQuicSession)(nil).Context))
 }
 
+// ExtraStreamEncrypted mocks base method.
+func (m *MockQuicSession) ExtraStreamEncrypted() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraStreamEncrypted")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraStreamEncrypted indicates an expected call of ExtraStreamEncrypted.
+func (mr *MockQuicSessionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraStreamEncrypted", reflect.TypeOf((*MockQuicSession)(nil).ExtraStreamEncrypted))
+}
+
 // GetVersion mocks base method.
 func (m *MockQuicSession) GetVersion() protocol.VersionNumber {
 	m.ctrl.T.Helper()
