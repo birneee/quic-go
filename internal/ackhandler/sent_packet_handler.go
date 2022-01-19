@@ -102,6 +102,9 @@ var (
 	_ sentPacketTracker = &sentPacketHandler{}
 )
 
+// peerAddressValidated defines weather the address was validated beforehand by an address validation token.
+// peerAddressValidated immediately disables the amplification limit.
+// peerAddressValidated has no effect for a client.
 func newSentPacketHandler(
 	initialPN protocol.PacketNumber,
 	initialMaxDatagramSize protocol.ByteCount,
@@ -112,6 +115,7 @@ func newSentPacketHandler(
 	pers protocol.Perspective,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
+	peerAddressValidated bool,
 ) *sentPacketHandler {
 	congestion := congestion.NewCubicSender(
 		congestion.DefaultClock{},
@@ -126,7 +130,7 @@ func newSentPacketHandler(
 
 	return &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
-		peerAddressValidated:           pers == protocol.PerspectiveClient,
+		peerAddressValidated:           pers == protocol.PerspectiveClient || peerAddressValidated,
 		initialPackets:                 newPacketNumberSpace(initialPN, false, rttStats),
 		handshakePackets:               newPacketNumberSpace(0, false, rttStats),
 		appDataPackets:                 newPacketNumberSpace(0, true, rttStats),

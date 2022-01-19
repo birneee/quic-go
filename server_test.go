@@ -341,6 +341,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					Expect(enable0RTT).To(BeFalse())
 					Expect(origDestConnID).To(Equal(protocol.ConnectionID{0xde, 0xad, 0xc0, 0xde}))
@@ -620,6 +621,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					Expect(enable0RTT).To(BeFalse())
 					Expect(origDestConnID).To(Equal(hdr.DestConnectionID))
@@ -680,6 +682,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					<-acceptSession
 					atomic.AddUint32(&counter, 1)
@@ -734,6 +737,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					createdSession = true
 					return sess
@@ -765,6 +769,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					sess := NewMockQuicSession(mockCtrl)
 					sess.EXPECT().handlePacket(gomock.Any())
@@ -837,6 +842,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					sess.EXPECT().handlePacket(p)
 					sess.EXPECT().run()
@@ -949,6 +955,7 @@ var _ = Describe("Server", func() {
 					_ uint64,
 					_ utils.Logger,
 					_ protocol.VersionNumber,
+					_ bool,
 				) quicSession {
 					sess.EXPECT().handlePacket(gomock.Any())
 					sess.EXPECT().HandshakeComplete().Return(ctx)
@@ -1023,6 +1030,7 @@ var _ = Describe("Server", func() {
 				_ uint64,
 				_ utils.Logger,
 				_ protocol.VersionNumber,
+				_ bool,
 			) quicSession {
 				Expect(enable0RTT).To(BeTrue())
 				sess.EXPECT().handlePacket(gomock.Any())
@@ -1066,6 +1074,7 @@ var _ = Describe("Server", func() {
 				_ uint64,
 				_ utils.Logger,
 				_ protocol.VersionNumber,
+				_ bool,
 			) quicSession {
 				ready := make(chan struct{})
 				close(ready)
@@ -1130,6 +1139,7 @@ var _ = Describe("Server", func() {
 				_ uint64,
 				_ utils.Logger,
 				_ protocol.VersionNumber,
+				_ bool,
 			) quicSession {
 				sess.EXPECT().handlePacket(p)
 				sess.EXPECT().run()

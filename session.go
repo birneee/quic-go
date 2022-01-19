@@ -269,6 +269,7 @@ var newSession = func(
 	tracingID uint64,
 	logger utils.Logger,
 	v protocol.VersionNumber,
+	clientAddressValidated bool,
 ) quicSession {
 	s := &session{
 		conn:                   conn,
@@ -320,6 +321,7 @@ var newSession = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		clientAddressValidated,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -453,6 +455,7 @@ var newClientSession = func(
 		s.tracer,
 		s.logger,
 		s.version,
+		false,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -2426,6 +2429,7 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 		s.tracer,
 		s.logger,
 		s.version,
+		true,
 	)
 
 	//TODO

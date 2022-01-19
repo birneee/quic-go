@@ -90,6 +90,7 @@ type baseServer struct {
 		uint64,
 		utils.Logger,
 		protocol.VersionNumber,
+		bool, /* client address validated by an address validation token */
 	) quicSession
 
 	serverError error
@@ -420,7 +421,10 @@ func (s *baseServer) handleInitialImpl(p *receivedPacket, hdr *wire.Header) erro
 			}
 		}
 	}
-	if !s.config.AcceptToken(p.remoteAddr, token) {
+
+	clientAddressValidated := s.config.AcceptToken(p.remoteAddr, token)
+
+	if !clientAddressValidated {
 		go func() {
 			defer p.buffer.Release()
 			if token != nil && token.IsRetryToken {
@@ -485,6 +489,7 @@ func (s *baseServer) handleInitialImpl(p *receivedPacket, hdr *wire.Header) erro
 			tracingID,
 			s.logger,
 			hdr.Version,
+			clientAddressValidated,
 		)
 		sess.handlePacket(p)
 		return sess

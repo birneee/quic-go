@@ -112,6 +112,7 @@ var _ = Describe("Session", func() {
 			1234,
 			utils.DefaultLogger,
 			protocol.VersionTLS,
+			false,
 		).(*session)
 		streamManager = NewMockStreamManager(mockCtrl)
 		sess.streamsMap = streamManager
