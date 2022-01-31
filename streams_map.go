@@ -92,7 +92,7 @@ func (m *streamsMap) initMaps() {
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
 			if m.xseCryptoSetup != nil {
-				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+				return xseStreamI{m.xseCryptoSetup.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version))}
 			} else {
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
@@ -103,7 +103,7 @@ func (m *streamsMap) initMaps() {
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
 			if m.xseCryptoSetup != nil {
-				return xseStreamI{xse.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+				return xseStreamI{m.xseCryptoSetup.NewStream(newStream(id, m.sender, m.newFlowController(id), m.version))}
 			} else {
 				return newStream(id, m.sender, m.newFlowController(id), m.version)
 			}
@@ -115,7 +115,7 @@ func (m *streamsMap) initMaps() {
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
 			if m.xseCryptoSetup != nil {
-				return xseSendStreamI{xse.NewSendStream(newSendStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+				return xseSendStreamI{m.xseCryptoSetup.NewSendStream(newSendStream(id, m.sender, m.newFlowController(id), m.version))}
 			} else {
 				return newSendStream(id, m.sender, m.newFlowController(id), m.version)
 			}
@@ -126,7 +126,7 @@ func (m *streamsMap) initMaps() {
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
 			if m.xseCryptoSetup != nil {
-				return xseReceiveStreamI{xse.NewReceiveStream(newReceiveStream(id, m.sender, m.newFlowController(id), m.version), m.xseCryptoSetup)}
+				return xseReceiveStreamI{m.xseCryptoSetup.NewReceiveStream(newReceiveStream(id, m.sender, m.newFlowController(id), m.version))}
 			} else {
 				return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
 			}

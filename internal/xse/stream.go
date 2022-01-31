@@ -10,13 +10,7 @@ type stream struct {
 	*sendStream
 }
 
-// NewStream creates a XSE-QUIC stream
-func NewStream(baseStream Stream, xseSealer CryptoSetup) Stream {
-	return &stream{
-		receiveStream: NewReceiveStream(baseStream.ReceiveStream(), xseSealer),
-		sendStream:    NewSendStream(baseStream.SendStream(), xseSealer),
-	}
-}
+var _ Stream = &stream{}
 
 // need to define StreamID() here, since both receiveStream and readStream have a StreamID()
 func (s *stream) StreamID() protocol.StreamID {
