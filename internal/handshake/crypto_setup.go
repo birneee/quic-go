@@ -14,12 +14,11 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/wire"
 	"github.com/lucas-clemente/quic-go/logging"
 	"github.com/lucas-clemente/quic-go/quicvarint"
+	qtls2 "github.com/marten-seemann/qtls-go1-17"
 	"io"
 	"net"
-	"reflect"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 // TLS unexpected_message alert
@@ -859,18 +858,16 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 
 	remoteAddr := state.RemoteAddress(perspective)
 
-	if perspective == protocol.PerspectiveClient {
-		cs.conn = qtls.Client(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
-	} else {
-		cs.conn = qtls.Server(newConn(localAddr, remoteAddr, state.Version), cs.tlsConf, cs.extraConf)
-	}
-
-	// TODO set handshakeStatus like conn.Handshake()
-	// TODO find safe way to set vers
-	conn := reflect.ValueOf(cs.conn).Elem()
-	vers := conn.FieldByName("vers")
-	vers = reflect.NewAt(vers.Type(), unsafe.Pointer(vers.UnsafeAddr())).Elem()
-	vers.Set(reflect.ValueOf(uint16(qtls.VersionTLS13)))
+	// creates a new TLS connection without doing a handshake
+	cs.conn = qtls2.FromTrafficSecret(
+		newConn(localAddr, remoteAddr, state.Version),
+		state.SuiteId,
+		nil, // not required
+		nil, // not required
+		cs.tlsConf,
+		cs.extraConf,
+		perspective == protocol.PerspectiveClient,
+	)
 
 	return cs, nil
 }
