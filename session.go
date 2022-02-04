@@ -2488,6 +2488,10 @@ func RestoreSessionFromHandoverState(state handover.State, perspective protocol.
 
 	s.peerParams = &peerParams
 
+	if s.tracer != nil {
+		s.tracer.RestoredTransportParameters(&peerParams)
+	}
+
 	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
 		if activeConnID.ConnectionID.Equal(s.connIDManager.activeConnectionID) {
 			continue
