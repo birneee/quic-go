@@ -2,7 +2,7 @@ module github.com/lucas-clemente/quic-go
 
 go 1.16
 
-replace github.com/marten-seemann/qtls-go1-17 v0.1.0 => github.com/birneee/qtls-go1-17 v0.3.0
+replace github.com/marten-seemann/qtls-go1-17 v0.1.0 => github.com/birneee/qtls-go1-17 v0.4.0
 
 require (
 	github.com/cheekybits/genny v1.0.0

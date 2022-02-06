@@ -132,4 +132,5 @@ type ConnectionTracer interface {
 	Close()
 	Debug(name, msg string)
 	UpdatedPath(newRemote net.Addr)
+	XseReceiveRecord(streamID StreamID, rawLength int, dataLength int)
 }

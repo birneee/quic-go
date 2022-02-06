@@ -223,3 +223,9 @@ func (m *connTracerMultiplexer) UpdatedPath(newRemote net.Addr) {
 		t.UpdatedPath(newRemote)
 	}
 }
+
+func (m *connTracerMultiplexer) XseReceiveRecord(streamID StreamID, rawLength int, dataLength int) {
+	for _, t := range m.tracers {
+		t.XseReceiveRecord(streamID, rawLength, dataLength)
+	}
+}

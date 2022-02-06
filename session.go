@@ -1649,7 +1649,7 @@ func (s *session) restoreTransportParameters(params *wire.TransportParameters) {
 	s.streamsMap.UpdateLimits(params)
 
 	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
-		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective))
+		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
 	}
 }
 
@@ -1727,7 +1727,7 @@ func (s *session) applyTransportParameters() {
 		s.connIDManager.AddFromPreferredAddress(params.PreferredAddress.ConnectionID, params.PreferredAddress.StatelessResetToken)
 	}
 	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
-		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective))
+		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
 	}
 }
 

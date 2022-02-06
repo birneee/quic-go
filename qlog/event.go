@@ -527,3 +527,19 @@ func (e eventGeneric) IsNil() bool        { return false }
 func (e eventGeneric) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("details", e.msg)
 }
+
+type eventXseRecordReceived struct {
+	streamID   logging.StreamID
+	rawLength  int
+	dataLength int
+}
+
+func (e eventXseRecordReceived) Category() category { return categoryTransport }
+func (e eventXseRecordReceived) Name() string       { return "xse_record_received" }
+func (e eventXseRecordReceived) IsNil() bool        { return false }
+
+func (e eventXseRecordReceived) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.Int64Key("stream_id", int64(e.streamID))
+	enc.IntKey("raw_length", e.rawLength)
+	enc.IntKey("data_length", e.dataLength)
+}

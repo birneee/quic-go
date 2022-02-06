@@ -41,22 +41,25 @@ type cryptoSetup struct {
 	suite *qtls.CipherSuiteTLS13
 	// must wait for secretReadyCtx before access
 	masterSecret []byte
+	tracer       logging.ConnectionTracer
 }
 
-func NewCryptoSetup(suite *qtls.CipherSuiteTLS13, masterSecret []byte, perspective protocol.Perspective) CryptoSetup {
+func NewCryptoSetup(suite *qtls.CipherSuiteTLS13, masterSecret []byte, perspective protocol.Perspective, tracer logging.ConnectionTracer) CryptoSetup {
 	c := &cryptoSetup{
 		suite:        suite,
 		masterSecret: masterSecret,
 		perspective:  perspective,
+		tracer:       tracer,
 	}
 	c.secretReadyCtx, c.secretReadyCtxCancel = context.WithCancel(context.Background())
 	c.secretReadyCtxCancel()
 	return c
 }
 
-func NewCryptoSetupFromConn(quicTls *qtls.Conn, perspective protocol.Perspective) CryptoSetup {
+func NewCryptoSetupFromConn(quicTls *qtls.Conn, perspective protocol.Perspective, tracer logging.ConnectionTracer) CryptoSetup {
 	c := &cryptoSetup{
 		perspective: perspective,
+		tracer:      tracer,
 	}
 	c.secretReadyCtx, c.secretReadyCtxCancel = context.WithCancel(context.Background())
 	go func() {
@@ -79,8 +82,8 @@ func (c *cryptoSetup) NewStream(baseStream Stream) Stream {
 
 	rcvTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
 	sendTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
-
-	tlsConn := qtls2.FromTrafficSecret(&streamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, sendTrafficSecret, &qtls.Config{}, nil, c.perspective == protocol.PerspectiveClient)
+	println(c.suite.ID)
+	tlsConn := qtls2.FromTrafficSecret(&streamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, sendTrafficSecret, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	receiveStream := &receiveStream{
 		ReceiveStream: baseStream.ReceiveStream(),
@@ -103,7 +106,7 @@ func (c *cryptoSetup) NewReceiveStream(baseStream ReceiveStream) ReceiveStream {
 
 	rcvTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
 
-	tlsConn := qtls2.FromTrafficSecret(&receiveStreamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, nil, &qtls.Config{}, nil, c.perspective == protocol.PerspectiveClient)
+	tlsConn := qtls2.FromTrafficSecret(&receiveStreamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, nil, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	return &receiveStream{
 		ReceiveStream: baseStream,
@@ -116,10 +119,21 @@ func (c *cryptoSetup) NewSendStream(baseStream SendStream) SendStream {
 
 	sendTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
 
-	tlsConn := qtls2.FromTrafficSecret(&sendStreamConnAdapter{baseStream}, c.suite.ID, nil, sendTrafficSecret, &qtls.Config{}, nil, c.perspective == protocol.PerspectiveClient)
+	tlsConn := qtls2.FromTrafficSecret(&sendStreamConnAdapter{baseStream}, c.suite.ID, nil, sendTrafficSecret, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	return &sendStream{
 		SendStream: baseStream,
 		conn:       tlsConn,
 	}
+}
+
+func (c *cryptoSetup) extraConfigForStream(streamID protocol.StreamID) *qtls2.ExtraConfig {
+	if c.tracer != nil {
+		return &qtls2.ExtraConfig{
+			OnReceiveApplicationDataRecord: func(rawLength int, dataLength int) {
+				c.tracer.XseReceiveRecord(streamID, rawLength, dataLength)
+			},
+		}
+	}
+	return nil
 }

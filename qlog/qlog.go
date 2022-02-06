@@ -490,3 +490,14 @@ func (t *connectionTracer) UpdatedPath(newRemote net.Addr) {
 	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
 	t.Debug("path_updated", fmt.Sprintf("migrated to %s", newRemote))
 }
+
+func (t *connectionTracer) XseReceiveRecord(streamID logging.StreamID, rawLength int, dataLength int) {
+	//TODO this event is not standardized by https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3
+	t.mutex.Lock()
+	t.recordEvent(time.Now(), &eventXseRecordReceived{
+		streamID:   streamID,
+		rawLength:  rawLength,
+		dataLength: dataLength,
+	})
+	t.mutex.Unlock()
+}

@@ -14,6 +14,8 @@ github.com/birneee/qtls-go1-17 v0.2.0 h1:Og+i022bA5uSRqrr4YYljg/GSUYz+wKI/JKKX+Z
 github.com/birneee/qtls-go1-17 v0.2.0/go.mod h1:fz4HIxByo+LlWcreM4CZOYNuz3taBQ8rN2X6FqvaWo8=
 github.com/birneee/qtls-go1-17 v0.3.0 h1:ehCR9SHs/4tqejliwOoUIXej6LsV9SMh7RPRd2T8TjI=
 github.com/birneee/qtls-go1-17 v0.3.0/go.mod h1:fz4HIxByo+LlWcreM4CZOYNuz3taBQ8rN2X6FqvaWo8=
+github.com/birneee/qtls-go1-17 v0.4.0 h1:Q5P4zc+/JEp52bxQ0xRlMXg8vWrXo18k4/iO58UDeT0=
+github.com/birneee/qtls-go1-17 v0.4.0/go.mod h1:fz4HIxByo+LlWcreM4CZOYNuz3taBQ8rN2X6FqvaWo8=
 github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBTaaSFSlLx/70C2HPIMNZpVV8+vt/A+FMnYP11g=
 github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7hK1yFx9hf58LP0zeX7UjIGs20ufpu3evjr+s=
 github.com/cheekybits/genny v1.0.0 h1:uGGa4nei+j20rOSeDeP5Of12XVm7TGUd4dJA9RDitfE=
