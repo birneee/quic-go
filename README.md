@@ -1,4 +1,6 @@
-# Fork of QUIC-GO
+# QUIC-GO with H-QUIC and XSE-QUIC Extension
+
+> :warning: Experimental!
 
 This repository contains a modified version of [quic-go](https://github.com/lucas-clemente/quic-go).
 
@@ -6,13 +8,21 @@ This repository contains a modified version of [quic-go](https://github.com/luca
 Due to lack of security measures, this implementation is intended for research purposes only and should not be deployed on the internet.
 
 ## Changes to original QUIC-GO
-- H-QUIC
-  - client migration
-  - server migration
+- client migration
+  - tbd: address validation with path challenge
+- server migration
+  - tbd: address validation with path challenge
+- change udp socket during live session
+- options to set initial, minimum and maximum congestion window
+- additional qlog events
+  - path updates (connection migration)
+- H-QUIC extension
   - store and restore session
-  - use encryption breaking proxy
-- XSE-QUIC
-  - todo
+  - use non-transparent encryption-breaking proxies
+- XSE-QUIC extension
+  - additional encryption QUIC stream content
+  - additional qlog events
+    - received XSE records (TLS records)
 
 ## Guides
 

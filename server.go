@@ -422,6 +422,7 @@ func (s *baseServer) handleInitialImpl(p *receivedPacket, hdr *wire.Header) erro
 		}
 	}
 
+	// TODO separate accept from address validation, since connection can be accepted despite invalid token
 	clientAddressValidated := s.config.AcceptToken(p.remoteAddr, token)
 
 	if !clientAddressValidated {
