@@ -9,15 +9,6 @@ import (
 	"strconv"
 )
 
-// StreamState
-//TODO not used yet
-type StreamState struct {
-	InitiatedBy          string
-	UnidirectionalStream bool
-	StreamID             uint32
-	Offset               uint32
-}
-
 type ActiveConnectionID struct {
 	SequenceNumber uint64
 	ConnectionID   protocol.ConnectionID
@@ -50,8 +41,10 @@ type State struct {
 	ClientSendTrafficSecret      []byte
 	ServerAddress                string
 	ClientAddress                string
-	ClientTransportParameters    wire.TransportParameters
-	ServerTransportParameters    wire.TransportParameters
+	// TODO only include non-default parameters
+	ClientTransportParameters wire.TransportParameters
+	// TODO only include non-default parameters
+	ServerTransportParameters wire.TransportParameters
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
