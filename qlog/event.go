@@ -528,6 +528,19 @@ func (e eventGeneric) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("details", e.msg)
 }
 
+type eventPathUpdated struct {
+	DestAddr *net.UDPAddr
+}
+
+func (e eventPathUpdated) Category() category { return categoryTransport }
+func (e eventPathUpdated) Name() string       { return "path_updated" }
+func (e eventPathUpdated) IsNil() bool        { return false }
+
+func (e eventPathUpdated) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.StringKey("dst_ip", e.DestAddr.IP.String())
+	enc.IntKey("dst_port", e.DestAddr.Port)
+}
+
 type eventXseRecordReceived struct {
 	streamID   logging.StreamID
 	rawLength  int

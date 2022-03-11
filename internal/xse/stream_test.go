@@ -28,8 +28,8 @@ func mockCryptoSetup() (client CryptoSetup, server CryptoSetup) {
 	suite := qtls.CipherSuiteTLS13ByID(tls.TLS_AES_128_GCM_SHA256)
 	secret := make([]byte, suite.Hash.Size())
 	rand.Read(secret)
-	client = NewCryptoSetup(suite, secret, protocol.PerspectiveClient)
-	server = NewCryptoSetup(suite, secret, protocol.PerspectiveServer)
+	client = NewCryptoSetup(suite, secret, protocol.PerspectiveClient, nil)
+	server = NewCryptoSetup(suite, secret, protocol.PerspectiveServer, nil)
 	return
 }
 

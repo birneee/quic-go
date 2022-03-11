@@ -361,3 +361,15 @@ func (mr *MockConnectionTracerMockRecorder) UpdatedPath(arg0 interface{}) *gomoc
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatedPath", reflect.TypeOf((*MockConnectionTracer)(nil).UpdatedPath), arg0)
 }
+
+// XseReceiveRecord mocks base method.
+func (m *MockConnectionTracer) XseReceiveRecord(arg0 protocol.StreamID, arg1, arg2 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "XseReceiveRecord", arg0, arg1, arg2)
+}
+
+// XseReceiveRecord indicates an expected call of XseReceiveRecord.
+func (mr *MockConnectionTracerMockRecorder) XseReceiveRecord(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XseReceiveRecord", reflect.TypeOf((*MockConnectionTracer)(nil).XseReceiveRecord), arg0, arg1, arg2)
+}

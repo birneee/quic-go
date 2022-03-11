@@ -362,18 +362,19 @@ func (t *connTracer) UpdatedMetrics(rttStats *logging.RTTStats, cwnd, bytesInFli
 func (t *connTracer) AcknowledgedPacket(logging.EncryptionLevel, logging.PacketNumber) {}
 func (t *connTracer) LostPacket(logging.EncryptionLevel, logging.PacketNumber, logging.PacketLossReason) {
 }
-func (t *connTracer) UpdatedCongestionState(logging.CongestionState)                     {}
-func (t *connTracer) UpdatedPTOCount(value uint32)                                       {}
-func (t *connTracer) UpdatedKeyFromTLS(logging.EncryptionLevel, logging.Perspective)     {}
-func (t *connTracer) UpdatedKey(generation logging.KeyPhase, remote bool)                {}
-func (t *connTracer) DroppedEncryptionLevel(logging.EncryptionLevel)                     {}
-func (t *connTracer) DroppedKey(logging.KeyPhase)                                        {}
-func (t *connTracer) SetLossTimer(logging.TimerType, logging.EncryptionLevel, time.Time) {}
-func (t *connTracer) LossTimerExpired(logging.TimerType, logging.EncryptionLevel)        {}
-func (t *connTracer) LossTimerCanceled()                                                 {}
-func (t *connTracer) Debug(string, string)                                               {}
-func (t *connTracer) Close()                                                             {}
-func (t *connTracer) UpdatedPath(net.Addr)                                               {}
+func (t *connTracer) UpdatedCongestionState(logging.CongestionState)                            {}
+func (t *connTracer) UpdatedPTOCount(value uint32)                                              {}
+func (t *connTracer) UpdatedKeyFromTLS(logging.EncryptionLevel, logging.Perspective)            {}
+func (t *connTracer) UpdatedKey(generation logging.KeyPhase, remote bool)                       {}
+func (t *connTracer) DroppedEncryptionLevel(logging.EncryptionLevel)                            {}
+func (t *connTracer) DroppedKey(logging.KeyPhase)                                               {}
+func (t *connTracer) SetLossTimer(logging.TimerType, logging.EncryptionLevel, time.Time)        {}
+func (t *connTracer) LossTimerExpired(logging.TimerType, logging.EncryptionLevel)               {}
+func (t *connTracer) LossTimerCanceled()                                                        {}
+func (t *connTracer) Debug(string, string)                                                      {}
+func (t *connTracer) Close()                                                                    {}
+func (t *connTracer) UpdatedPath(net.Addr)                                                      {}
+func (t *connTracer) XseReceiveRecord(streamID logging.StreamID, rawLength int, dataLength int) {}
 
 type packet struct {
 	time   time.Time

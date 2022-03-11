@@ -125,18 +125,18 @@ func (mr *MockEarlySessionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockEarlySession) Handover(arg0 bool) (handover.State, error) {
+func (m *MockEarlySession) Handover(arg0, arg1 bool) (handover.State, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handover", arg0)
+	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
 	ret0, _ := ret[0].(handover.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Handover indicates an expected call of Handover.
-func (mr *MockEarlySessionMockRecorder) Handover(arg0 interface{}) *gomock.Call {
+func (mr *MockEarlySessionMockRecorder) Handover(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockEarlySession)(nil).Handover), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockEarlySession)(nil).Handover), arg0, arg1)
 }
 
 // HandshakeComplete mocks base method.

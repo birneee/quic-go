@@ -87,7 +87,7 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf("server"))
 			case "EnableActiveMigration":
 				f.Set(reflect.ValueOf(true))
-			case "Proxy":
+			case "ProxyConf":
 				f.Set(reflect.ValueOf(&ProxyConfig{}))
 			case "InitialCongestionWindow":
 				f.Set(reflect.ValueOf(uint32(DefaultInitialCongestionWindow)))

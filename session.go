@@ -565,7 +565,7 @@ func (s *session) preSetup() {
 	s.sendingScheduled = make(chan struct{}, 1)
 	s.handshakeCtx, s.handshakeCtxCancel = context.WithCancel(context.Background())
 	s.handoverMigrationCtx, s.handoverMigrationCtxCancel = context.WithCancel(context.Background())
-	if s.config.Proxy == nil && !s.config.IgnoreReceived1RTTPacketsUntilFirstPathMigration {
+	if s.config.ProxyConf == nil && !s.config.IgnoreReceived1RTTPacketsUntilFirstPathMigration {
 		s.handoverMigrationCtxCancel()
 	}
 
@@ -881,7 +881,7 @@ func (s *session) handleHandshakeConfirmed() {
 		)
 	}
 
-	if s.config.Proxy != nil {
+	if s.config.ProxyConf != nil {
 		err := s.useProxy()
 		if err != nil {
 			s.closeLocal(err)
@@ -2124,10 +2124,7 @@ func (s *session) NextSession() Session {
 	return s
 }
 
-// Handover creates state that is used for connection handover.
-// if closeSilent, close session without sending any packets to the peer.
-// if !closeSilent, session will drop all packets from and to the current destination.
-func (s *session) Handover(closeSilent bool) (handover.State, error) {
+func (s *session) Handover(destroy bool, ignoreCurrentPath bool) (handover.State, error) {
 	//TODO validate supported options
 	if s.config.EnableDatagrams {
 		panic("option is currently not supported")
@@ -2142,9 +2139,11 @@ func (s *session) Handover(closeSilent bool) (handover.State, error) {
 		panic("illegal handover state")
 	}
 
-	if closeSilent {
+	if destroy {
 		s.destroy(errors.New("destroyed by handover"))
-	} else {
+	}
+
+	if ignoreCurrentPath {
 		s.IgnoreCurrentRemoteAddress()
 	}
 
@@ -2313,8 +2312,9 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 	)
 }
 
-func RestoreSessionFromHandoverState(state handover.State, perspective protocol.Perspective, conf *Config, loggerPrefix string) (Session, error) {
-	logger := utils.DefaultLogger.WithPrefix(loggerPrefix)
+// Restore session from H-QUIC state
+func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Session, error) {
+	logger := utils.DefaultLogger.WithPrefix(conf.LoggerPrefix)
 
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
 	if err != nil {
@@ -2545,19 +2545,19 @@ func (s *session) useProxy() error {
 		return errors.New("active migration has to be enabled by peer")
 	}
 
-	proxyControlSession, err := DialProxyAddr(s.config.Proxy.Addr.String(),
-		s.config.Proxy.TlsConf,
-		s.config.Proxy.Config,
+	proxyControlSession, err := DialProxyAddr(s.config.ProxyConf.Addr,
+		s.config.ProxyConf.TlsConf,
+		s.config.ProxyConf.Config,
 	)
 	if err != nil {
 		return err
 	}
-	state, err := s.Handover(false)
+	state, err := s.Handover(false, true)
 	if err != nil {
 		return err
 	}
-	if s.config.Proxy.ModifyState != nil {
-		s.config.Proxy.ModifyState(&state)
+	if s.config.ProxyConf.ModifyState != nil {
+		s.config.ProxyConf.ModifyState(&state)
 	}
 
 	marshalledState, err := json.Marshal(state)

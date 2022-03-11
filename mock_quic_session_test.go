@@ -138,18 +138,18 @@ func (mr *MockQuicSessionMockRecorder) GetVersion() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockQuicSession) Handover(close bool) (handover.State, error) {
+func (m *MockQuicSession) Handover(destroy, ignoreCurrentPath bool) (handover.State, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handover", close)
+	ret := m.ctrl.Call(m, "Handover", destroy, ignoreCurrentPath)
 	ret0, _ := ret[0].(handover.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Handover indicates an expected call of Handover.
-func (mr *MockQuicSessionMockRecorder) Handover(close interface{}) *gomock.Call {
+func (mr *MockQuicSessionMockRecorder) Handover(destroy, ignoreCurrentPath interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicSession)(nil).Handover), close)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicSession)(nil).Handover), destroy, ignoreCurrentPath)
 }
 
 // HandshakeComplete mocks base method.

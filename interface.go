@@ -219,9 +219,10 @@ type Session interface {
 	// ReceiveMessage gets a message received in a datagram.
 	// See https://datatracker.ietf.org/doc/draft-pauly-quic-datagram/.
 	ReceiveMessage() ([]byte, error)
-	// Handover creates state that is used for connection handover.
-	// Session will ignore all incoming packets from the current destination
-	Handover(close bool) (handover.State, error)
+	// Handover creates H-QUIC state.
+	// Session is silently destroyed when destroy is set.
+	// Session no longer sends and ignores incoming packets from the current path when ignoreCurrentPath is set.
+	Handover(destroy bool, ignoreCurrentPath bool) (handover.State, error)
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
@@ -342,7 +343,7 @@ type Config struct {
 	EnableActiveMigration bool
 	// The Proxy to use
 	// if nil, no proxy is used
-	Proxy *ProxyConfig
+	ProxyConf *ProxyConfig
 	// The InitialCongestionWindow to use, in number of packets
 	InitialCongestionWindow uint32
 	// in number of packets
@@ -394,7 +395,7 @@ type EarlyListener interface {
 
 type ProxyConfig struct {
 	// the proxy address to use
-	Addr *net.UDPAddr
+	Addr string
 	// used for proxy control connection
 	Config *Config
 	// used for proxy control connection

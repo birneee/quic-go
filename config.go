@@ -150,7 +150,7 @@ func populateConfig(config *Config) *Config {
 		IgnoreReceived1RTTPacketsUntilFirstPathMigration: config.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
 		LoggerPrefix:            config.LoggerPrefix,
 		EnableActiveMigration:   config.EnableActiveMigration,
-		Proxy:                   config.Proxy,
+		ProxyConf:               config.ProxyConf,
 		InitialCongestionWindow: initialCongestionWindow,
 		MinCongestionWindow:     minCongestionWindow,
 		MaxCongestionWindow:     maxCongestionWindow,

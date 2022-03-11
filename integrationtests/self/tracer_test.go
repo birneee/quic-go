@@ -75,6 +75,8 @@ func (t *customConnTracer) LossTimerCanceled()                                  
 func (t *customConnTracer) Debug(string, string)                                               {}
 func (t *customConnTracer) Close()                                                             {}
 func (t *customConnTracer) UpdatedPath(net.Addr)                                               {}
+func (t *customConnTracer) XseReceiveRecord(streamID logging.StreamID, rawLength int, dataLength int) {
+}
 
 var _ = Describe("Handshake tests", func() {
 	addTracers := func(pers protocol.Perspective, conf *quic.Config) *quic.Config {
