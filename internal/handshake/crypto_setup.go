@@ -861,7 +861,7 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 	// creates a new TLS connection without doing a handshake
 	cs.conn = qtls2.FromTrafficSecret(
 		newConn(localAddr, remoteAddr, state.Version),
-		state.SuiteId,
+		state.CipherSuiteId,
 		nil, // not required
 		nil, // not required
 		cs.tlsConf,

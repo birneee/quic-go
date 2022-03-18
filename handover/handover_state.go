@@ -19,28 +19,30 @@ type ActiveConnectionID struct {
 // State is used to handover QUIC connection
 type State struct {
 	// used for connection identification e.g. for qlog
-	LogConnectionID           protocol.ConnectionID
-	ActiveClientConnectionIDs []ActiveConnectionID
-	ActiveServerConnectionIDs []ActiveConnectionID
-	Version                   protocol.VersionNumber
-	KeyPhase                  protocol.KeyPhase
+	LogConnectionID protocol.ConnectionID
+	// active client connection IDs
+	ClientConnectionIDs []ActiveConnectionID
+	// active server connection IDs
+	ServerConnectionIDs []ActiveConnectionID
+	Version             protocol.VersionNumber
+	KeyPhase            protocol.KeyPhase
 	// id of the used TLS 1.3 cipher suites.
 	// see RFC 8446 Appendix B.4. Cipher Suites.
-	SuiteId uint16
+	CipherSuiteId uint16
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
 	// TODO use header protection key instead
 	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
-	FirstServerSendTrafficSecret []byte
+	InitialServerTrafficSecret []byte
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
 	// TODO use header protection key instead
 	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
-	FirstClientSendTrafficSecret []byte
-	ServerSendTrafficSecret      []byte
-	ClientSendTrafficSecret      []byte
-	ServerAddress                string
-	ClientAddress                string
+	InitialClientTrafficSecret []byte
+	ServerTrafficSecret        []byte
+	ClientTrafficSecret        []byte
+	ServerAddress              string
+	ClientAddress              string
 	// TODO only include non-default parameters
 	ClientTransportParameters wire.TransportParameters
 	// TODO only include non-default parameters
@@ -108,73 +110,73 @@ func copyBytes(a []byte) []byte {
 
 func (s *State) SendTrafficSecret(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.ClientSendTrafficSecret)
+		return copyBytes(s.ClientTrafficSecret)
 	} else {
-		return copyBytes(s.ServerSendTrafficSecret)
+		return copyBytes(s.ServerTrafficSecret)
 	}
 }
 
 func (s *State) SetSendTrafficSecret(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.ClientSendTrafficSecret = ts
+		s.ClientTrafficSecret = ts
 	} else {
-		s.ServerSendTrafficSecret = ts
+		s.ServerTrafficSecret = ts
 	}
 }
 
 func (s *State) FirstSendTrafficSecret(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.FirstClientSendTrafficSecret)
+		return copyBytes(s.InitialClientTrafficSecret)
 	} else {
-		return copyBytes(s.FirstServerSendTrafficSecret)
+		return copyBytes(s.InitialServerTrafficSecret)
 	}
 }
 
 func (s *State) SetFirstSendTrafficSecret(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.FirstClientSendTrafficSecret = ts
+		s.InitialClientTrafficSecret = ts
 	} else {
-		s.FirstServerSendTrafficSecret = ts
+		s.InitialServerTrafficSecret = ts
 	}
 }
 
 func (s *State) ReceiveTrafficSecret(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.ServerSendTrafficSecret)
+		return copyBytes(s.ServerTrafficSecret)
 	} else {
-		return copyBytes(s.ClientSendTrafficSecret)
+		return copyBytes(s.ClientTrafficSecret)
 	}
 }
 
 func (s *State) SetReceiveTrafficSecret(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.ServerSendTrafficSecret = ts
+		s.ServerTrafficSecret = ts
 	} else {
-		s.ClientSendTrafficSecret = ts
+		s.ClientTrafficSecret = ts
 	}
 }
 
 func (s *State) FirstReceiveTrafficSecret(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.FirstServerSendTrafficSecret)
+		return copyBytes(s.InitialServerTrafficSecret)
 	} else {
-		return copyBytes(s.FirstClientSendTrafficSecret)
+		return copyBytes(s.InitialClientTrafficSecret)
 	}
 }
 
 func (s *State) SetFirstReceiveTrafficSecret(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.FirstServerSendTrafficSecret = ts
+		s.InitialServerTrafficSecret = ts
 	} else {
-		s.FirstClientSendTrafficSecret = ts
+		s.InitialClientTrafficSecret = ts
 	}
 }
 
 func (s *State) ActiveSrcConnectionIDs(perspective protocol.Perspective) []ActiveConnectionID {
 	if perspective == protocol.PerspectiveClient {
-		return s.ActiveClientConnectionIDs
+		return s.ClientConnectionIDs
 	} else {
-		return s.ActiveServerConnectionIDs
+		return s.ServerConnectionIDs
 	}
 }
 
@@ -204,17 +206,17 @@ func (s *State) MaxActiveSrcConnectionID(perspective protocol.Perspective) (uint
 
 func (s *State) SetActiveSrcConnectionIDs(perspective protocol.Perspective, connIDs []ActiveConnectionID) {
 	if perspective == protocol.PerspectiveClient {
-		s.ActiveClientConnectionIDs = connIDs
+		s.ClientConnectionIDs = connIDs
 	} else {
-		s.ActiveServerConnectionIDs = connIDs
+		s.ServerConnectionIDs = connIDs
 	}
 }
 
 func (s *State) ActiveDestConnectionIDs(perspective protocol.Perspective) []ActiveConnectionID {
 	if perspective == protocol.PerspectiveClient {
-		return s.ActiveServerConnectionIDs
+		return s.ServerConnectionIDs
 	} else {
-		return s.ActiveClientConnectionIDs
+		return s.ClientConnectionIDs
 	}
 }
 
@@ -232,9 +234,9 @@ func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) prot
 
 func (s *State) SetActiveDestConnectionIDs(perspective protocol.Perspective, connIDs []ActiveConnectionID) {
 	if perspective == protocol.PerspectiveClient {
-		s.ActiveServerConnectionIDs = connIDs
+		s.ServerConnectionIDs = connIDs
 	} else {
-		s.ActiveClientConnectionIDs = connIDs
+		s.ClientConnectionIDs = connIDs
 	}
 }
 

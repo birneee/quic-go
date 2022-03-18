@@ -338,7 +338,7 @@ func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 
 func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 	s.KeyPhase = a.keyPhase
-	s.SuiteId = a.suite.ID
+	s.CipherSuiteId = a.suite.ID
 	s.SetFirstReceiveTrafficSecret(p, a.firstRcvTrafficSecret)
 	s.SetFirstSendTrafficSecret(p, a.firstSendTrafficSecret)
 	s.SetReceiveTrafficSecret(p, a.rcvTrafficSecret)
@@ -357,7 +357,7 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret(perspective)
 	//aead.highestRcvdPN = state.HighestReceivedPacketNumber(perspective) //TODO add
 
-	suite := qtls.CipherSuiteTLS13ByID(state.SuiteId)
+	suite := qtls.CipherSuiteTLS13ByID(state.CipherSuiteId)
 	if perspective == protocol.PerspectiveClient {
 		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
 		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
