@@ -2,7 +2,6 @@ package xse
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
@@ -13,24 +12,22 @@ import (
 const (
 	// label to export XSE-QUIC master secret from TLS exporter_master_secret
 	// (see RFC8446 Section 7.5)
-	xseMasterSecretLabel = "xse master"
+	//TODO register non experimental exporter label (see RFC5705 Section 4)
+	xseMasterSecretLabel = "EXPERIMENTAL xse master"
 )
 
 // label to export XSE-QUIC stream traffic secret from xse_master_secret.
 // (see RFC8446 Section 7.5)
-// return a label of length 9.
 // first char is 'c' if the sender is the client.
 // first char is 's' if the sender is the server.
-// following bytes are the binary big endian stream id.
+// followed by a space and the decimal stream id.
 func trafficSecretLabel(perspective protocol.Perspective, streamID protocol.StreamID) string {
-	buf := make([]byte, 9)
 	if perspective == logging.PerspectiveClient {
-		buf[0] = byte('c')
+		return fmt.Sprintf("c %d", streamID)
 	} else {
-		buf[0] = byte('s')
+		return fmt.Sprintf("s %d", streamID)
+
 	}
-	binary.BigEndian.PutUint64(buf[1:], uint64(streamID))
-	return string(buf)
 }
 
 type cryptoSetup struct {
