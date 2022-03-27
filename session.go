@@ -341,7 +341,7 @@ var newSession = func(
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:       srcConnID,
 		RetrySourceConnectionID:         retrySrcConnID,
-		ExtraStreamEncryption:           s.config.ExtraStreamEncryption,
+		ExtraStreamEncryption:           s.config.ExtraStreamEncryption.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -472,7 +472,7 @@ var newClientSession = func(
 		DisableActiveMigration:         !s.config.EnableActiveMigration,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
-		ExtraStreamEncryption:          s.config.ExtraStreamEncryption,
+		ExtraStreamEncryption:          s.config.ExtraStreamEncryption.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -1648,7 +1648,7 @@ func (s *session) restoreTransportParameters(params *wire.TransportParameters) {
 	s.connFlowController.UpdateSendWindow(params.InitialMaxData)
 	s.streamsMap.UpdateLimits(params)
 
-	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
+	if s.config.ExtraStreamEncryption.enabled() && params.ExtraStreamEncryption {
 		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
 	}
 }
@@ -1684,6 +1684,10 @@ func (s *session) checkTransportParameters(params *wire.TransportParameters) err
 		return fmt.Errorf("expected initial_source_connection_id to equal %s, is %s", s.handshakeDestConnID, params.InitialSourceConnectionID)
 	}
 
+	if s.config.ExtraStreamEncryption == EnforceExtraStreamEncryption && !params.ExtraStreamEncryption {
+		return fmt.Errorf("missing extra_stream_encryption; peer does not support the XSE-QUIC extension")
+	}
+
 	if s.perspective == protocol.PerspectiveServer {
 		return nil
 	}
@@ -1700,9 +1704,6 @@ func (s *session) checkTransportParameters(params *wire.TransportParameters) err
 		}
 	} else if params.RetrySourceConnectionID != nil {
 		return errors.New("received retry_source_connection_id, although no Retry was performed")
-	}
-	if s.config.ExtraStreamEncryption && !params.ExtraStreamEncryption {
-		return fmt.Errorf("missing extra_stream_encryption; peer does not support the XSE-QUIC extension")
 	}
 	return nil
 }
@@ -1726,7 +1727,7 @@ func (s *session) applyTransportParameters() {
 		// Retire the connection ID.
 		s.connIDManager.AddFromPreferredAddress(params.PreferredAddress.ConnectionID, params.PreferredAddress.StatelessResetToken)
 	}
-	if s.config.ExtraStreamEncryption && params.ExtraStreamEncryption {
+	if s.config.ExtraStreamEncryption.enabled() && params.ExtraStreamEncryption {
 		s.streamsMap.SetXseCryptoSetup(xse.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
 	}
 }
@@ -2575,7 +2576,7 @@ func (s *session) useProxy() error {
 }
 
 func (s *session) ExtraStreamEncrypted() bool {
-	return s.config.ExtraStreamEncryption && s.peerParams.ExtraStreamEncryption
+	return s.config.ExtraStreamEncryption.enabled() && s.peerParams.ExtraStreamEncryption
 }
 
 // does not block

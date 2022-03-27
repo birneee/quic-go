@@ -47,6 +47,21 @@ const (
 	Version1 = protocol.Version1
 )
 
+type ExtraStreamEncryptionMode uint
+
+const (
+	// DisableExtraStreamEncryption disables the use of the XSE-QUIC extension (default)
+	DisableExtraStreamEncryption ExtraStreamEncryptionMode = 0
+	// PreferExtraStreamEncryption enables XSE-QUIC only used when the peer supports it
+	PreferExtraStreamEncryption = 1
+	// EnforceExtraStreamEncryption enables XSE-QUIC, but terminates the connection with a TRANSPORT_PARAMETER_ERROR when the peer does not support it
+	EnforceExtraStreamEncryption = 2
+)
+
+func (a ExtraStreamEncryptionMode) enabled() bool {
+	return a != DisableExtraStreamEncryption
+}
+
 // A Token can be used to verify the ownership of the client address.
 type Token struct {
 	// IsRetryToken encodes how the client received the token. There are two ways:
@@ -351,13 +366,10 @@ type Config struct {
 	// in number of packets
 	MaxCongestionWindow uint32
 	// Use XSE-QUIC extension.
-	// If set on the server, it will accept XSE-QUIC and normal QUIC connection handshakes.
-	// If set on the client, XSE-QUIC is enforced,
-	// if the peer does not support XSE-QUIC, the handshake terminates with a TRANSPORT_PARAMETER_ERROR.
 	// Derive an additional key in the handshake,
 	// to additionally encrypt the stream payload,
 	// before the QUIC Packet is encrypted.
-	ExtraStreamEncryption bool
+	ExtraStreamEncryption ExtraStreamEncryptionMode
 }
 
 // ConnectionState records basic details about a QUIC connection
