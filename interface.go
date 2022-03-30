@@ -52,7 +52,7 @@ type ExtraStreamEncryptionMode uint
 const (
 	// DisableExtraStreamEncryption disables the use of the XSE-QUIC extension (default)
 	DisableExtraStreamEncryption ExtraStreamEncryptionMode = 0
-	// PreferExtraStreamEncryption enables XSE-QUIC only used when the peer supports it
+	// PreferExtraStreamEncryption enables XSE-QUIC only when the peer supports it
 	PreferExtraStreamEncryption = 1
 	// EnforceExtraStreamEncryption enables XSE-QUIC, but terminates the connection with a TRANSPORT_PARAMETER_ERROR when the peer does not support it
 	EnforceExtraStreamEncryption = 2
