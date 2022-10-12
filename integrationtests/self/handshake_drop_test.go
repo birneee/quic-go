@@ -7,10 +7,11 @@ import (
 	"io"
 	mrand "math/rand"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go"
 	quicproxy "github.com/lucas-clemente/quic-go/integrationtests/tools/proxy"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 
@@ -37,13 +38,11 @@ var _ = Describe("Handshake drop tests", func() {
 
 	startListenerAndProxy := func(dropCallback quicproxy.DropCallback, doRetry bool, longCertChain bool, version protocol.VersionNumber) {
 		conf := getQuicConfig(&quic.Config{
-			MaxIdleTimeout:       timeout,
-			HandshakeIdleTimeout: timeout,
-			Versions:             []protocol.VersionNumber{version},
+			MaxIdleTimeout:           timeout,
+			HandshakeIdleTimeout:     timeout,
+			Versions:                 []protocol.VersionNumber{version},
+			RequireAddressValidation: func(net.Addr) bool { return doRetry },
 		})
-		if !doRetry {
-			conf.AcceptToken = func(net.Addr, *quic.Token) bool { return true }
-		}
 		var tlsConf *tls.Config
 		if longCertChain {
 			tlsConf = getTLSConfigWithLongCertChain()
@@ -64,27 +63,23 @@ var _ = Describe("Handshake drop tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	stochasticDropper := func(freq int) bool {
-		return mrand.Int63n(int64(freq)) == 0
-	}
-
 	clientSpeaksFirst := &applicationProtocol{
 		name: "client speaks first",
 		run: func(version protocol.VersionNumber) {
-			serverSessionChan := make(chan quic.Session)
+			serverConnChan := make(chan quic.Connection)
 			go func() {
 				defer GinkgoRecover()
-				sess, err := ln.Accept(context.Background())
+				conn, err := ln.Accept(context.Background())
 				Expect(err).ToNot(HaveOccurred())
-				defer sess.CloseWithError(0, "")
-				str, err := sess.AcceptStream(context.Background())
+				defer conn.CloseWithError(0, "")
+				str, err := conn.AcceptStream(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 				b, err := io.ReadAll(gbytes.TimeoutReader(str, timeout))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(b).To(Equal(data))
-				serverSessionChan <- sess
+				serverConnChan <- conn
 			}()
-			sess, err := quic.DialAddr(
+			conn, err := quic.DialAddr(
 				fmt.Sprintf("localhost:%d", proxy.LocalPort()),
 				getTLSClientConfig(),
 				getQuicConfig(&quic.Config{
@@ -94,35 +89,35 @@ var _ = Describe("Handshake drop tests", func() {
 				}),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			str, err := sess.OpenStream()
+			str, err := conn.OpenStream()
 			Expect(err).ToNot(HaveOccurred())
 			_, err = str.Write(data)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(str.Close()).To(Succeed())
 
-			var serverSession quic.Session
-			Eventually(serverSessionChan, timeout).Should(Receive(&serverSession))
-			sess.CloseWithError(0, "")
-			serverSession.CloseWithError(0, "")
+			var serverConn quic.Connection
+			Eventually(serverConnChan, timeout).Should(Receive(&serverConn))
+			conn.CloseWithError(0, "")
+			serverConn.CloseWithError(0, "")
 		},
 	}
 
 	serverSpeaksFirst := &applicationProtocol{
 		name: "server speaks first",
 		run: func(version protocol.VersionNumber) {
-			serverSessionChan := make(chan quic.Session)
+			serverConnChan := make(chan quic.Connection)
 			go func() {
 				defer GinkgoRecover()
-				sess, err := ln.Accept(context.Background())
+				conn, err := ln.Accept(context.Background())
 				Expect(err).ToNot(HaveOccurred())
-				str, err := sess.OpenStream()
+				str, err := conn.OpenStream()
 				Expect(err).ToNot(HaveOccurred())
 				_, err = str.Write(data)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(str.Close()).To(Succeed())
-				serverSessionChan <- sess
+				serverConnChan <- conn
 			}()
-			sess, err := quic.DialAddr(
+			conn, err := quic.DialAddr(
 				fmt.Sprintf("localhost:%d", proxy.LocalPort()),
 				getTLSClientConfig(),
 				getQuicConfig(&quic.Config{
@@ -132,30 +127,30 @@ var _ = Describe("Handshake drop tests", func() {
 				}),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			str, err := sess.AcceptStream(context.Background())
+			str, err := conn.AcceptStream(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			b, err := io.ReadAll(gbytes.TimeoutReader(str, timeout))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(b).To(Equal(data))
 
-			var serverSession quic.Session
-			Eventually(serverSessionChan, timeout).Should(Receive(&serverSession))
-			sess.CloseWithError(0, "")
-			serverSession.CloseWithError(0, "")
+			var serverConn quic.Connection
+			Eventually(serverConnChan, timeout).Should(Receive(&serverConn))
+			conn.CloseWithError(0, "")
+			serverConn.CloseWithError(0, "")
 		},
 	}
 
 	nobodySpeaks := &applicationProtocol{
 		name: "nobody speaks",
 		run: func(version protocol.VersionNumber) {
-			serverSessionChan := make(chan quic.Session)
+			serverConnChan := make(chan quic.Connection)
 			go func() {
 				defer GinkgoRecover()
-				sess, err := ln.Accept(context.Background())
+				conn, err := ln.Accept(context.Background())
 				Expect(err).ToNot(HaveOccurred())
-				serverSessionChan <- sess
+				serverConnChan <- conn
 			}()
-			sess, err := quic.DialAddr(
+			conn, err := quic.DialAddr(
 				fmt.Sprintf("localhost:%d", proxy.LocalPort()),
 				getTLSClientConfig(),
 				getQuicConfig(&quic.Config{
@@ -165,11 +160,11 @@ var _ = Describe("Handshake drop tests", func() {
 				}),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			var serverSession quic.Session
-			Eventually(serverSessionChan, timeout).Should(Receive(&serverSession))
-			// both server and client accepted a session. Close now.
-			sess.CloseWithError(0, "")
-			serverSession.CloseWithError(0, "")
+			var serverConn quic.Connection
+			Eventually(serverConnChan, timeout).Should(Receive(&serverConn))
+			// both server and client accepted a connection. Close now.
+			conn.CloseWithError(0, "")
+			serverConn.CloseWithError(0, "")
 		},
 	}
 
@@ -234,8 +229,39 @@ var _ = Describe("Handshake drop tests", func() {
 										})
 
 										It(fmt.Sprintf("establishes a connection when 1/3 of the packets are lost in %s direction", direction), func() {
+											const maxSequentiallyDropped = 10
+											var mx sync.Mutex
+											var incoming, outgoing int
+
 											startListenerAndProxy(func(d quicproxy.Direction, _ []byte) bool {
-												return d.Is(direction) && stochasticDropper(3)
+												drop := mrand.Int63n(int64(3)) == 0
+
+												mx.Lock()
+												defer mx.Unlock()
+												// never drop more than 10 consecutive packets
+												if d.Is(quicproxy.DirectionIncoming) {
+													if drop {
+														incoming++
+														if incoming > maxSequentiallyDropped {
+															drop = false
+														}
+													}
+													if !drop {
+														incoming = 0
+													}
+												}
+												if d.Is(quicproxy.DirectionOutgoing) {
+													if drop {
+														outgoing++
+														if outgoing > maxSequentiallyDropped {
+															drop = false
+														}
+													}
+													if !drop {
+														outgoing = 0
+													}
+												}
+												return drop
 											}, doRetry, longCertChain, version)
 											app.run(version)
 										})

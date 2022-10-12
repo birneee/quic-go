@@ -56,10 +56,10 @@ type streamsMap struct {
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController
 
 	mutex               sync.Mutex
-	outgoingBidiStreams *outgoingBidiStreamsMap
-	outgoingUniStreams  *outgoingUniStreamsMap
-	incomingBidiStreams *incomingBidiStreamsMap
-	incomingUniStreams  *incomingUniStreamsMap
+	outgoingBidiStreams *outgoingStreamsMap[streamI]
+	outgoingUniStreams  *outgoingStreamsMap[sendStreamI]
+	incomingBidiStreams *incomingStreamsMap[streamI]
+	incomingUniStreams  *incomingStreamsMap[receiveStreamI]
 	reset               bool
 	// if nil, XSE-QUIC extension is not used
 	xseCryptoSetup xse.CryptoSetup
@@ -88,7 +88,8 @@ func newStreamsMap(
 }
 
 func (m *streamsMap) initMaps() {
-	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
+	m.outgoingBidiStreams = newOutgoingStreamsMap(
+		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
 			if m.xseCryptoSetup != nil {
@@ -99,7 +100,8 @@ func (m *streamsMap) initMaps() {
 		},
 		m.sender.queueControlFrame,
 	)
-	m.incomingBidiStreams = newIncomingBidiStreamsMap(
+	m.incomingBidiStreams = newIncomingStreamsMap(
+		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
 			if m.xseCryptoSetup != nil {
@@ -111,7 +113,8 @@ func (m *streamsMap) initMaps() {
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
 	)
-	m.outgoingUniStreams = newOutgoingUniStreamsMap(
+	m.outgoingUniStreams = newOutgoingStreamsMap(
+		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
 			if m.xseCryptoSetup != nil {
@@ -122,7 +125,8 @@ func (m *streamsMap) initMaps() {
 		},
 		m.sender.queueControlFrame,
 	)
-	m.incomingUniStreams = newIncomingUniStreamsMap(
+	m.incomingUniStreams = newIncomingStreamsMap(
+		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
 			if m.xseCryptoSetup != nil {

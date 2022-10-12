@@ -6,10 +6,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	mrand "math/rand"
 	"net"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -21,62 +19,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type customTracer struct{}
-
-var _ logging.Tracer = &customTracer{}
+type customTracer struct{ logging.NullTracer }
 
 func (t *customTracer) TracerForConnection(context.Context, logging.Perspective, logging.ConnectionID) logging.ConnectionTracer {
 	return &customConnTracer{}
 }
-func (t *customTracer) SentPacket(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {}
-func (t *customTracer) DroppedPacket(net.Addr, logging.PacketType, logging.ByteCount, logging.PacketDropReason) {
-}
 
-type customConnTracer struct{}
-
-var _ logging.ConnectionTracer = &customConnTracer{}
-
-func (t *customConnTracer) StartedConnection(local, remote net.Addr, srcConnID, destConnID logging.ConnectionID) {
-}
-
-func (t *customConnTracer) NegotiatedVersion(chosen logging.VersionNumber, clientVersions, serverVersions []logging.VersionNumber) {
-}
-func (t *customConnTracer) ClosedConnection(error)                                   {}
-func (t *customConnTracer) SentTransportParameters(*logging.TransportParameters)     {}
-func (t *customConnTracer) ReceivedTransportParameters(*logging.TransportParameters) {}
-func (t *customConnTracer) RestoredTransportParameters(*logging.TransportParameters) {}
-func (t *customConnTracer) SentPacket(hdr *logging.ExtendedHeader, size logging.ByteCount, ack *logging.AckFrame, frames []logging.Frame) {
-}
-
-func (t *customConnTracer) ReceivedVersionNegotiationPacket(*logging.Header, []logging.VersionNumber) {
-}
-func (t *customConnTracer) ReceivedRetry(*logging.Header) {}
-func (t *customConnTracer) ReceivedPacket(hdr *logging.ExtendedHeader, size logging.ByteCount, frames []logging.Frame) {
-}
-func (t *customConnTracer) BufferedPacket(logging.PacketType) {}
-func (t *customConnTracer) DroppedPacket(logging.PacketType, logging.ByteCount, logging.PacketDropReason) {
-}
-
-func (t *customConnTracer) UpdatedMetrics(rttStats *logging.RTTStats, cwnd, bytesInFlight logging.ByteCount, packetsInFlight int) {
-}
-
-func (t *customConnTracer) AcknowledgedPacket(logging.EncryptionLevel, logging.PacketNumber) {}
-func (t *customConnTracer) LostPacket(logging.EncryptionLevel, logging.PacketNumber, logging.PacketLossReason) {
-}
-func (t *customConnTracer) UpdatedCongestionState(logging.CongestionState)                     {}
-func (t *customConnTracer) UpdatedPTOCount(value uint32)                                       {}
-func (t *customConnTracer) UpdatedKeyFromTLS(logging.EncryptionLevel, logging.Perspective)     {}
-func (t *customConnTracer) UpdatedKey(generation logging.KeyPhase, remote bool)                {}
-func (t *customConnTracer) DroppedEncryptionLevel(logging.EncryptionLevel)                     {}
-func (t *customConnTracer) DroppedKey(logging.KeyPhase)                                        {}
-func (t *customConnTracer) SetLossTimer(logging.TimerType, logging.EncryptionLevel, time.Time) {}
-func (t *customConnTracer) LossTimerExpired(logging.TimerType, logging.EncryptionLevel)        {}
-func (t *customConnTracer) LossTimerCanceled()                                                 {}
-func (t *customConnTracer) Debug(string, string)                                               {}
-func (t *customConnTracer) Close()                                                             {}
-func (t *customConnTracer) UpdatedPath(net.Addr)                                               {}
-func (t *customConnTracer) XseReceiveRecord(streamID logging.StreamID, rawLength int, dataLength int) {
-}
+type customConnTracer struct{ logging.NullConnectionTracer }
 
 var _ = Describe("Handshake tests", func() {
 	addTracers := func(pers protocol.Perspective, conf *quic.Config) *quic.Config {
@@ -93,7 +42,7 @@ var _ = Describe("Handshake tests", func() {
 					return nil
 				}
 				fmt.Fprintf(GinkgoWriter, "%s qlog tracing connection %x\n", p, connectionID)
-				return utils.NewBufferedWriteCloser(bufio.NewWriter(&bytes.Buffer{}), ioutil.NopCloser(nil))
+				return utils.NewBufferedWriteCloser(bufio.NewWriter(&bytes.Buffer{}), io.NopCloser(nil))
 			}))
 		}
 		if enableCustomTracer {
@@ -118,9 +67,9 @@ var _ = Describe("Handshake tests", func() {
 				ln, err := quic.ListenAddr("localhost:0", getTLSConfig(), quicServerConf)
 				Expect(err).ToNot(HaveOccurred())
 				serverChan <- ln
-				sess, err := ln.Accept(context.Background())
+				conn, err := ln.Accept(context.Background())
 				Expect(err).ToNot(HaveOccurred())
-				str, err := sess.OpenUniStream()
+				str, err := conn.OpenUniStream()
 				Expect(err).ToNot(HaveOccurred())
 				_, err = str.Write(PRData)
 				Expect(err).ToNot(HaveOccurred())
@@ -130,14 +79,14 @@ var _ = Describe("Handshake tests", func() {
 			ln := <-serverChan
 			defer ln.Close()
 
-			sess, err := quic.DialAddr(
+			conn, err := quic.DialAddr(
 				fmt.Sprintf("localhost:%d", ln.Addr().(*net.UDPAddr).Port),
 				getTLSClientConfig(),
 				quicClientConf,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			defer sess.CloseWithError(0, "")
-			str, err := sess.AcceptUniStream(context.Background())
+			defer conn.CloseWithError(0, "")
+			str, err := conn.AcceptUniStream(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			data, err := io.ReadAll(str)
 			Expect(err).ToNot(HaveOccurred())

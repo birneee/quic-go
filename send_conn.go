@@ -14,7 +14,7 @@ type sendConn interface {
 }
 
 type sconn struct {
-	connection
+	rawConn
 
 	remoteAddr net.Addr
 	info       *packetInfo
@@ -23,9 +23,9 @@ type sconn struct {
 
 var _ sendConn = &sconn{}
 
-func newSendConn(c connection, remote net.Addr, info *packetInfo) sendConn {
+func newSendConn(c rawConn, remote net.Addr, info *packetInfo) sendConn {
 	return &sconn{
-		connection: c,
+		rawConn:    c,
 		remoteAddr: remote,
 		info:       info,
 		oob:        info.OOB(),
@@ -42,7 +42,7 @@ func (c *sconn) RemoteAddr() net.Addr {
 }
 
 func (c *sconn) LocalAddr() net.Addr {
-	addr := c.connection.LocalAddr()
+	addr := c.rawConn.LocalAddr()
 	if c.info != nil {
 		if udpAddr, ok := addr.(*net.UDPAddr); ok {
 			addrCopy := *udpAddr

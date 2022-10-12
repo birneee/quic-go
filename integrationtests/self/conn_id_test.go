@@ -2,21 +2,38 @@ package self_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
-	"math/rand"
+	mrand "math/rand"
 	"net"
 
-	quic "github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
+type connIDGenerator struct {
+	length int
+}
+
+func (c *connIDGenerator) GenerateConnectionID() (quic.ConnectionID, error) {
+	b := make([]byte, c.length)
+	if _, err := rand.Read(b); err != nil {
+		fmt.Fprintf(GinkgoWriter, "generating conn ID failed: %s", err)
+	}
+	return protocol.ParseConnectionID(b), nil
+}
+
+func (c *connIDGenerator) ConnectionIDLen() int {
+	return c.length
+}
+
 var _ = Describe("Connection ID lengths tests", func() {
 	randomConnIDLen := func() int {
-		return 4 + int(rand.Int31n(15))
+		return 4 + int(mrand.Int31n(15))
 	}
 
 	runServer := func(conf *quic.Config) quic.Listener {
@@ -26,13 +43,13 @@ var _ = Describe("Connection ID lengths tests", func() {
 		go func() {
 			defer GinkgoRecover()
 			for {
-				sess, err := ln.Accept(context.Background())
+				conn, err := ln.Accept(context.Background())
 				if err != nil {
 					return
 				}
 				go func() {
 					defer GinkgoRecover()
-					str, err := sess.OpenStream()
+					str, err := conn.OpenStream()
 					Expect(err).ToNot(HaveOccurred())
 					defer str.Close()
 					_, err = str.Write(PRData)
@@ -81,6 +98,21 @@ var _ = Describe("Connection ID lengths tests", func() {
 		clientConf := getQuicConfig(&quic.Config{
 			ConnectionIDLength: randomConnIDLen(),
 			Versions:           []protocol.VersionNumber{protocol.VersionTLS},
+		})
+
+		ln := runServer(serverConf)
+		defer ln.Close()
+		runClient(ln.Addr(), clientConf)
+	})
+
+	It("downloads a file when both client and server use a custom connection ID generator", func() {
+		serverConf := getQuicConfig(&quic.Config{
+			Versions:              []protocol.VersionNumber{protocol.VersionTLS},
+			ConnectionIDGenerator: &connIDGenerator{length: randomConnIDLen()},
+		})
+		clientConf := getQuicConfig(&quic.Config{
+			Versions:              []protocol.VersionNumber{protocol.VersionTLS},
+			ConnectionIDGenerator: &connIDGenerator{length: randomConnIDLen()},
 		})
 
 		ln := runServer(serverConf)
