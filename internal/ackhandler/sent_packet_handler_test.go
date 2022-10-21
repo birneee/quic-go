@@ -947,7 +947,7 @@ var _ = Describe("SentPacketHandler", func() {
 	Context("amplification limit, for the server, with validated address", func() {
 		JustBeforeEach(func() {
 			rttStats := utils.NewRTTStats()
-			handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, rttStats, true, perspective, nil, utils.DefaultLogger)
+			handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, protocol.DefaultInitialCongestionWindow, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, rttStats, true, perspective, nil, utils.DefaultLogger)
 		})
 
 		It("do not limits the window", func() {

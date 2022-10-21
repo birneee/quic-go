@@ -352,6 +352,7 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 		rttStats,
 		tracer,
 		logger,
+		state.Version,
 	)
 
 	aead.keyPhase = state.KeyPhase

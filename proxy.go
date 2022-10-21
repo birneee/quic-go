@@ -10,7 +10,7 @@ import (
 )
 
 type ProxyControlSession struct {
-	session Session
+	session Connection
 }
 
 func (p *ProxyControlSession) Close() error {

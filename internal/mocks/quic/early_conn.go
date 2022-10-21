@@ -11,6 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	quic "github.com/lucas-clemente/quic-go"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	qerr "github.com/lucas-clemente/quic-go/internal/qerr"
 )
 
@@ -109,6 +110,35 @@ func (mr *MockEarlyConnectionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockEarlyConnection)(nil).Context))
 }
 
+// ExtraStreamEncrypted mocks base method.
+func (m *MockEarlyConnection) ExtraStreamEncrypted() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraStreamEncrypted")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraStreamEncrypted indicates an expected call of ExtraStreamEncrypted.
+func (mr *MockEarlyConnectionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraStreamEncrypted", reflect.TypeOf((*MockEarlyConnection)(nil).ExtraStreamEncrypted))
+}
+
+// Handover mocks base method.
+func (m *MockEarlyConnection) Handover(arg0, arg1 bool) (handover.State, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
+	ret0, _ := ret[0].(handover.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Handover indicates an expected call of Handover.
+func (mr *MockEarlyConnectionMockRecorder) Handover(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockEarlyConnection)(nil).Handover), arg0, arg1)
+}
+
 // HandshakeComplete mocks base method.
 func (m *MockEarlyConnection) HandshakeComplete() context.Context {
 	m.ctrl.T.Helper()
@@ -135,6 +165,21 @@ func (m *MockEarlyConnection) LocalAddr() net.Addr {
 func (mr *MockEarlyConnectionMockRecorder) LocalAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockEarlyConnection)(nil).LocalAddr))
+}
+
+// MigrateUDPSocket mocks base method.
+func (m *MockEarlyConnection) MigrateUDPSocket() (*net.UDPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrateUDPSocket")
+	ret0, _ := ret[0].(*net.UDPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MigrateUDPSocket indicates an expected call of MigrateUDPSocket.
+func (mr *MockEarlyConnectionMockRecorder) MigrateUDPSocket() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateUDPSocket", reflect.TypeOf((*MockEarlyConnection)(nil).MigrateUDPSocket))
 }
 
 // NextConnection mocks base method.

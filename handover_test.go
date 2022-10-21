@@ -33,14 +33,13 @@ var _ = Describe("Handover", func() {
 	})
 
 	AfterEach(func() {
-		Eventually(areSessionsRunning).Should(BeFalse())
+		Eventually(areConnsRunning).Should(BeFalse())
 		Eventually(areServersRunning).Should(BeFalse())
-		Eventually(areClosedSessionsRunning).Should(BeFalse())
 	})
 
 	It("client handover", func() {
 		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: 100 * time.Millisecond})
-		var serverSession Session
+		var serverSession Connection
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			defer GinkgoRecover()
@@ -76,9 +75,9 @@ var _ = Describe("Handover", func() {
 		Expect(n).To(Equal(len(message)))
 		Expect(buf).To(Equal(message))
 		// destroy sessions
-		clientSession.(*session).destroyImpl(nil)
-		migratedClientSession.(*session).destroyImpl(nil)
-		serverSession.(*session).destroyImpl(nil)
+		clientSession.(*connection).destroyImpl(nil)
+		migratedClientSession.(*connection).destroyImpl(nil)
+		serverSession.(*connection).destroyImpl(nil)
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 

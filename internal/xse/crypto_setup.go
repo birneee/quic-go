@@ -6,7 +6,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
 	"github.com/lucas-clemente/quic-go/logging"
-	qtls2 "github.com/marten-seemann/qtls-go1-17"
+	qtls2 "github.com/marten-seemann/qtls-go1-19"
 )
 
 const (

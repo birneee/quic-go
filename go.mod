@@ -2,7 +2,9 @@ module github.com/lucas-clemente/quic-go
 
 go 1.18
 
-replace github.com/marten-seemann/qtls-go1-17 v0.1.0 => github.com/birneee/qtls-go1-17 v0.4.0
+replace (
+	github.com/marten-seemann/qtls-go1-19 v0.1.1 => ../qtls-go1-19
+)
 
 require (
 	github.com/francoispqt/gojay v1.2.13

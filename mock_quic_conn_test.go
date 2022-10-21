@@ -10,6 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 )
 
@@ -108,6 +109,20 @@ func (mr *MockQuicConnMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockQuicConn)(nil).Context))
 }
 
+// ExtraStreamEncrypted mocks base method.
+func (m *MockQuicConn) ExtraStreamEncrypted() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraStreamEncrypted")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraStreamEncrypted indicates an expected call of ExtraStreamEncrypted.
+func (mr *MockQuicConnMockRecorder) ExtraStreamEncrypted() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraStreamEncrypted", reflect.TypeOf((*MockQuicConn)(nil).ExtraStreamEncrypted))
+}
+
 // GetVersion mocks base method.
 func (m *MockQuicConn) GetVersion() protocol.VersionNumber {
 	m.ctrl.T.Helper()
@@ -120,6 +135,21 @@ func (m *MockQuicConn) GetVersion() protocol.VersionNumber {
 func (mr *MockQuicConnMockRecorder) GetVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockQuicConn)(nil).GetVersion))
+}
+
+// Handover mocks base method.
+func (m *MockQuicConn) Handover(destroy, ignoreCurrentPath bool) (handover.State, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handover", destroy, ignoreCurrentPath)
+	ret0, _ := ret[0].(handover.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Handover indicates an expected call of Handover.
+func (mr *MockQuicConnMockRecorder) Handover(destroy, ignoreCurrentPath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicConn)(nil).Handover), destroy, ignoreCurrentPath)
 }
 
 // HandshakeComplete mocks base method.
@@ -148,6 +178,21 @@ func (m *MockQuicConn) LocalAddr() net.Addr {
 func (mr *MockQuicConnMockRecorder) LocalAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockQuicConn)(nil).LocalAddr))
+}
+
+// MigrateUDPSocket mocks base method.
+func (m *MockQuicConn) MigrateUDPSocket() (*net.UDPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrateUDPSocket")
+	ret0, _ := ret[0].(*net.UDPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MigrateUDPSocket indicates an expected call of MigrateUDPSocket.
+func (mr *MockQuicConnMockRecorder) MigrateUDPSocket() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateUDPSocket", reflect.TypeOf((*MockQuicConn)(nil).MigrateUDPSocket))
 }
 
 // NextConnection mocks base method.

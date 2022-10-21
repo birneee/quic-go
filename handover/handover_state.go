@@ -220,7 +220,7 @@ func (s *State) ActiveDestConnectionIDs(perspective protocol.Perspective) []Acti
 	}
 }
 
-func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) protocol.ConnectionID {
+func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) *protocol.ConnectionID {
 	var minSN uint64 = math.MaxUint64
 	var minID protocol.ConnectionID
 	for _, activeConnID := range s.ActiveDestConnectionIDs(perspective) {
@@ -229,7 +229,7 @@ func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) prot
 			minID = activeConnID.ConnectionID
 		}
 	}
-	return minID
+	return &minID
 }
 
 func (s *State) SetActiveDestConnectionIDs(perspective protocol.Perspective, connIDs []ActiveConnectionID) {
@@ -280,7 +280,7 @@ func (s *State) SetPeerTransportParameters(perspective protocol.Perspective, tp 
 }
 
 // Clone
-//TODO deep copy
+// TODO deep copy
 func (s *State) Clone() *State {
 	return &*s
 }

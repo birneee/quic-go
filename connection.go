@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -234,7 +233,7 @@ type connection struct {
 	logger utils.Logger
 
 	ignoredRemoteAddresses []net.UDPAddr
-	runner                 sessionRunner
+	runner                 connRunner
 	//TODO this should not be necessary
 	cloned bool
 	// closed when H-QUIC handover migration is done.
@@ -457,7 +456,6 @@ var newClientConnection = func(
 		s.tracer,
 		s.logger,
 		s.version,
-		false,
 	)
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -1002,6 +1000,20 @@ func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID proto
 		wire.LogShortHeader(s.logger, destConnID, pn, pnLen, keyPhase)
 	}
 
+	// handle changed remote address (migration)
+	// TODO only react to non-probing packets
+	// TODO improve migration: make secure, send path challenge
+	// TODO validate path
+	// TODO use new connection ID from the peer
+	// TODO reset congestion controller and RTT estimate
+	// TODO re-validate ECN capability
+	if err != handshake.ErrDecryptionFailed &&
+		s.config.EnableActiveMigration &&
+		s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
+		s.handshakeConfirmed {
+		s.updatePath(p.remoteAddr)
+	}
+
 	if s.receivedPacketHandler.IsPotentiallyDuplicate(pn, protocol.Encryption1RTT) {
 		s.logger.Debugf("Dropping (potentially) duplicate packet.")
 		if s.tracer != nil {
@@ -1064,28 +1076,6 @@ func (s *connection) handleLongHeaderPacket(p *receivedPacket, hdr *wire.Header)
 	}
 
 	packet, err := s.unpacker.UnpackLongHeader(hdr, p.rcvTime, p.data)
-
-	// handle changed remote address (migration)
-	// TODO only react to non-probing packets
-	// TODO improve migration: make secure, send path challenge
-	// TODO validate path
-	// TODO use new connection ID from the peer
-	// TODO reset congestion controller and RTT estimate
-	// TODO re-validate ECN capability
-	if err != handshake.ErrDecryptionFailed &&
-		s.config.EnableActiveMigration &&
-		s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
-		s.handshakeConfirmed {
-		s.updatePath(p.remoteAddr)
-	}
-
-	if s.isWaitingForHandoverMigration() && s.handshakeConfirmed {
-		if s.tracer != nil {
-			s.tracer.DroppedPacket(logging.PacketTypeFromHeader(hdr), p.Size(), logging.PacketDropWaitForMigration)
-		}
-		s.logger.Debugf("Ignore packet number %d, because all 1RTT packets are ignored until path change", packet.packetNumber)
-		return false
-	}
 
 	if err != nil {
 		wasQueued = s.handleUnpackError(err, p, logging.PacketTypeFromHeader(hdr))
@@ -2297,7 +2287,7 @@ func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.St
 
 	state.Version = s.version
 	var err error
-	state.LogConnectionID, err = hex.DecodeString(s.logID)
+	state.LogConnectionID, err = protocol.ParseConnectionIDHex(s.logID)
 	if err != nil {
 		return handover.State{}, err
 	}
@@ -2351,7 +2341,7 @@ func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.St
 // update path to peer
 // migrate to new remote address
 // TODO check if path is validated
-func (s *session) updatePath(remoteAddr net.Addr) {
+func (s *connection) updatePath(remoteAddr net.Addr) {
 	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
 	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
 	if s.tracer != nil {
@@ -2365,7 +2355,7 @@ func (s *session) updatePath(remoteAddr net.Addr) {
 
 // Returns nil when handshake is confirmed,
 // otherwise return error
-func (s *session) awaitHandshakeConfirmed() error {
+func (s *connection) awaitHandshakeConfirmed() error {
 	for {
 		if s.handshakeConfirmed {
 			return nil // handshake is done
@@ -2380,7 +2370,7 @@ func (s *session) awaitHandshakeConfirmed() error {
 	}
 }
 
-func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
+func (s *connection) MigrateUDPSocket() (*net.UDPAddr, error) {
 	err := s.awaitHandshakeConfirmed()
 	if err != nil {
 		return nil, fmt.Errorf("migration failed: %w", err)
@@ -2392,7 +2382,7 @@ func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
 
 	switch conn := s.conn.(type) {
 	case *sconn:
-		switch conn := conn.connection.(type) {
+		switch conn := conn.rawConn.(type) {
 		case *basicConn:
 			switch conn := conn.PacketConn.(type) {
 			case *MigratableUDPConn:
@@ -2411,11 +2401,11 @@ func (s *session) MigrateUDPSocket() (*net.UDPAddr, error) {
 
 // IgnoreCurrentRemoteAddress adds current remote address to ignore list.
 // Session will drop all packets from and to the current destination.
-func (s *session) IgnoreCurrentRemoteAddress() {
+func (s *connection) IgnoreCurrentRemoteAddress() {
 	s.ignoredRemoteAddresses = append(s.ignoredRemoteAddresses, *s.RemoteAddr().(*net.UDPAddr))
 }
 
-func (s *session) isRemoteAddressIgnored(addr net.Addr) bool {
+func (s *connection) isRemoteAddressIgnored(addr net.Addr) bool {
 	if addr == nil {
 		return false
 	}
@@ -2451,7 +2441,7 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 }
 
 // Restore session from H-QUIC state
-func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Session, error) {
+func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Connection, error) {
 	logger := utils.DefaultLogger.WithPrefix(conf.LoggerPrefix)
 
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
@@ -2482,11 +2472,11 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
 
-	tracingID := nextSessionTracingID()
+	tracingID := nextConnTracingID()
 	var connTracer logging.ConnectionTracer
 	if conf.Tracer != nil {
 		connTracer = conf.Tracer.TracerForConnection(
-			context.WithValue(context.Background(), SessionTracingKey, tracingID),
+			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
 			state.LogConnectionID, //TODO maybe add field with original id
 		)
@@ -2505,11 +2495,9 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		}
 	}
 
-	s := &session{
+	s := &connection{
 		conn:                   conn,
 		config:                 conf,
-		origDestConnID:         nil,
-		handshakeDestConnID:    nil,
 		srcConnIDLen:           state.SrcConnectionIDLength(perspective),
 		perspective:            perspective,
 		handshakeCompleteChan:  make(chan struct{}),
@@ -2525,7 +2513,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	}
 
 	s.connIDManager = newConnIDManager(
-		state.MinActiveDestConnectionID(perspective),
+		*state.MinActiveDestConnectionID(perspective),
 		func(token protocol.StatelessResetToken) { runner.AddResetToken(token, s) },
 		runner.RemoveResetToken,
 		s.queueControlFrame,
@@ -2540,6 +2528,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		runner.Retire,
 		runner.ReplaceWithClosed,
 		s.queueControlFrame,
+		s.config.ConnectionIDGenerator,
 		s.version,
 	)
 
@@ -2555,7 +2544,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	}
 
 	s.preSetup()
-	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), SessionTracingKey, tracingID))
+	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
@@ -2563,11 +2552,11 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.config.MinCongestionWindow,
 		s.config.MaxCongestionWindow,
 		s.rttStats,
+		true, // TODO path challenge
 		s.perspective,
 		s.tracer,
 		s.logger,
 		s.version,
-		true,
 	)
 
 	//TODO
@@ -2591,7 +2580,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 
 	s.cryptoStreamHandler = cs
 	s.cryptoStreamManager = newCryptoStreamManager(cs, initialStream, handshakeStream, newCryptoStream())
-	s.unpacker = newPacketUnpacker(cs, s.version)
+	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen, s.version)
 	s.packer = newPacketPacker(
 		state.MinActiveSrcConnectionID(perspective),
 		s.connIDManager.Get,
@@ -2660,7 +2649,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.applyTransportParameters()
 		// On the server side, the early session is ready as soon as we processed
 		// the client's transport parameters.
-		close(s.earlySessionReadyChan)
+		close(s.earlyConnReadyChan)
 	}
 
 	//TODO send PATH_CHALLENGE instead of PING
@@ -2675,7 +2664,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	return s, nil
 }
 
-func (s *session) useProxy() error {
+func (s *connection) useProxy() error {
 	if !s.config.EnableActiveMigration {
 		return errors.New("active migration has to be enabled")
 	}
@@ -2712,12 +2701,12 @@ func (s *session) useProxy() error {
 	return nil
 }
 
-func (s *session) ExtraStreamEncrypted() bool {
+func (s *connection) ExtraStreamEncrypted() bool {
 	return s.config.ExtraStreamEncryption.enabled() && s.peerParams.ExtraStreamEncryption
 }
 
 // does not block
-func (s *session) isWaitingForHandoverMigration() bool {
+func (s *connection) isWaitingForHandoverMigration() bool {
 	select {
 	case _, _ = <-s.handoverMigrationCtx.Done():
 		return false

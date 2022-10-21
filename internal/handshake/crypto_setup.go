@@ -14,7 +14,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/wire"
 	"github.com/lucas-clemente/quic-go/logging"
 	"github.com/lucas-clemente/quic-go/quicvarint"
-	qtls2 "github.com/marten-seemann/qtls-go1-17"
+	qtls2 "github.com/marten-seemann/qtls-go1-19"
 	"io"
 	"net"
 	"sync"
@@ -854,7 +854,7 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Add
 	cs, _ := newCryptoSetup(
 		nil,
 		nil,
-		nil,
+		protocol.ConnectionID{}, // is not use after migration
 		&ownParams,
 		nil,
 		tlsConf,

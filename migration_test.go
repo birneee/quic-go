@@ -32,16 +32,15 @@ var _ = Describe("Migration", func() {
 	})
 
 	AfterEach(func() {
-		Eventually(areSessionsRunning).Should(BeFalse())
+		Eventually(areConnsRunning).Should(BeFalse())
 		Eventually(areServersRunning).Should(BeFalse())
-		Eventually(areClosedSessionsRunning).Should(BeFalse())
 	})
 
 	It("server migration", func() {
 		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: time.Second})
 		originalServerAddr := server.Addr()
 		Expect(err).ToNot(HaveOccurred())
-		var clientSession Session
+		var clientSession Connection
 		//start client
 		go func() {
 			defer GinkgoRecover()
@@ -75,15 +74,15 @@ var _ = Describe("Migration", func() {
 		Expect(n).To(Equal(len(message)))
 		Expect(buf[:]).To(Equal(message))
 		// destroy sessions
-		serverSession.(*session).destroyImpl(nil)
-		clientSession.(*session).destroyImpl(nil)
+		serverSession.(*connection).destroyImpl(nil)
+		clientSession.(*connection).destroyImpl(nil)
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 
 	It("client migration", func() {
 		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: time.Second})
 		Expect(err).ToNot(HaveOccurred())
-		var serverSession Session
+		var serverSession Connection
 		//run server
 		go func() {
 			defer GinkgoRecover()
@@ -118,8 +117,8 @@ var _ = Describe("Migration", func() {
 		Expect(n).To(Equal(len(message)))
 		Expect(buf[:]).To(Equal(message))
 		// destroy sessions
-		serverSession.(*session).destroyImpl(nil)
-		clientSession.(*session).destroyImpl(nil)
+		serverSession.(*connection).destroyImpl(nil)
+		clientSession.(*connection).destroyImpl(nil)
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 

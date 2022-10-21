@@ -29,7 +29,7 @@ var _ = Describe("MITM test", func() {
 			const connIDLen = 6 // explicitly set the connection ID length, so the proxy can parse it
 
 			var (
-				serverUDPConn, clientUDPConn *net.MigratableUDPConn
+				serverUDPConn, clientUDPConn *quic.MigratableUDPConn
 				serverConn                   quic.Connection
 				serverConfig                 *quic.Config
 			)
