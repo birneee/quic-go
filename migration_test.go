@@ -12,13 +12,12 @@ import (
 
 var _ = Describe("Migration", func() {
 	var (
-		message       []byte
+		message       = "hello"
 		serverTlsConf *tls.Config
 		clientTlsConf *tls.Config
 	)
 
 	BeforeEach(func() {
-		message = []byte("hello")
 		protos := []string{"proto1"}
 		serverTlsConf = testdata.GetTLSConfig()
 		serverTlsConf.NextProtos = protos
@@ -40,85 +39,71 @@ var _ = Describe("Migration", func() {
 		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: time.Second})
 		originalServerAddr := server.Addr()
 		Expect(err).ToNot(HaveOccurred())
-		var clientSession Connection
+		var clientConn Connection
 		//start client
 		go func() {
 			defer GinkgoRecover()
-			clientSession, err = DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: time.Second})
+			clientConn, err = DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: time.Second})
 			Expect(err).ToNot(HaveOccurred())
-			stream, err := clientSession.AcceptStream(context.Background())
+			// transfer
+			err = openAndSend(clientConn, message)
 			Expect(err).ToNot(HaveOccurred())
-			buf := make([]byte, len(message))
-			n, err := stream.Read(buf[:])
+			err = acceptAndReceive(clientConn, message)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(len(message)))
-			n, err = stream.Write(buf[:])
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(len(message)))
 		}()
 		//run server
-		serverSession, err := server.Accept(context.Background())
+		serverConn, err := server.Accept(context.Background())
 		Expect(err).ToNot(HaveOccurred())
-		migratedServerAddr, err := serverSession.MigrateUDPSocket()
+		migratedServerAddr, err := serverConn.MigrateUDPSocket()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String()))
 		Expect(server.Addr().String()).To(Equal(migratedServerAddr.String()))
-		stream, err := serverSession.OpenStream()
+		// transfer
+		err = acceptAndReceive(serverConn, message)
 		Expect(err).ToNot(HaveOccurred())
-		n, err := stream.Write(message)
+		err = openAndSend(serverConn, message)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(n).To(Equal(len(message)))
-		buf := make([]byte, len(message))
-		n, err = stream.Read(buf[:])
-		Expect(err).ToNot(HaveOccurred())
-		Expect(n).To(Equal(len(message)))
-		Expect(buf[:]).To(Equal(message))
+		<-serverConn.Context().Done()
+		<-clientConn.Context().Done()
 		// destroy sessions
-		serverSession.(*connection).destroyImpl(nil)
-		clientSession.(*connection).destroyImpl(nil)
+		serverConn.(*connection).destroyImpl(nil)
+		clientConn.(*connection).destroyImpl(nil)
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 
 	It("client migration", func() {
 		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: time.Second})
 		Expect(err).ToNot(HaveOccurred())
-		var serverSession Connection
+		var serverConn Connection
 		//run server
 		go func() {
 			defer GinkgoRecover()
-			serverSession, err = server.Accept(context.Background())
+			serverConn, err = server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			stream, err := serverSession.AcceptStream(context.Background())
+			// transfer
+			err = acceptAndReceive(serverConn, message)
 			Expect(err).ToNot(HaveOccurred())
-			buf := make([]byte, len(message))
-			n, err := stream.Read(buf[:])
+			err = openAndSend(serverConn, message)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(len(message)))
-			n, err = stream.Write(buf[:])
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(len(message)))
 		}()
 		//start client
-		clientSession, err := DialAddr(server.Addr().String(), clientTlsConf, &Config{MaxIdleTimeout: time.Second})
+		clientConn, err := DialAddr(server.Addr().String(), clientTlsConf, &Config{MaxIdleTimeout: time.Second})
 		Expect(err).ToNot(HaveOccurred())
-		originalClientAddr := clientSession.LocalAddr()
-		migratedClientAddr, err := clientSession.MigrateUDPSocket()
+		originalClientAddr := clientConn.LocalAddr()
+		migratedClientAddr, err := clientConn.MigrateUDPSocket()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(originalClientAddr.String()).ToNot(Equal(migratedClientAddr.String()))
-		Expect(clientSession.LocalAddr().String()).To(Equal(migratedClientAddr.String()))
-		stream, err := clientSession.OpenStream()
+		Expect(clientConn.LocalAddr().String()).To(Equal(migratedClientAddr.String()))
+		// transfer
+		err = openAndSend(clientConn, message)
 		Expect(err).ToNot(HaveOccurred())
-		n, err := stream.Write(message)
+		err = acceptAndReceive(clientConn, message)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(n).To(Equal(len(message)))
-		buf := make([]byte, len(message))
-		n, err = stream.Read(buf[:])
-		Expect(err).ToNot(HaveOccurred())
-		Expect(n).To(Equal(len(message)))
-		Expect(buf[:]).To(Equal(message))
+		<-clientConn.Context().Done()
+		<-serverConn.Context().Done()
 		// destroy sessions
-		serverSession.(*connection).destroyImpl(nil)
-		clientSession.(*connection).destroyImpl(nil)
+		serverConn.(*connection).destroyImpl(nil)
+		clientConn.(*connection).destroyImpl(nil)
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 

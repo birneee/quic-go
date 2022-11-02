@@ -1479,6 +1479,7 @@ func (s *connection) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protoco
 }
 
 func (s *connection) handleStreamFrame(frame *wire.StreamFrame) error {
+	<-s.handoverMigrationCtx.Done()
 	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
 	if err != nil {
 		return err
@@ -1815,7 +1816,7 @@ func (s *connection) applyTransportParameters() {
 	s.connFlowController.UpdateSendWindow(params.InitialMaxData)
 	s.rttStats.SetMaxAckDelay(params.MaxAckDelay)
 	s.connIDGenerator.SetMaxActiveConnIDs(params.ActiveConnectionIDLimit)
-	if params.StatelessResetToken != nil {
+	if params.StatelessResetToken != nil && s.connIDManager.activeSequenceNumber == 0 {
 		s.connIDManager.SetStatelessResetToken(*params.StatelessResetToken)
 	}
 	// We don't support connection migration yet, so we don't have any use for the preferred_address.
@@ -2106,10 +2107,12 @@ func (s *connection) logPacket(packet *packedPacket) {
 
 // AcceptStream returns the next stream openend by the peer
 func (s *connection) AcceptStream(ctx context.Context) (Stream, error) {
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.AcceptStream(ctx)
 }
 
 func (s *connection) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
+	<-s.handoverMigrationCtx.Done()
 	return s.streamsMap.AcceptUniStream(ctx)
 }
 
@@ -2301,7 +2304,7 @@ func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.St
 		statelessResetToken := s.connIDGenerator.getStatelessResetToken(connID) //TODO maybe store history
 		activeSrcConnIDs = append(activeSrcConnIDs, handover.ActiveConnectionID{
 			SequenceNumber:      sn,
-			ConnectionID:        connID,
+			ConnectionID:        connID.Bytes(),
 			StatelessResetToken: statelessResetToken[:],
 		})
 	}
@@ -2315,13 +2318,13 @@ func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.St
 	activeDestConnIDs := make([]handover.ActiveConnectionID, 0)
 	activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
 		SequenceNumber:      s.connIDManager.activeSequenceNumber,
-		ConnectionID:        s.connIDManager.activeConnectionID,
+		ConnectionID:        s.connIDManager.activeConnectionID.Bytes(),
 		StatelessResetToken: activeDestStatelessResetToken,
 	})
 	for destConnID := s.connIDManager.queue.Front(); destConnID != nil; destConnID = destConnID.Next() {
 		activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
 			SequenceNumber:      destConnID.Value.SequenceNumber,
-			ConnectionID:        destConnID.Value.ConnectionID,
+			ConnectionID:        destConnID.Value.ConnectionID.Bytes(),
 			StatelessResetToken: destConnID.Value.StatelessResetToken[:],
 		})
 	}
@@ -2442,6 +2445,10 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 
 // Restore session from H-QUIC state
 func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Connection, error) {
+	if conf == nil {
+		conf = &Config{}
+	}
+
 	logger := utils.DefaultLogger.WithPrefix(conf.LoggerPrefix)
 
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
@@ -2461,8 +2468,11 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		conn = newSendConn(sconn, remoteAddr, nil)
 	}
 
+	// must be called before populateClientConfig or populateServerConfig
+	conf.ConnectionIDLength = state.SrcConnectionIDLength(perspective)
+
 	if perspective == protocol.PerspectiveClient {
-		conf = populateClientConfig(conf, false)
+		conf = populateClientConfig(conf, conf.ConnectionIDLength == 0)
 	} else {
 		conf = populateServerConfig(conf)
 	}
@@ -2537,7 +2547,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		maxSN, _ := state.MaxActiveSrcConnectionID(perspective)
 		activeScrConnIDMap := make(map[uint64]protocol.ConnectionID, 0)
 		for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
-			activeScrConnIDMap[activeConnID.SequenceNumber] = activeConnID.ConnectionID
+			activeScrConnIDMap[activeConnID.SequenceNumber] = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 		s.connIDGenerator.activeSrcConnIDs = activeScrConnIDMap
 		s.connIDGenerator.highestSeq = maxSN
@@ -2608,7 +2618,8 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	}
 
 	for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
-		runner.Add(activeConnID.ConnectionID, s)
+		runner.Add(protocol.ParseConnectionID(activeConnID.ConnectionID), s)
+		//TODO restore stateless reset tokens
 	}
 
 	peerParams := state.PeerTransportParameters(perspective)
@@ -2620,14 +2631,20 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	}
 
 	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
-		if activeConnID.ConnectionID.Equal(s.connIDManager.activeConnectionID) {
+		if protocol.ParseConnectionID(activeConnID.ConnectionID).Equal(s.connIDManager.activeConnectionID) {
+			s.connIDManager.activeSequenceNumber = activeConnID.SequenceNumber
+			s.connIDManager.activeStatelessResetToken = new(protocol.StatelessResetToken)
+			if activeConnID.StatelessResetToken != nil {
+				s.connIDManager.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(s.connIDManager.rand.Int31n(protocol.PacketsPerConnectionID))
+				copy(s.connIDManager.activeStatelessResetToken[:], activeConnID.StatelessResetToken[:16])
+			}
 			continue
 		}
 		var resetToken [16]byte
 		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
 		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
 			SequenceNumber:      activeConnID.SequenceNumber,
-			ConnectionID:        activeConnID.ConnectionID,
+			ConnectionID:        protocol.ParseConnectionID(activeConnID.ConnectionID),
 			StatelessResetToken: resetToken,
 		})
 		if err != nil {
@@ -2651,6 +2668,8 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		// the client's transport parameters.
 		close(s.earlyConnReadyChan)
 	}
+
+	s.receivedFirstPacket = true
 
 	//TODO send PATH_CHALLENGE instead of PING
 	err = s.sendProbePacket(protocol.Encryption1RTT)

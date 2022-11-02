@@ -60,7 +60,11 @@ func ParseConnectionID(b []byte) ConnectionID {
 
 // ParseConnectionIDHex interprets hexadecimal string as a Connection ID.
 // It panics if b is longer than 20 bytes.
+// if h is emptyConnectionIDString return ConnectionID with length 0
 func ParseConnectionIDHex(h string) (ConnectionID, error) {
+	if h == emptyConnectionIDString {
+		return ConnectionID{}, nil
+	}
 	bytes, err := hex.DecodeString(h)
 	if err != nil {
 		return ConnectionID{}, err
@@ -107,9 +111,11 @@ func (c ConnectionID) Bytes() []byte {
 	return c.b[:c.l]
 }
 
+const emptyConnectionIDString = "(empty)"
+
 func (c ConnectionID) String() string {
 	if c.Len() == 0 {
-		return "(empty)"
+		return emptyConnectionIDString
 	}
 	return fmt.Sprintf("%x", c.Bytes())
 }

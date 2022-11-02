@@ -11,7 +11,7 @@ import (
 
 type ActiveConnectionID struct {
 	SequenceNumber uint64
-	ConnectionID   protocol.ConnectionID
+	ConnectionID   []byte
 	// 16 bytes
 	StatelessResetToken []byte
 }
@@ -186,7 +186,7 @@ func (s *State) MinActiveSrcConnectionID(perspective protocol.Perspective) proto
 	for _, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
 		if activeConnID.SequenceNumber <= minSN {
 			minSN = activeConnID.SequenceNumber
-			minID = activeConnID.ConnectionID
+			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return minID
@@ -198,7 +198,7 @@ func (s *State) MaxActiveSrcConnectionID(perspective protocol.Perspective) (uint
 	for _, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
 		if activeConnID.SequenceNumber >= minSN {
 			minSN = activeConnID.SequenceNumber
-			minID = activeConnID.ConnectionID
+			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return minSN, minID
@@ -226,7 +226,7 @@ func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) *pro
 	for _, activeConnID := range s.ActiveDestConnectionIDs(perspective) {
 		if activeConnID.SequenceNumber <= minSN {
 			minSN = activeConnID.SequenceNumber
-			minID = activeConnID.ConnectionID
+			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return &minID
@@ -242,7 +242,7 @@ func (s *State) SetActiveDestConnectionIDs(perspective protocol.Perspective, con
 
 func (s *State) SrcConnectionIDLength(perspective protocol.Perspective) int {
 	for _, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
-		return activeConnID.ConnectionID.Len()
+		return len(activeConnID.ConnectionID)
 	}
 	panic("no connection ids")
 }
