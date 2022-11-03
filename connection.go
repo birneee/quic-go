@@ -1479,7 +1479,10 @@ func (s *connection) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protoco
 }
 
 func (s *connection) handleStreamFrame(frame *wire.StreamFrame) error {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return err
+	}
 	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
 	if err != nil {
 		return err
@@ -2105,35 +2108,68 @@ func (s *connection) logPacket(packet *packedPacket) {
 	s.logPacketContents(packet.packetContents)
 }
 
+// awaitMigration returns nil when no error occurred
+func (s *connection) awaitHandoverMigration() error {
+	select {
+	case <-s.handoverMigrationCtx.Done():
+		return nil
+	case err := <-s.closeChan:
+		s.closeChan <- err
+		return fmt.Errorf("failed to open stream: %w", err.err)
+	case <-time.After(s.config.MaxIdleTimeout):
+		err := fmt.Errorf("failed to open stream: handover timeout")
+		s.closeLocal(err)
+		return err
+	}
+}
+
 // AcceptStream returns the next stream openend by the peer
 func (s *connection) AcceptStream(ctx context.Context) (Stream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.AcceptStream(ctx)
 }
 
 func (s *connection) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.AcceptUniStream(ctx)
 }
 
 // OpenStream opens a stream
 func (s *connection) OpenStream() (Stream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.OpenStream()
 }
 
 func (s *connection) OpenStreamSync(ctx context.Context) (Stream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.OpenStreamSync(ctx)
 }
 
 func (s *connection) OpenUniStream() (SendStream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.OpenUniStream()
 }
 
 func (s *connection) OpenUniStreamSync(ctx context.Context) (SendStream, error) {
-	<-s.handoverMigrationCtx.Done()
+	err := s.awaitHandoverMigration()
+	if err != nil {
+		return nil, err
+	}
 	return s.streamsMap.OpenUniStreamSync(ctx)
 }
 
