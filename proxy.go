@@ -9,6 +9,12 @@ import (
 	"io"
 )
 
+// TODO IANA registration
+const HQUICProxyALPN = "qproxy"
+
+// TODO IANA registration
+const DefaultHQUICProxyControlPort = 18081
+
 type ProxyControlSession struct {
 	session Connection
 }
@@ -38,7 +44,7 @@ func (p *ProxyControlSession) SendHandover(state *handover.State) error {
 // DialProxyAddr establish a new HQUIC-Proxy connection
 func DialProxyAddr(addr string, tlsConf *tls.Config, config *Config) (*ProxyControlSession, error) {
 	tlsConf = tlsConf.Clone()
-	tlsConf.NextProtos = []string{"qproxy"}
+	tlsConf.NextProtos = []string{HQUICProxyALPN}
 	session, err := DialAddrEarly(addr, tlsConf, config)
 	if err != nil {
 		return nil, fmt.Errorf("proxy connection failed: %w", err)
