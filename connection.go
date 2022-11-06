@@ -1479,9 +1479,10 @@ func (s *connection) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protoco
 }
 
 func (s *connection) handleStreamFrame(frame *wire.StreamFrame) error {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return err
+	if s.isWaitingForHandoverMigration() {
+		// Cannot be handled before handover
+		// ignore this StreamFrame
+		return nil
 	}
 	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
 	if err != nil {
@@ -2113,9 +2114,8 @@ func (s *connection) awaitHandoverMigration() error {
 	select {
 	case <-s.handoverMigrationCtx.Done():
 		return nil
-	case err := <-s.closeChan:
-		s.closeChan <- err
-		return fmt.Errorf("failed to open stream: %w", err.err)
+	case <-s.ctx.Done():
+		return nil
 	case <-time.After(s.config.MaxIdleTimeout):
 		err := fmt.Errorf("failed to open stream: handover timeout")
 		s.closeLocal(err)
