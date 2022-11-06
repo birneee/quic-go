@@ -824,7 +824,7 @@ func (h *cryptoSetup) ConnectionState() ConnectionState {
 }
 
 func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspective) {
-	if h.extraConf.MaxEarlyData != 0 {
+	if !h.conn.ConnectionState().HandshakeComplete {
 		panic("0RTT handover not supported")
 	}
 	if p == logging.PerspectiveClient && !h.clientHelloWritten {

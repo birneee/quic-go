@@ -43,7 +43,11 @@ func (p *ProxyControlSession) SendHandover(state *handover.State) error {
 
 // DialProxyAddr establish a new HQUIC-Proxy connection
 func DialProxyAddr(addr string, tlsConf *tls.Config, config *Config) (*ProxyControlSession, error) {
-	tlsConf = tlsConf.Clone()
+	if tlsConf == nil {
+		tlsConf = &tls.Config{}
+	} else {
+		tlsConf = tlsConf.Clone()
+	}
 	tlsConf.NextProtos = []string{HQUICProxyALPN}
 	session, err := DialAddrEarly(addr, tlsConf, config)
 	if err != nil {
