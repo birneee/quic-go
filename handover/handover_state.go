@@ -47,6 +47,10 @@ type State struct {
 	ClientTransportParameters wire.TransportParameters
 	// TODO only include non-default parameters
 	ServerTransportParameters wire.TransportParameters
+	// might be an estimate from the opposite perspective
+	ClientHighestSentPacketNumber protocol.PacketNumber
+	// might be an estimate from the opposite perspective
+	ServerHighestSentPacketNumber protocol.PacketNumber
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
@@ -276,6 +280,22 @@ func (s *State) SetPeerTransportParameters(perspective protocol.Perspective, tp 
 		s.ServerTransportParameters = tp
 	} else {
 		s.ClientTransportParameters = tp
+	}
+}
+
+func (s *State) HighestSentPacketNumber(perspective protocol.Perspective) protocol.PacketNumber {
+	if perspective == protocol.PerspectiveClient {
+		return s.ServerHighestSentPacketNumber
+	} else {
+		return s.ClientHighestSentPacketNumber
+	}
+}
+
+func (s *State) SetHighestSentPacketNumber(perspective protocol.Perspective, pn protocol.PacketNumber) {
+	if perspective == protocol.PerspectiveClient {
+		s.ServerHighestSentPacketNumber = pn
+	} else {
+		s.ClientHighestSentPacketNumber = pn
 	}
 }
 

@@ -2370,6 +2370,9 @@ func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.St
 		//state.ServerHighestConnectionIDSequenceNumber = s.connIDGenerator.highestSeq //TODO
 	}
 
+	state.SetHighestSentPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber())
+	state.SetHighestSentPacketNumber(s.perspective.Opposite(), s.receivedPacketHandler.Highest1RTTPacketNumber()) // this is an estimate
+
 	if s.tracer != nil {
 		s.tracer.Debug("hquic_handover_state_created", "")
 	}
@@ -2605,8 +2608,10 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.version,
 	)
 
-	//TODO
-	//s.sentPacketHandler.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber(perspective))
+	// skip some packets for two reasons:
+	//  - this number might be an estimate from the opposite perspective
+	//  - some packets might be sent during the handshake
+	s.sentPacketHandler.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber(perspective) + 10000)
 
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
