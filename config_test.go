@@ -101,6 +101,12 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(uint32(DefaultMinCongestionWindow)))
 			case "MaxCongestionWindow":
 				f.Set(reflect.ValueOf(uint32(DefaultMaxCongestionWindow)))
+			case "InitialSlowStartThreshold":
+				f.Set(reflect.ValueOf(protocol.DefaultInitialSlowStartThreshold))
+			case "MinSlowStartThreshold":
+				f.Set(reflect.ValueOf(protocol.DefaultMinSlowStartThreshold + 1))
+			case "MaxSlowStartThreshold":
+				f.Set(reflect.ValueOf(protocol.DefaultMaxSlowStartThreshold))
 			case "ExtraStreamEncryption":
 				f.Set(reflect.ValueOf(ExtraStreamEncryptionMode(EnforceExtraStreamEncryption)))
 			default:

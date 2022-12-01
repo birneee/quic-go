@@ -50,6 +50,9 @@ var _ = Describe("Cubic Sender", func() {
 			initialCongestionWindowPackets*maxDatagramSize,
 			protocol.DefaultMinCongestionWindow,
 			protocol.DefaultMaxCongestionWindow,
+			protocol.DefaultInitialSlowStartThreshold,
+			protocol.DefaultMinSlowStartThreshold,
+			protocol.DefaultMaxSlowStartThreshold,
 			MaxCongestionWindow,
 			nil,
 		)
@@ -320,7 +323,7 @@ var _ = Describe("Cubic Sender", func() {
 	It("tcp cubic reset epoch on quiescence", func() {
 		const maxCongestionWindow = 50
 		const maxCongestionWindowBytes = maxCongestionWindow * maxDatagramSize
-		sender = newCubicSender(&clock, rttStats, false, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, maxCongestionWindowBytes, nil)
+		sender = newCubicSender(&clock, rttStats, false, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, protocol.DefaultInitialSlowStartThreshold, protocol.DefaultMinSlowStartThreshold, protocol.DefaultMaxSlowStartThreshold, maxCongestionWindowBytes, nil)
 
 		numSent := SendAvailableSendWindow()
 
@@ -455,13 +458,13 @@ var _ = Describe("Cubic Sender", func() {
 		// Resets cwnd and slow start threshold on connection migrations.
 		sender.OnConnectionMigration()
 		Expect(sender.GetCongestionWindow()).To(Equal(defaultWindowTCP))
-		Expect(sender.slowStartThreshold).To(Equal(MaxCongestionWindow))
+		Expect(sender.slowStartThreshold).To(Equal(protocol.DefaultInitialSlowStartThreshold))
 		Expect(sender.hybridSlowStart.Started()).To(BeFalse())
 	})
 
 	It("slow starts up to the maximum congestion window", func() {
 		const initialMaxCongestionWindow = protocol.MaxCongestionWindowPackets * initialMaxDatagramSize
-		sender = newCubicSender(&clock, rttStats, true, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, initialMaxCongestionWindow, nil)
+		sender = newCubicSender(&clock, rttStats, true, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, protocol.DefaultInitialSlowStartThreshold, protocol.DefaultMinSlowStartThreshold, protocol.DefaultMaxSlowStartThreshold, initialMaxCongestionWindow, nil)
 
 		for i := 1; i < protocol.MaxCongestionWindowPackets; i++ {
 			sender.MaybeExitSlowStart()
@@ -476,7 +479,7 @@ var _ = Describe("Cubic Sender", func() {
 
 	It("slow starts up to maximum congestion window, if larger packets are sent", func() {
 		const initialMaxCongestionWindow = protocol.MaxCongestionWindowPackets * initialMaxDatagramSize
-		sender = newCubicSender(&clock, rttStats, true, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, initialMaxCongestionWindow, nil)
+		sender = newCubicSender(&clock, rttStats, true, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, protocol.DefaultInitialSlowStartThreshold, protocol.DefaultMinSlowStartThreshold, protocol.DefaultMaxSlowStartThreshold, initialMaxCongestionWindow, nil)
 		const packetSize = initialMaxDatagramSize + 100
 		sender.SetMaxDatagramSize(packetSize)
 		for i := 1; i < protocol.MaxCongestionWindowPackets; i++ {
@@ -491,7 +494,7 @@ var _ = Describe("Cubic Sender", func() {
 
 	It("limit cwnd increase in congestion avoidance", func() {
 		// Enable Cubic.
-		sender = newCubicSender(&clock, rttStats, false, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, MaxCongestionWindow, nil)
+		sender = newCubicSender(&clock, rttStats, false, protocol.InitialPacketSizeIPv4, initialCongestionWindowPackets*maxDatagramSize, protocol.DefaultMinCongestionWindow, protocol.DefaultMaxCongestionWindow, protocol.DefaultInitialSlowStartThreshold, protocol.DefaultMinSlowStartThreshold, protocol.DefaultMaxSlowStartThreshold, MaxCongestionWindow, nil)
 		numSent := SendAvailableSendWindow()
 
 		// Make sure we fall out of slow start.

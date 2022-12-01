@@ -9,6 +9,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/testdata"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	"net"
 	"time"
 )
@@ -126,6 +127,7 @@ var _ = Describe("Handover", func() {
 	})
 
 	It("client handover twice", func() {
+		format.MaxLength = 8000
 		serverAddrChan := make(chan net.Addr, 1)
 		serverRemoteAddrChan := make(chan net.Addr, 1)
 		go func() {
@@ -162,6 +164,10 @@ var _ = Describe("Handover", func() {
 		clientState2.ClientAddress = ""                               // ignore changed client address
 		clientState1.ClientConnectionIDs[0].StatelessResetToken = nil // TODO check statelessResetEnabled before comparing
 		clientState2.ClientConnectionIDs[0].StatelessResetToken = nil // TODO check statelessResetEnabled before comparing
+		clientState1.ClientHighestSentPacketNumber = 0                // ignore
+		clientState1.ServerHighestSentPacketNumber = 0                // ignore
+		clientState2.ClientHighestSentPacketNumber = 0                // ignore
+		clientState2.ServerHighestSentPacketNumber = 0                // ignore
 		Expect(clientState1).To(BeEquivalentTo(clientState2))
 		// transmit
 		err = openAndSend(clientConn3, message)

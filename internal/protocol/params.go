@@ -24,7 +24,7 @@ const DefaultMaxCongestionWindow = MaxCongestionWindowPackets
 const MaxCongestionWindowPackets = 10000
 
 const DefaultInitialSlowStartThreshold = MaxByteCount
-const DefaultMinSlowStartThreshold = 0
+const DefaultMinSlowStartThreshold = ByteCount(0)
 const DefaultMaxSlowStartThreshold = MaxByteCount
 
 // MaxUndecryptablePackets limits the number of undecryptable packets that are queued in the connection.
