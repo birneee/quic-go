@@ -43,13 +43,19 @@ type cubicSender struct {
 	congestionWindow protocol.ByteCount
 
 	// in number of packets.
-	minCongestionWindowPackets protocol.ByteCount
+	minCongestionWindowPackets uint32
 
 	// in number of packets.
-	maxCongestionWindowPackets protocol.ByteCount
+	maxCongestionWindowPackets uint32
 
 	// Slow start congestion window in bytes, aka ssthresh.
 	slowStartThreshold protocol.ByteCount
+
+	// Required for reset on connection migration
+	initialSlowStartThreshold protocol.ByteCount
+
+	minSlowStartThreshold protocol.ByteCount
+	maxSlowStartThreshold protocol.ByteCount
 
 	// ACK counter for the Reno implementation.
 	numAckedPackets uint64
@@ -73,9 +79,12 @@ func NewCubicSender(
 	clock Clock,
 	rttStats *utils.RTTStats,
 	initialMaxDatagramSize protocol.ByteCount,
-	initialCongestionWindow uint32,
-	minCongestionWindow uint32,
-	maxCongestionWindow uint32,
+	initialCongestionWindow uint32, // number of packets
+	minCongestionWindow uint32, // number of packets
+	maxCongestionWindow uint32, // number of packets
+	initialSlowStartThreshold protocol.ByteCount,
+	minSlowStartThreshold protocol.ByteCount,
+	maxSlowStartThreshold protocol.ByteCount,
 	reno bool,
 	tracer logging.ConnectionTracer,
 ) *cubicSender {
@@ -85,8 +94,11 @@ func NewCubicSender(
 		reno,
 		initialMaxDatagramSize,
 		protocol.ByteCount(initialCongestionWindow)*initialMaxDatagramSize,
-		protocol.ByteCount(minCongestionWindow),
-		protocol.ByteCount(maxCongestionWindow),
+		minCongestionWindow,
+		maxCongestionWindow,
+		initialSlowStartThreshold,
+		minSlowStartThreshold,
+		maxSlowStartThreshold,
 		protocol.MaxCongestionWindowPackets*initialMaxDatagramSize,
 		tracer,
 	)
@@ -97,9 +109,12 @@ func newCubicSender(
 	rttStats *utils.RTTStats,
 	reno bool,
 	initialMaxDatagramSize,
-	initialCongestionWindow,
+	initialCongestionWindow protocol.ByteCount,
 	minCongestionWindowPackets,
-	maxCongestionWindowPackets,
+	maxCongestionWindowPackets uint32,
+	initialSlowStartThreshold protocol.ByteCount,
+	minSlowStartThreshold protocol.ByteCount,
+	maxSlowStartThreshold protocol.ByteCount,
 	initialMaxCongestionWindow protocol.ByteCount,
 	tracer logging.ConnectionTracer,
 ) *cubicSender {
@@ -113,7 +128,10 @@ func newCubicSender(
 		congestionWindow:           initialCongestionWindow,
 		minCongestionWindowPackets: minCongestionWindowPackets,
 		maxCongestionWindowPackets: maxCongestionWindowPackets,
-		slowStartThreshold:         protocol.MaxByteCount,
+		slowStartThreshold:         initialSlowStartThreshold,
+		initialSlowStartThreshold:  initialSlowStartThreshold,
+		minSlowStartThreshold:      minSlowStartThreshold,
+		maxSlowStartThreshold:      maxSlowStartThreshold,
 		cubic:                      NewCubic(clock),
 		clock:                      clock,
 		reno:                       reno,
@@ -138,11 +156,11 @@ func (c *cubicSender) HasPacingBudget() bool {
 }
 
 func (c *cubicSender) maxCongestionWindow() protocol.ByteCount {
-	return c.maxDatagramSize * c.maxCongestionWindowPackets
+	return c.maxDatagramSize * protocol.ByteCount(c.maxCongestionWindowPackets)
 }
 
 func (c *cubicSender) minCongestionWindow() protocol.ByteCount {
-	return c.maxDatagramSize * c.minCongestionWindowPackets
+	return c.maxDatagramSize * protocol.ByteCount(c.minCongestionWindowPackets)
 }
 
 func (c *cubicSender) OnPacketSent(
@@ -180,7 +198,7 @@ func (c *cubicSender) MaybeExitSlowStart() {
 	if c.InSlowStart() &&
 		c.hybridSlowStart.ShouldExitSlowStart(c.rttStats.LatestRTT(), c.rttStats.MinRTT(), c.GetCongestionWindow()/c.maxDatagramSize) {
 		// exit slow start
-		c.slowStartThreshold = c.congestionWindow
+		c.SetSlowStartThreshold(c.congestionWindow)
 		c.maybeTraceStateChange(logging.CongestionStateCongestionAvoidance)
 	}
 }
@@ -218,7 +236,7 @@ func (c *cubicSender) OnPacketLost(packetNumber protocol.PacketNumber, lostBytes
 	if minCwnd := c.minCongestionWindow(); c.congestionWindow < minCwnd {
 		c.congestionWindow = minCwnd
 	}
-	c.slowStartThreshold = c.congestionWindow
+	c.SetSlowStartThreshold(c.congestionWindow)
 	c.largestSentAtLastCutback = c.largestSentPacketNumber
 	// reset packet count from congestion avoidance mode. We start
 	// counting again when we're out of recovery.
@@ -291,7 +309,7 @@ func (c *cubicSender) OnRetransmissionTimeout(packetsRetransmitted bool) {
 	}
 	c.hybridSlowStart.Restart()
 	c.cubic.Reset()
-	c.slowStartThreshold = c.congestionWindow / 2
+	c.SetSlowStartThreshold(c.congestionWindow / 2)
 	c.congestionWindow = c.minCongestionWindow()
 }
 
@@ -305,7 +323,7 @@ func (c *cubicSender) OnConnectionMigration() {
 	c.cubic.Reset()
 	c.numAckedPackets = 0
 	c.congestionWindow = c.initialCongestionWindow
-	c.slowStartThreshold = c.initialMaxCongestionWindow
+	c.SetSlowStartThreshold(c.initialSlowStartThreshold)
 }
 
 func (c *cubicSender) maybeTraceStateChange(new logging.CongestionState) {
@@ -326,4 +344,17 @@ func (c *cubicSender) SetMaxDatagramSize(s protocol.ByteCount) {
 		c.congestionWindow = c.minCongestionWindow()
 	}
 	c.pacer.SetMaxDatagramSize(s)
+}
+
+// SetSlowStartThreshold
+// set to minSlowStartThreshold if less than minSlowStartThreshold
+// set to maxSlowStartThreshold if more than maxSlowStartThreshold
+func (c *cubicSender) SetSlowStartThreshold(new protocol.ByteCount) {
+	if new < c.minSlowStartThreshold {
+		c.slowStartThreshold = c.minSlowStartThreshold
+	} else if new > c.maxSlowStartThreshold {
+		c.slowStartThreshold = c.maxSlowStartThreshold
+	} else {
+		c.slowStartThreshold = new
+	}
 }

@@ -40,6 +40,10 @@ const DefaultMinCongestionWindow = protocol.DefaultMinCongestionWindow
 // DefaultMaxCongestionWindow is the maximum congestion window in packet.
 const DefaultMaxCongestionWindow = protocol.DefaultMaxCongestionWindow
 
+const DefaultInitialSlowStartThreshold = protocol.DefaultInitialSlowStartThreshold
+const DefaultMinSlowStartThreshold = protocol.DefaultMinSlowStartThreshold
+const DefaultMaxSlowStartThreshold = protocol.DefaultMaxSlowStartThreshold
+
 const (
 	// VersionDraft29 is IETF QUIC draft-29
 	VersionDraft29 = protocol.VersionDraft29
@@ -384,6 +388,10 @@ type Config struct {
 	MinCongestionWindow uint32
 	// in number of packets
 	MaxCongestionWindow uint32
+	// Initial slow start congestion threshold in bytes, aka initial ssthresh.
+	InitialSlowStartThreshold ByteCount
+	MinSlowStartThreshold     ByteCount
+	MaxSlowStartThreshold     ByteCount
 	// Use XSE-QUIC extension.
 	// Derive an additional key in the handshake,
 	// to additionally encrypt the stream payload,
@@ -434,4 +442,3 @@ type ProxyConfig struct {
 	// before sending the handover state to the H-QUIC proxy, this function can be used to modify the state
 	ModifyState func(state *handover.State)
 }
-

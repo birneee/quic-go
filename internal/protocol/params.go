@@ -23,6 +23,10 @@ const DefaultMaxCongestionWindow = MaxCongestionWindowPackets
 // MaxCongestionWindowPackets is the maximum congestion window in packet.
 const MaxCongestionWindowPackets = 10000
 
+const DefaultInitialSlowStartThreshold = MaxByteCount
+const DefaultMinSlowStartThreshold = 0
+const DefaultMaxSlowStartThreshold = MaxByteCount
+
 // MaxUndecryptablePackets limits the number of undecryptable packets that are queued in the connection.
 const MaxUndecryptablePackets = 32
 

@@ -136,6 +136,18 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 	if initialCongestionWindow > maxCongestionWindow {
 		initialCongestionWindow = maxCongestionWindow
 	}
+	initialSlowStartThreshold := config.InitialSlowStartThreshold
+	if initialSlowStartThreshold == 0 {
+		initialSlowStartThreshold = protocol.DefaultInitialSlowStartThreshold
+	}
+	minSlowStartThreshold := config.MinSlowStartThreshold
+	if minSlowStartThreshold == 0 {
+		minSlowStartThreshold = protocol.DefaultMinSlowStartThreshold
+	}
+	maxSlowStartThreshold := config.MaxSlowStartThreshold
+	if maxSlowStartThreshold == 0 {
+		maxSlowStartThreshold = protocol.DefaultMaxSlowStartThreshold
+	}
 
 	return &Config{
 		Versions:                         versions,
@@ -161,12 +173,15 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Tracer:                           config.Tracer,
 		IgnoreReceived1RTTPacketsUntilFirstPathMigration: config.IgnoreReceived1RTTPacketsUntilFirstPathMigration,
-		LoggerPrefix:            config.LoggerPrefix,
-		EnableActiveMigration:   config.EnableActiveMigration,
-		ProxyConf:               config.ProxyConf,
-		InitialCongestionWindow: initialCongestionWindow,
-		MinCongestionWindow:     minCongestionWindow,
-		MaxCongestionWindow:     maxCongestionWindow,
-		ExtraStreamEncryption:   config.ExtraStreamEncryption,
+		LoggerPrefix:              config.LoggerPrefix,
+		EnableActiveMigration:     config.EnableActiveMigration,
+		ProxyConf:                 config.ProxyConf,
+		InitialCongestionWindow:   initialCongestionWindow,
+		MinCongestionWindow:       minCongestionWindow,
+		MaxCongestionWindow:       maxCongestionWindow,
+		InitialSlowStartThreshold: initialSlowStartThreshold,
+		MinSlowStartThreshold:     minSlowStartThreshold,
+		MaxSlowStartThreshold:     maxSlowStartThreshold,
+		ExtraStreamEncryption:     config.ExtraStreamEncryption,
 	}
 }

@@ -107,9 +107,12 @@ var (
 func newSentPacketHandler(
 	initialPN protocol.PacketNumber,
 	initialMaxDatagramSize protocol.ByteCount,
-	initialCongestionWindow uint32,
-	minCongestionWindow uint32,
-	maxCongestionWindow uint32,
+	initialCongestionWindow uint32, // number of packets
+	minCongestionWindow uint32, // number of packets
+	maxCongestionWindow uint32, // number of packets
+	initialSlowStartThreshold protocol.ByteCount,
+	minSlowStartThreshold protocol.ByteCount,
+	maxSlowStartThreshold protocol.ByteCount,
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
 	pers protocol.Perspective,
@@ -123,6 +126,9 @@ func newSentPacketHandler(
 		initialCongestionWindow,
 		minCongestionWindow,
 		maxCongestionWindow,
+		initialSlowStartThreshold,
+		minSlowStartThreshold,
+		maxSlowStartThreshold,
 		true, // use Reno
 		tracer,
 	)
