@@ -20,8 +20,9 @@ var _ interface{ SetReadBuffer(int) error } = &MigratableUDPConn{}
 //
 // Packet connection that supports migration of IP address and UDP port
 type MigratableUDPConn struct {
-	internal   *net.UDPConn
-	maxRetries int
+	internal           *net.UDPConn
+	maxRetries         int
+	initialBackoffTime time.Duration
 	// to restore after
 	deadline      *time.Time
 	readDeadline  *time.Time
@@ -35,8 +36,9 @@ func ListenMigratableUDP(network string, laddr *net.UDPAddr) (*MigratableUDPConn
 		return nil, err
 	}
 	return &MigratableUDPConn{
-		internal:   conn,
-		maxRetries: 5,
+		internal:           conn,
+		maxRetries:         5,
+		initialBackoffTime: 1 * time.Millisecond,
 	}, nil
 }
 
@@ -56,10 +58,11 @@ func (m *MigratableUDPConn) RemoteAddr() net.Addr {
 
 func (m *MigratableUDPConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	retryCount := 0
+	backoffTime := m.initialBackoffTime
 	for {
 		n, addr, err = m.internal.ReadFrom(p)
 		if err != nil {
-			err = m.handleError(err, &retryCount)
+			err = m.handleError(err, &retryCount, &backoffTime)
 			if err != nil {
 				return n, addr, err
 			}
@@ -71,10 +74,11 @@ func (m *MigratableUDPConn) ReadFrom(p []byte) (n int, addr net.Addr, err error)
 
 func (m *MigratableUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	retryCount := 0
+	backoffTime := m.initialBackoffTime
 	for {
 		n, err = m.internal.WriteTo(p, addr)
 		if err != nil {
-			err = m.handleError(err, &retryCount)
+			err = m.handleError(err, &retryCount, &backoffTime)
 			if err != nil {
 				return n, err
 			}
@@ -85,7 +89,7 @@ func (m *MigratableUDPConn) WriteTo(p []byte, addr net.Addr) (n int, err error) 
 }
 
 // If error is returned it should no longer be retried
-func (m *MigratableUDPConn) handleError(err error, retryCount *int) error {
+func (m *MigratableUDPConn) handleError(err error, retryCount *int, backoffTime *time.Duration) error {
 	switch err := err.(type) {
 	case *net.OpError:
 		switch err := err.Err.(type) {
@@ -95,10 +99,10 @@ func (m *MigratableUDPConn) handleError(err error, retryCount *int) error {
 				if err.Error() == "network is unreachable" {
 					// reopen and retry, because it could be caused of migration
 					if *retryCount < m.maxRetries {
-						err := m.Reopen()
-						if err != nil {
-							return err
-						}
+						time.Sleep(*backoffTime) // give socket migration some time
+						*retryCount++
+						*backoffTime *= 2
+						_ = m.Reopen()
 						return nil
 					}
 				}
@@ -108,9 +112,9 @@ func (m *MigratableUDPConn) handleError(err error, retryCount *int) error {
 			if reflect.TypeOf(err).String() == "poll.errNetClosing" {
 				// retry, because it could be caused of migration
 				if *retryCount < m.maxRetries {
-					// give socket migration some time
-					time.Sleep(10 * time.Millisecond)
+					time.Sleep(*backoffTime) // give socket migration some time
 					*retryCount++
+					*backoffTime *= 2
 					return nil
 				}
 			}
