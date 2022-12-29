@@ -21,10 +21,11 @@ func NewAckHandler(
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
 	pers protocol.Perspective,
+	hyblaWestwood bool,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, tracer, logger)
+	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, hyblaWestwood, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger, version)
 }

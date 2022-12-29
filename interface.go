@@ -405,7 +405,8 @@ type Config struct {
 	// Derive an additional key in the handshake,
 	// to additionally encrypt the stream payload,
 	// before the QUIC Packet is encrypted.
-	ExtraStreamEncryption ExtraStreamEncryptionMode
+	ExtraStreamEncryption          ExtraStreamEncryptionMode
+	HyblaWestwoodCongestionControl bool
 }
 
 // ConnectionState records basic details about a QUIC connection
