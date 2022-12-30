@@ -118,22 +118,39 @@ func newSentPacketHandler(
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
 	pers protocol.Perspective,
+	hyblaWestwood bool,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 ) *sentPacketHandler {
-	congestion := congestion.NewCubicSender(
-		congestion.DefaultClock{},
-		rttStats,
-		initialMaxDatagramSize,
-		initialCongestionWindow,
-		minCongestionWindow,
-		maxCongestionWindow,
-		initialSlowStartThreshold,
-		minSlowStartThreshold,
-		maxSlowStartThreshold,
-		true, // use Reno
-		tracer,
-	)
+	var cc congestion.SendAlgorithmWithDebugInfos
+	if hyblaWestwood {
+		cc = congestion.NewHyblaWestwoodSender(
+			congestion.DefaultClock{},
+			rttStats,
+			initialMaxDatagramSize,
+			protocol.ByteCount(initialCongestionWindow)*initialMaxDatagramSize,
+			protocol.ByteCount(minCongestionWindow)*initialMaxDatagramSize,
+			protocol.ByteCount(maxCongestionWindow)*initialMaxDatagramSize,
+			initialSlowStartThreshold,
+			minSlowStartThreshold,
+			maxSlowStartThreshold,
+			tracer,
+		)
+	} else {
+		cc = congestion.NewCubicSender(
+			congestion.DefaultClock{},
+			rttStats,
+			initialMaxDatagramSize,
+			initialCongestionWindow,
+			minCongestionWindow,
+			maxCongestionWindow,
+			initialSlowStartThreshold,
+			minSlowStartThreshold,
+			maxSlowStartThreshold,
+			true, // use Reno
+			tracer,
+		)
+	}
 
 	return &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
@@ -142,7 +159,7 @@ func newSentPacketHandler(
 		handshakePackets:               newPacketNumberSpace(0, false, rttStats),
 		appDataPackets:                 newPacketNumberSpace(0, true, rttStats),
 		rttStats:                       rttStats,
-		congestion:                     congestion,
+		congestion:                     cc,
 		perspective:                    pers,
 		tracer:                         tracer,
 		logger:                         logger,
