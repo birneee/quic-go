@@ -64,9 +64,6 @@ type updatableAEAD struct {
 
 	// use a single slice to avoid allocations
 	nonceBuf []byte
-
-	firstRcvTrafficSecret  []byte
-	firstSendTrafficSecret []byte
 }
 
 var (
@@ -129,10 +126,10 @@ func (a *updatableAEAD) getNextTrafficSecret(hash crypto.Hash, ts []byte) []byte
 func (a *updatableAEAD) SetReadKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
 	a.rcvAEAD = createAEAD(suite, trafficSecret, a.version)
 	a.rcvTrafficSecret = trafficSecret
-	if a.firstRcvTrafficSecret == nil {
-		a.firstRcvTrafficSecret = trafficSecret
+	// might already be set by H-QUIC restore
+	if a.headerDecrypter == nil {
+		a.headerDecrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	}
-	a.headerDecrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	if a.suite == nil {
 		a.setAEADParameters(a.rcvAEAD, suite)
 	}
@@ -146,10 +143,10 @@ func (a *updatableAEAD) SetReadKey(suite *qtls.CipherSuiteTLS13, trafficSecret [
 func (a *updatableAEAD) SetWriteKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
 	a.sendAEAD = createAEAD(suite, trafficSecret, a.version)
 	a.sendTrafficSecret = trafficSecret
-	if a.firstSendTrafficSecret == nil {
-		a.firstSendTrafficSecret = trafficSecret
+	// might already be set by H-QUIC restore
+	if a.headerEncrypter == nil {
+		a.headerEncrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	}
-	a.headerEncrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	if a.suite == nil {
 		a.setAEADParameters(a.sendAEAD, suite)
 	}
@@ -341,8 +338,8 @@ func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 	s.KeyPhase = a.keyPhase
 	s.CipherSuiteId = a.suite.ID
-	s.SetFirstReceiveTrafficSecret(p, a.firstRcvTrafficSecret)
-	s.SetFirstSendTrafficSecret(p, a.firstSendTrafficSecret)
+	s.SetReceiveHeaderProtectionKey(p, a.headerDecrypter.GetHeaderProtectionKey())
+	s.SetSendHeaderProtectionKey(p, a.headerEncrypter.GetHeaderProtectionKey())
 	s.SetReceiveTrafficSecret(p, a.rcvTrafficSecret)
 	s.SetSendTrafficSecret(p, a.sendTrafficSecret)
 }
@@ -356,11 +353,12 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 	)
 
 	aead.keyPhase = state.KeyPhase
-	aead.firstRcvTrafficSecret = state.FirstReceiveTrafficSecret(perspective)
-	aead.firstSendTrafficSecret = state.FirstSendTrafficSecret(perspective)
 	//aead.highestRcvdPN = state.HighestReceivedPacketNumber(perspective) //TODO add
-
 	suite := qtls.CipherSuiteTLS13ByID(state.CipherSuiteId)
+
+	aead.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
+	aead.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
+
 	if perspective == protocol.PerspectiveClient {
 		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
 		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))

@@ -31,18 +31,14 @@ type State struct {
 	CipherSuiteId uint16
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
-	// TODO use header protection key instead
-	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
-	InitialServerTrafficSecret []byte
+	ServerHeaderProtectionKey []byte
 	// used for header protection.
 	// see RFC 9001 Section 5.4 Header Protection.
-	// TODO use header protection key instead
-	// TODO security concern: a H-QUIC Proxy can derived all past traffic secrets from this
-	InitialClientTrafficSecret []byte
-	ServerTrafficSecret        []byte
-	ClientTrafficSecret        []byte
-	ServerAddress              string
-	ClientAddress              string
+	ClientHeaderProtectionKey []byte
+	ServerTrafficSecret       []byte
+	ClientTrafficSecret       []byte
+	ServerAddress             string
+	ClientAddress             string
 	// TODO only include non-default parameters
 	ClientTransportParameters wire.TransportParameters
 	// TODO only include non-default parameters
@@ -128,19 +124,19 @@ func (s *State) SetSendTrafficSecret(perspective protocol.Perspective, ts []byte
 	}
 }
 
-func (s *State) FirstSendTrafficSecret(perspective protocol.Perspective) []byte {
+func (s *State) SendHeaderProtectionKey(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.InitialClientTrafficSecret)
+		return copyBytes(s.ClientHeaderProtectionKey)
 	} else {
-		return copyBytes(s.InitialServerTrafficSecret)
+		return copyBytes(s.ServerHeaderProtectionKey)
 	}
 }
 
-func (s *State) SetFirstSendTrafficSecret(perspective protocol.Perspective, ts []byte) {
+func (s *State) SetSendHeaderProtectionKey(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.InitialClientTrafficSecret = ts
+		s.ClientHeaderProtectionKey = ts
 	} else {
-		s.InitialServerTrafficSecret = ts
+		s.ServerHeaderProtectionKey = ts
 	}
 }
 
@@ -160,19 +156,19 @@ func (s *State) SetReceiveTrafficSecret(perspective protocol.Perspective, ts []b
 	}
 }
 
-func (s *State) FirstReceiveTrafficSecret(perspective protocol.Perspective) []byte {
+func (s *State) ReceiveHeaderProtectionKey(perspective protocol.Perspective) []byte {
 	if perspective == protocol.PerspectiveClient {
-		return copyBytes(s.InitialServerTrafficSecret)
+		return copyBytes(s.ServerHeaderProtectionKey)
 	} else {
-		return copyBytes(s.InitialClientTrafficSecret)
+		return copyBytes(s.ClientHeaderProtectionKey)
 	}
 }
 
-func (s *State) SetFirstReceiveTrafficSecret(perspective protocol.Perspective, ts []byte) {
+func (s *State) SetReceiveHeaderProtectionKey(perspective protocol.Perspective, ts []byte) {
 	if perspective == protocol.PerspectiveClient {
-		s.InitialServerTrafficSecret = ts
+		s.ServerHeaderProtectionKey = ts
 	} else {
-		s.InitialClientTrafficSecret = ts
+		s.ClientHeaderProtectionKey = ts
 	}
 }
 
