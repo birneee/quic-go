@@ -109,6 +109,8 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(protocol.DefaultMaxSlowStartThreshold))
 			case "ExtraStreamEncryption":
 				f.Set(reflect.ValueOf(ExtraStreamEncryptionMode(EnforceExtraStreamEncryption)))
+			case "HyblaWestwoodCongestionControl":
+				f.Set(reflect.ValueOf(true))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}
