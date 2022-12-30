@@ -5,7 +5,6 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/logging"
-	"math"
 	"time"
 )
 
@@ -16,9 +15,10 @@ const (
 )
 
 type hyblaWestwoodSender struct {
-	pacer    *pacer
-	rttStats *utils.RTTStats
-	clock    Clock
+	pacer                      *pacer
+	rttStats                   *utils.RTTStats
+	westwoodBandwidthEstimator *WestwoodBandwidthEstimator
+	clock                      Clock
 	// Congestion window in bytes.
 	congestionWindow        protocol.ByteCount
 	initialCongestionWindow protocol.ByteCount
@@ -36,6 +36,7 @@ type hyblaWestwoodSender struct {
 	largestAckedPacketNumber protocol.PacketNumber
 	// Track the largest packet number outstanding when a CWND cutback occurs.
 	largestSentAtLastCutback protocol.PacketNumber
+	bytesInFlight            protocol.ByteCount
 	// Whether the last loss event caused us to exit slowstart.
 	// Used for stats collection of slowstartPacketsLost
 	lastCutbackExitedSlowstart bool
@@ -61,23 +62,24 @@ func NewHyblaWestwoodSender(
 	tracer logging.ConnectionTracer,
 ) *hyblaWestwoodSender {
 	h := &hyblaWestwoodSender{
-		clock:                     clock,
-		rttStats:                  rttStats,
-		congestionWindow:          initialCongestionWindow,
-		initialCongestionWindow:   initialCongestionWindow,
-		minCongestionWindow:       minCongestionWindow,
-		maxCongestionWindow:       maxCongestionWindow,
-		maxDatagramSize:           initialMaxDatagramSize,
-		slowStartThreshold:        initialSlowStartThreshold,
-		initialSlowStartThreshold: initialSlowStartThreshold,
-		minSlowStartThreshold:     minSlowStartThreshold,
-		maxSlowStartThreshold:     maxSlowStartThreshold,
-		largestSentPacketNumber:   protocol.InvalidPacketNumber,
-		largestAckedPacketNumber:  protocol.InvalidPacketNumber,
-		largestSentAtLastCutback:  protocol.InvalidPacketNumber,
-		tracer:                    tracer,
+		clock:                      clock,
+		rttStats:                   rttStats,
+		westwoodBandwidthEstimator: NewWestwoodBandwidthEstimator(),
+		congestionWindow:           initialCongestionWindow,
+		initialCongestionWindow:    initialCongestionWindow,
+		minCongestionWindow:        minCongestionWindow,
+		maxCongestionWindow:        maxCongestionWindow,
+		maxDatagramSize:            initialMaxDatagramSize,
+		slowStartThreshold:         initialSlowStartThreshold,
+		initialSlowStartThreshold:  initialSlowStartThreshold,
+		minSlowStartThreshold:      minSlowStartThreshold,
+		maxSlowStartThreshold:      maxSlowStartThreshold,
+		largestSentPacketNumber:    protocol.InvalidPacketNumber,
+		largestAckedPacketNumber:   protocol.InvalidPacketNumber,
+		largestSentAtLastCutback:   protocol.InvalidPacketNumber,
+		tracer:                     tracer,
 	}
-	h.pacer = newPacer(h.BandwidthEstimate)
+	h.pacer = newPacer(h.pacerBandwidthEstimate)
 	if h.tracer != nil {
 		h.lastState = logging.CongestionStateSlowStart
 		h.tracer.UpdatedCongestionState(logging.CongestionStateSlowStart)
@@ -110,6 +112,8 @@ func (h *hyblaWestwoodSender) MaybeExitSlowStart() {
 }
 
 func (h *hyblaWestwoodSender) OnPacketAcked(ackedPacketNumber protocol.PacketNumber, ackedBytes protocol.ByteCount, priorInFlight protocol.ByteCount, eventTime time.Time) {
+	h.bytesInFlight = priorInFlight
+	h.westwoodBandwidthEstimator.OnPacketAcked(ackedBytes, eventTime)
 	h.largestAckedPacketNumber = utils.Max(ackedPacketNumber, h.largestAckedPacketNumber)
 	if h.InRecovery() {
 		return
@@ -118,6 +122,7 @@ func (h *hyblaWestwoodSender) OnPacketAcked(ackedPacketNumber protocol.PacketNum
 }
 
 func (h *hyblaWestwoodSender) OnPacketLost(packetNumber protocol.PacketNumber, lostBytes protocol.ByteCount, priorInFlight protocol.ByteCount) {
+	h.bytesInFlight = priorInFlight
 	// TCP NewReno (RFC6582) says that once a loss occurs, any losses in packets
 	// already sent should be treated as a single loss event, since it's expected.
 	if packetNumber <= h.largestSentAtLastCutback {
@@ -126,7 +131,13 @@ func (h *hyblaWestwoodSender) OnPacketLost(packetNumber protocol.PacketNumber, l
 	h.lastCutbackExitedSlowstart = h.InSlowStart()
 	h.maybeTraceStateChange(logging.CongestionStateRecovery)
 
-	h.setCongestionWindow(protocol.ByteCount(h.BandwidthEstimate()) * protocol.ByteCount(h.rttStats.MinRTT().Milliseconds()) / protocol.ByteCount(1000) / protocol.ByteCount(BitsPerByte))
+	// from https://doi.org/10.1109/NUICONE.2012.6493205 version-3
+	bwe := protocol.ByteCount(h.westwoodBandwidthEstimator.Estimate())
+	rttMin := protocol.ByteCount(h.rttStats.MinRTT().Milliseconds())
+	h.setCongestionWindow(utils.Max(
+		bwe*rttMin/1000/BitsPerByte,
+		priorInFlight*3/4,
+	))
 	h.setSlowStartThreshold(h.GetCongestionWindow())
 	h.largestSentAtLastCutback = h.largestSentPacketNumber
 }
@@ -136,8 +147,15 @@ func (h *hyblaWestwoodSender) OnRetransmissionTimeout(packetsRetransmitted bool)
 	if !packetsRetransmitted {
 		return
 	}
-	h.setSlowStartThreshold(protocol.ByteCount(h.BandwidthEstimate()) * protocol.ByteCount(h.rttStats.MinRTT().Milliseconds()) / protocol.ByteCount(1000) / protocol.ByteCount(BitsPerByte))
-	h.setCongestionWindow(h.minCongestionWindow)
+
+	// from https://doi.org/10.1109/NUICONE.2012.6493205 version-3
+	bwe := protocol.ByteCount(h.westwoodBandwidthEstimator.Estimate())
+	rttMin := protocol.ByteCount(h.rttStats.MinRTT().Milliseconds())
+	h.setSlowStartThreshold(utils.Max(
+		bwe*rttMin/1000/BitsPerByte,
+		h.bytesInFlight*3/4,
+	))
+	h.setCongestionWindow(protocol.ByteCount(h.rho()) * h.maxDatagramSize)
 }
 
 func (h *hyblaWestwoodSender) SetMaxDatagramSize(s protocol.ByteCount) {
@@ -155,6 +173,7 @@ func (h *hyblaWestwoodSender) OnConnectionMigration() {
 	h.lastCutbackExitedSlowstart = false
 	h.setCongestionWindow(h.initialCongestionWindow)
 	h.setSlowStartThreshold(h.initialSlowStartThreshold)
+	h.bytesInFlight = 0
 }
 
 func (h *hyblaWestwoodSender) InSlowStart() bool {
@@ -180,7 +199,7 @@ func (h *hyblaWestwoodSender) setCongestionWindow(cw protocol.ByteCount) {
 }
 
 // BandwidthEstimate returns the current bandwidth estimate
-func (h *hyblaWestwoodSender) BandwidthEstimate() Bandwidth {
+func (h *hyblaWestwoodSender) pacerBandwidthEstimate() Bandwidth {
 	srtt := h.rttStats.SmoothedRTT()
 	if srtt == 0 {
 		// If we haven't measured an rtt, the bandwidth estimate is unknown.
@@ -190,6 +209,7 @@ func (h *hyblaWestwoodSender) BandwidthEstimate() Bandwidth {
 }
 
 // rho = RTT/RTT0
+// defined by https://doi.org/10.1002/sat.799
 func (h *hyblaWestwoodSender) rho() float64 {
 	return h.rttStats.SmoothedRTT().Seconds() / RTT0.Seconds()
 }
@@ -198,6 +218,9 @@ func (h *hyblaWestwoodSender) setSlowStartThreshold(sst protocol.ByteCount) {
 	h.slowStartThreshold = sst
 	if h.slowStartThreshold < h.minSlowStartThreshold {
 		h.slowStartThreshold = h.minSlowStartThreshold
+	}
+	if h.slowStartThreshold > h.maxSlowStartThreshold {
+		h.slowStartThreshold = h.maxSlowStartThreshold
 	}
 }
 
@@ -226,15 +249,20 @@ func (h *hyblaWestwoodSender) maybeIncreaseCwnd(
 	if h.congestionWindow >= h.maxCongestionWindow {
 		return
 	}
+	rho := protocol.ByteCount(h.rho())
+
 	if h.InSlowStart() {
 		h.maybeTraceStateChange(logging.CongestionStateSlowStart)
-		//TODO too high for 600ms rtt
-		h.setCongestionWindow(h.GetCongestionWindow() + (protocol.ByteCount(math.Pow(2, h.rho()))-1)*h.maxDatagramSize)
+		//TODO explain why use rho instead of 2^rho-1
+		// inspired by https://doi.org/10.1002/sat.799
+		h.setCongestionWindow(h.GetCongestionWindow() + rho*ackedBytes)
 		return
 	}
 	// Congestion avoidance
 	h.maybeTraceStateChange(logging.CongestionStateCongestionAvoidance)
-	h.setCongestionWindow(h.GetCongestionWindow() + protocol.ByteCount(math.Pow(h.rho(), 2))*h.maxDatagramSize/h.GetCongestionWindow())
+	//TODO explain why use rho instead of rho^2
+	// inspired by https://doi.org/10.1002/sat.799
+	h.setCongestionWindow(h.GetCongestionWindow() + rho*ackedBytes*ackedBytes/h.GetCongestionWindow())
 }
 
 func (h *hyblaWestwoodSender) isCwndLimited(bytesInFlight protocol.ByteCount) bool {
