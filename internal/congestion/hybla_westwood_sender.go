@@ -135,7 +135,7 @@ func (h *hyblaWestwoodSender) OnPacketLost(packetNumber protocol.PacketNumber, l
 	bwe := protocol.ByteCount(h.westwoodBandwidthEstimator.Estimate())
 	rttMin := protocol.ByteCount(h.rttStats.MinRTT().Milliseconds())
 	h.setCongestionWindow(utils.Max(
-		bwe*rttMin/1000/BitsPerByte,
+		bwe*rttMin/1000/BitsPerByte*3/2,
 		priorInFlight*3/4,
 	))
 	h.setSlowStartThreshold(h.GetCongestionWindow())
@@ -152,7 +152,7 @@ func (h *hyblaWestwoodSender) OnRetransmissionTimeout(packetsRetransmitted bool)
 	bwe := protocol.ByteCount(h.westwoodBandwidthEstimator.Estimate())
 	rttMin := protocol.ByteCount(h.rttStats.MinRTT().Milliseconds())
 	h.setSlowStartThreshold(utils.Max(
-		bwe*rttMin/1000/BitsPerByte,
+		bwe*rttMin/1000/BitsPerByte*3/2,
 		h.bytesInFlight*3/4,
 	))
 	h.setCongestionWindow(protocol.ByteCount(h.rho()) * h.maxDatagramSize)
@@ -253,15 +253,15 @@ func (h *hyblaWestwoodSender) maybeIncreaseCwnd(
 
 	if h.InSlowStart() {
 		h.maybeTraceStateChange(logging.CongestionStateSlowStart)
-		//TODO explain why use rho instead of 2^rho-1
 		// inspired by https://doi.org/10.1002/sat.799
-		h.setCongestionWindow(h.GetCongestionWindow() + rho*ackedBytes)
+		// reduce aggressiveness by using rho^2 instead of 2^rho-1
+		h.setCongestionWindow(h.GetCongestionWindow() + rho*rho*ackedBytes)
 		return
 	}
 	// Congestion avoidance
 	h.maybeTraceStateChange(logging.CongestionStateCongestionAvoidance)
-	//TODO explain why use rho instead of rho^2
 	// inspired by https://doi.org/10.1002/sat.799
+	// reduce aggressiveness by using rho instead of rho^2
 	h.setCongestionWindow(h.GetCongestionWindow() + rho*ackedBytes*ackedBytes/h.GetCongestionWindow())
 }
 
