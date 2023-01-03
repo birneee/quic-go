@@ -407,6 +407,10 @@ type Config struct {
 	// before the QUIC Packet is encrypted.
 	ExtraStreamEncryption          ExtraStreamEncryptionMode
 	HyblaWestwoodCongestionControl bool
+	// Allows H-QUIC state creation when handshake is completed but not yet confirmed.
+	// Only affects client behaviour.
+	// Optimistic approach! Success is not guaranteed due to race conditions.
+	AllowEarlyHandover bool
 }
 
 // ConnectionState records basic details about a QUIC connection

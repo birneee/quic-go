@@ -11,6 +11,9 @@ import (
 
 // Clone clones a Config
 func (c *Config) Clone() *Config {
+	if c == nil {
+		return nil
+	}
 	copy := *c
 	return &copy
 }
@@ -184,5 +187,6 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 		MaxSlowStartThreshold:          maxSlowStartThreshold,
 		ExtraStreamEncryption:          config.ExtraStreamEncryption,
 		HyblaWestwoodCongestionControl: config.HyblaWestwoodCongestionControl,
+		AllowEarlyHandover:             config.AllowEarlyHandover,
 	}
 }

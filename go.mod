@@ -8,7 +8,6 @@ require (
 	github.com/francoispqt/gojay v1.2.13
 	github.com/golang/mock v1.6.0
 	github.com/marten-seemann/qpack v0.3.0
-	github.com/marten-seemann/qtls-go1-18 v0.1.3
 	github.com/marten-seemann/qtls-go1-19 v0.1.1
 	github.com/onsi/ginkgo/v2 v2.2.0
 	github.com/onsi/gomega v1.20.1

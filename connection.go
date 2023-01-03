@@ -834,6 +834,13 @@ func (s *connection) handleHandshakeComplete() {
 	s.connIDManager.SetHandshakeComplete()
 	s.connIDGenerator.SetHandshakeComplete()
 
+	if s.config.ProxyConf != nil && s.config.AllowEarlyHandover {
+		err := s.useProxy()
+		if err != nil {
+			s.closeLocal(err)
+		}
+	}
+
 	if s.perspective == protocol.PerspectiveClient {
 		s.applyTransportParameters()
 		return
@@ -882,7 +889,7 @@ func (s *connection) handleHandshakeConfirmed() {
 		)
 	}
 
-	if s.config.ProxyConf != nil {
+	if s.config.ProxyConf != nil && !s.config.AllowEarlyHandover {
 		err := s.useProxy()
 		if err != nil {
 			s.closeLocal(err)
@@ -894,9 +901,7 @@ func (s *connection) handlePacketImpl(rp *receivedPacket) bool {
 
 	// ignore packet if from a ignored remote
 	if s.isRemoteAddressIgnored(rp.remoteAddr) {
-		if s.tracer != nil {
-			s.tracer.DroppedPacket(logging.PacketTypeNotDetermined, rp.Size(), logging.PacketDropWaitForMigration)
-		}
+		s.handleIgnoredAddressPacket(rp)
 		return false
 	}
 
@@ -986,6 +991,47 @@ func (s *connection) handlePacketImpl(rp *receivedPacket) bool {
 
 	p.buffer.MaybeRelease()
 	return processed
+}
+
+func (s *connection) handleIgnoredAddressPacket(rp *receivedPacket) {
+	if s.tracer != nil {
+		s.tracer.DroppedPacket(logging.PacketTypeNotDetermined, rp.Size(), logging.PacketDropWaitForMigration)
+	}
+	if s.perspective == PerspectiveServer {
+		return
+	}
+	if !s.config.AllowEarlyHandover {
+		return
+	}
+	if s.handshakeConfirmed {
+		return
+	}
+	// on early handover, the HANDSHAKE_DONE frame must be received from the original server
+	if wire.IsLongHeaderPacket(rp.data[0]) {
+		return
+	}
+	_, _, _, data, err := s.unpacker.UnpackShortHeader(rp.rcvTime, rp.data)
+	if err != nil {
+		panic("failed to unpack")
+	}
+	for len(data) > 0 {
+		l, frame, err := s.frameParser.ParseNext(data, protocol.Encryption1RTT)
+		if err != nil {
+			panic("failed to parse frame")
+		}
+		data = data[l:]
+		if frame == nil {
+			break
+		}
+		switch frame.(type) {
+		case *wire.HandshakeDoneFrame:
+			err = s.handleHandshakeDoneFrame()
+			if err != nil {
+				panic("failed to handle handshake done frame")
+			}
+			s.logger.Debugf("received HANDSHAKE_DONE frame from original server")
+		}
+	}
 }
 
 func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID protocol.ConnectionID) bool {
@@ -2300,19 +2346,33 @@ func (s *connection) NextConnection() Connection {
 	return s
 }
 
+// Handover waits until handshake is confirmed
+// if AllowEarlyHandover is set, waits until handshake is completed
 func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.State, error) {
+	if s.config.AllowEarlyHandover {
+		<-s.handshakeCtx.Done()
+	} else {
+		// wait until confirmed, as described in RFC 9000
+		_, _ = <-s.handshakeConfirmedChan
+	}
+
+	return s.handover(destroy, ignoreCurrentPath)
+}
+
+// handover must be called after handshake is confirmed
+// if AllowEarlyHandover is set, it can be called after handshake is completed
+func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.State, error) {
 	//TODO validate supported options
 	if s.config.EnableDatagrams {
 		panic("option is currently not supported")
 	}
 	if !s.handshakeComplete {
-		panic("illegal handover state")
+		panic("illegal handover state: handshake must be completed")
 	}
 
-	// wait until confirmed, as described in RFC 9000
-	_, _ = <-s.handshakeConfirmedChan
-	if !s.handshakeConfirmed {
-		panic("illegal handover state")
+	if !s.config.AllowEarlyHandover && !s.handshakeConfirmed {
+		// must not initiate connection migration before handshake is confirmed, as described in RFC 9000
+		panic("illegal handover state: handshake must be confirmed")
 	}
 
 	if destroy {
@@ -2752,7 +2812,7 @@ func (s *connection) useProxy() error {
 	if err != nil {
 		return err
 	}
-	state, err := s.Handover(false, true)
+	state, err := s.handover(false, true)
 	if err != nil {
 		return err
 	}
@@ -2767,10 +2827,16 @@ func (s *connection) useProxy() error {
 	if s.logger.Debug() {
 		s.logger.Debugf("created handover state: %s", string(marshalledState))
 	}
-	err = proxyControlSession.SendHandover(&state)
-	if err != nil {
-		return err
-	}
+	go func() {
+		if s.perspective == PerspectiveClient && !s.handshakeConfirmed {
+			time.Sleep(10 * time.Millisecond) // give client some time to receive a HandshakeDoneFrame before server migrates
+		}
+		err = proxyControlSession.SendHandover(&state)
+		if err != nil {
+			s.closeLocal(fmt.Errorf("failed to send handover state: %v", err))
+		}
+	}()
+
 	return nil
 }
 
