@@ -256,6 +256,20 @@ func (mr *MockEarlyConnectionMockRecorder) OpenUniStreamSync(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockEarlyConnection)(nil).OpenUniStreamSync), arg0)
 }
 
+// QueueHandshakeDoneFrame mocks base method.
+func (m *MockEarlyConnection) QueueHandshakeDoneFrame() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueueHandshakeDoneFrame")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// QueueHandshakeDoneFrame indicates an expected call of QueueHandshakeDoneFrame.
+func (mr *MockEarlyConnectionMockRecorder) QueueHandshakeDoneFrame() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueueHandshakeDoneFrame", reflect.TypeOf((*MockEarlyConnection)(nil).QueueHandshakeDoneFrame))
+}
+
 // ReceiveMessage mocks base method.
 func (m *MockEarlyConnection) ReceiveMessage() ([]byte, error) {
 	m.ctrl.T.Helper()
