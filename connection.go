@@ -1029,6 +1029,9 @@ func (s *connection) handleIgnoredAddressPacket(rp *receivedPacket) {
 			if err != nil {
 				panic("failed to handle handshake done frame")
 			}
+			if s.tracer != nil {
+				s.tracer.Debug("accept_handshake_done_from_ignored_packet", "")
+			}
 			s.logger.Debugf("received HANDSHAKE_DONE frame from original server")
 		}
 	}
@@ -2827,15 +2830,11 @@ func (s *connection) useProxy() error {
 	if s.logger.Debug() {
 		s.logger.Debugf("created handover state: %s", string(marshalledState))
 	}
-	go func() {
-		if s.perspective == PerspectiveClient && !s.handshakeConfirmed {
-			time.Sleep(10 * time.Millisecond) // give client some time to receive a HandshakeDoneFrame before server migrates
-		}
-		err = proxyControlSession.SendHandover(&state)
-		if err != nil {
-			s.closeLocal(fmt.Errorf("failed to send handover state: %v", err))
-		}
-	}()
+
+	err = proxyControlSession.SendHandover(&state)
+	if err != nil {
+		s.closeLocal(fmt.Errorf("failed to send handover state: %v", err))
+	}
 
 	return nil
 }
@@ -2852,4 +2851,12 @@ func (s *connection) isWaitingForHandoverMigration() bool {
 	default:
 		return true
 	}
+}
+
+func (s *connection) QueueHandshakeDoneFrame() error {
+	if s.perspective == PerspectiveClient {
+		return fmt.Errorf("client cannot send HANDSHAKE_DONE frame")
+	}
+	s.queueControlFrame(&wire.HandshakeDoneFrame{})
+	return nil
 }

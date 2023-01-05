@@ -41,15 +41,13 @@ type updatableAEAD struct {
 	highestRcvdPN           protocol.PacketNumber // highest packet number received (which could be successfully unprotected)
 	numRcvdWithCurrentKey   uint64
 	numSentWithCurrentKey   uint64
-	rcvAEAD                 cipher.AEAD
-	sendAEAD                cipher.AEAD
-	rcvTrafficSecret        []byte
-	sendTrafficSecret       []byte
+	rcvAEAD                 RecreatableAEAD
+	sendAEAD                RecreatableAEAD
 	// caches cipher.AEAD.Overhead(). This speeds up calls to Overhead().
 	aeadOverhead int
 
-	nextRcvAEAD           cipher.AEAD
-	nextSendAEAD          cipher.AEAD
+	nextRcvAEAD           RecreatableAEAD
+	nextSendAEAD          RecreatableAEAD
 	nextRcvTrafficSecret  []byte
 	nextSendTrafficSecret []byte
 
@@ -102,13 +100,11 @@ func (a *updatableAEAD) rollKeys() {
 	a.prevRcvAEAD = a.rcvAEAD
 	a.rcvAEAD = a.nextRcvAEAD
 	a.sendAEAD = a.nextSendAEAD
-	a.rcvTrafficSecret = a.nextRcvTrafficSecret
-	a.sendTrafficSecret = a.nextSendTrafficSecret
 
 	a.nextRcvTrafficSecret = a.getNextTrafficSecret(a.suite.Hash, a.nextRcvTrafficSecret)
 	a.nextSendTrafficSecret = a.getNextTrafficSecret(a.suite.Hash, a.nextSendTrafficSecret)
-	a.nextRcvAEAD = createAEAD(a.suite, a.nextRcvTrafficSecret, a.version)
-	a.nextSendAEAD = createAEAD(a.suite, a.nextSendTrafficSecret, a.version)
+	a.nextRcvAEAD = NewRecreatableAEAD(a.suite, a.nextRcvTrafficSecret, a.version)
+	a.nextSendAEAD = NewRecreatableAEAD(a.suite, a.nextSendTrafficSecret, a.version)
 }
 
 func (a *updatableAEAD) startKeyDropTimer(now time.Time) {
@@ -124,35 +120,27 @@ func (a *updatableAEAD) getNextTrafficSecret(hash crypto.Hash, ts []byte) []byte
 // For the client, this function is called before SetWriteKey.
 // For the server, this function is called after SetWriteKey.
 func (a *updatableAEAD) SetReadKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
-	a.rcvAEAD = createAEAD(suite, trafficSecret, a.version)
-	a.rcvTrafficSecret = trafficSecret
-	// might already be set by H-QUIC restore
-	if a.headerDecrypter == nil {
-		a.headerDecrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
-	}
+	a.rcvAEAD = NewRecreatableAEAD(suite, trafficSecret, a.version)
+	a.headerDecrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	if a.suite == nil {
 		a.setAEADParameters(a.rcvAEAD, suite)
 	}
 
 	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, trafficSecret)
-	a.nextRcvAEAD = createAEAD(suite, a.nextRcvTrafficSecret, a.version)
+	a.nextRcvAEAD = NewRecreatableAEAD(suite, a.nextRcvTrafficSecret, a.version)
 }
 
 // For the client, this function is called after SetReadKey.
 // For the server, this function is called before SetWriteKey.
 func (a *updatableAEAD) SetWriteKey(suite *qtls.CipherSuiteTLS13, trafficSecret []byte) {
-	a.sendAEAD = createAEAD(suite, trafficSecret, a.version)
-	a.sendTrafficSecret = trafficSecret
-	// might already be set by H-QUIC restore
-	if a.headerEncrypter == nil {
-		a.headerEncrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
-	}
+	a.sendAEAD = NewRecreatableAEAD(suite, trafficSecret, a.version)
+	a.headerEncrypter = newHeaderProtector(suite, trafficSecret, false, a.version)
 	if a.suite == nil {
 		a.setAEADParameters(a.sendAEAD, suite)
 	}
 
 	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, trafficSecret)
-	a.nextSendAEAD = createAEAD(suite, a.nextSendTrafficSecret, a.version)
+	a.nextSendAEAD = NewRecreatableAEAD(suite, a.nextSendTrafficSecret, a.version)
 }
 
 func (a *updatableAEAD) setAEADParameters(aead cipher.AEAD, suite *qtls.CipherSuiteTLS13) {
@@ -340,8 +328,8 @@ func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 	s.CipherSuiteId = a.suite.ID
 	s.SetReceiveHeaderProtectionKey(p, a.headerDecrypter.GetHeaderProtectionKey())
 	s.SetSendHeaderProtectionKey(p, a.headerEncrypter.GetHeaderProtectionKey())
-	s.SetReceiveTrafficSecret(p, a.rcvTrafficSecret)
-	s.SetSendTrafficSecret(p, a.sendTrafficSecret)
+	s.SetReceiveTrafficSecret(p, a.rcvAEAD.TrafficSecret())
+	s.SetSendTrafficSecret(p, a.sendAEAD.TrafficSecret())
 }
 
 func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
@@ -356,9 +344,6 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 	//aead.highestRcvdPN = state.HighestReceivedPacketNumber(perspective) //TODO add
 	suite := qtls.CipherSuiteTLS13ByID(state.CipherSuiteId)
 
-	aead.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
-	aead.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
-
 	if perspective == protocol.PerspectiveClient {
 		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
 		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
@@ -366,6 +351,10 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
 		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
 	}
+
+	// header protectors must be restored after read/write keys, otherwise they are overwritten
+	aead.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
+	aead.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
 
 	return aead
 }

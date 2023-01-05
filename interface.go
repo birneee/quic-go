@@ -234,6 +234,8 @@ type Connection interface {
 	MigrateUDPSocket() (*net.UDPAddr, error)
 	// ExtraStreamEncrypted returns true if XSE-QUIC is used
 	ExtraStreamEncrypted() bool
+	// QueueHandshakeDoneFrame is required by H-QUIC proxy
+	QueueHandshakeDoneFrame() error
 }
 
 // An EarlyConnection is a connection that is handshaking.
