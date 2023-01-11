@@ -216,6 +216,8 @@ type connection struct {
 	keepAlivePingSent bool
 	keepAliveInterval time.Duration
 
+	pathManager PathManager
+
 	datagramQueue *datagramQueue
 
 	logID  string
@@ -542,6 +544,15 @@ func (s *connection) preSetup() {
 
 	s.windowUpdateQueue = newWindowUpdateQueue(s.streamsMap, s.connFlowController, s.framer.QueueControlFrame)
 	s.datagramQueue = newDatagramQueue(s.scheduleSending, s.logger)
+
+	s.pathManager = NewPathManager(s.conn.RemoteAddr().(*net.UDPAddr), s.updateSendPath, s.logger, s.tracer)
+}
+
+// is called by s.pathManager
+func (s *connection) updateSendPath(addr *net.UDPAddr) {
+	s.conn.SetRemoteAddr(addr)
+	s.rttStats.OnConnectionMigration()
+	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
 }
 
 // run the connection main loop
@@ -947,6 +958,10 @@ func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID proto
 		wire.LogShortHeader(s.logger, destConnID, pn, pnLen, keyPhase)
 	}
 
+	if err != handshake.ErrDecryptionFailed && s.handshakeConfirmed {
+		s.pathManager.OnReceiveNonProbingPacket(p.remoteAddr.(*net.UDPAddr))
+	}
+
 	if s.receivedPacketHandler.IsPotentiallyDuplicate(pn, protocol.Encryption1RTT) {
 		s.logger.Debugf("Dropping (potentially) duplicate packet.")
 		if s.tracer != nil {
@@ -970,7 +985,7 @@ func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID proto
 			)
 		}
 	}
-	if err := s.handleUnpackedShortHeaderPacket(destConnID, pn, data, p.ecn, p.rcvTime, log); err != nil {
+	if err := s.handleUnpackedShortHeaderPacket(p.remoteAddr, destConnID, pn, data, p.ecn, p.rcvTime, log); err != nil {
 		s.closeLocal(err)
 		return false
 	}
@@ -1027,7 +1042,7 @@ func (s *connection) handleLongHeaderPacket(p *receivedPacket, hdr *wire.Header)
 		return false
 	}
 
-	if err := s.handleUnpackedPacket(packet, p.ecn, p.rcvTime, p.Size()); err != nil {
+	if err := s.handleUnpackedPacket(p.remoteAddr, packet, p.ecn, p.rcvTime, p.Size()); err != nil {
 		s.closeLocal(err)
 		return false
 	}
@@ -1191,6 +1206,7 @@ func (s *connection) handleVersionNegotiationPacket(p *receivedPacket) {
 }
 
 func (s *connection) handleUnpackedPacket(
+	addr net.Addr,
 	packet *unpackedPacket,
 	ecn protocol.ECN,
 	rcvTime time.Time,
@@ -1246,7 +1262,7 @@ func (s *connection) handleUnpackedPacket(
 			s.tracer.ReceivedLongHeaderPacket(packet.hdr, packetSize, frames)
 		}
 	}
-	isAckEliciting, err := s.handleFrames(packet.data, packet.hdr.DestConnectionID, packet.encryptionLevel, log)
+	isAckEliciting, err := s.handleFrames(addr, packet.data, packet.hdr.DestConnectionID, packet.encryptionLevel, log)
 	if err != nil {
 		return err
 	}
@@ -1254,6 +1270,7 @@ func (s *connection) handleUnpackedPacket(
 }
 
 func (s *connection) handleUnpackedShortHeaderPacket(
+	addr net.Addr,
 	destConnID protocol.ConnectionID,
 	pn protocol.PacketNumber,
 	data []byte,
@@ -1265,7 +1282,7 @@ func (s *connection) handleUnpackedShortHeaderPacket(
 	s.firstAckElicitingPacketAfterIdleSentTime = time.Time{}
 	s.keepAlivePingSent = false
 
-	isAckEliciting, err := s.handleFrames(data, destConnID, protocol.Encryption1RTT, log)
+	isAckEliciting, err := s.handleFrames(addr, data, destConnID, protocol.Encryption1RTT, log)
 	if err != nil {
 		return err
 	}
@@ -1273,6 +1290,7 @@ func (s *connection) handleUnpackedShortHeaderPacket(
 }
 
 func (s *connection) handleFrames(
+	addr net.Addr,
 	data []byte,
 	destConnID protocol.ConnectionID,
 	encLevel protocol.EncryptionLevel,
@@ -1296,7 +1314,7 @@ func (s *connection) handleFrames(
 		// Only process frames now if we're not logging.
 		// If we're logging, we need to make sure that the packet_received event is logged first.
 		if log == nil {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+			if err := s.handleFrame(addr, frame, encLevel, destConnID); err != nil {
 				return false, err
 			}
 		} else {
@@ -1311,7 +1329,7 @@ func (s *connection) handleFrames(
 		}
 		log(fs)
 		for _, frame := range frames {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+			if err := s.handleFrame(addr, frame, encLevel, destConnID); err != nil {
 				return false, err
 			}
 		}
@@ -1319,7 +1337,7 @@ func (s *connection) handleFrames(
 	return
 }
 
-func (s *connection) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel, destConnID protocol.ConnectionID) error {
+func (s *connection) handleFrame(addr net.Addr, f wire.Frame, encLevel protocol.EncryptionLevel, destConnID protocol.ConnectionID) error {
 	var err error
 	wire.LogFrame(s.logger, f, false)
 	switch frame := f.(type) {
@@ -1349,8 +1367,7 @@ func (s *connection) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel
 	case *wire.PathChallengeFrame:
 		s.handlePathChallengeFrame(frame)
 	case *wire.PathResponseFrame:
-		// since we don't send PATH_CHALLENGEs, we don't expect PATH_RESPONSEs
-		err = errors.New("unexpected PATH_RESPONSE frame")
+		s.handlePathResponseFrame(addr, frame)
 	case *wire.NewTokenFrame:
 		err = s.handleNewTokenFrame(frame)
 	case *wire.NewConnectionIDFrame:
@@ -1471,6 +1488,10 @@ func (s *connection) handleStopSendingFrame(frame *wire.StopSendingFrame) error 
 
 func (s *connection) handlePathChallengeFrame(frame *wire.PathChallengeFrame) {
 	s.queueControlFrame(&wire.PathResponseFrame{Data: frame.Data})
+}
+
+func (s *connection) handlePathResponseFrame(addr net.Addr, frame *wire.PathResponseFrame) {
+	s.pathManager.OnReceivePathResponseFrame(addr.(*net.UDPAddr), frame)
 }
 
 func (s *connection) handleNewTokenFrame(frame *wire.NewTokenFrame) error {
@@ -1842,6 +1863,14 @@ func (s *connection) maybeSendAckOnlyPacket() error {
 	}
 	s.sendPackedPacket(packet, time.Now())
 	return nil
+}
+
+func (s *connection) sendPathProbe(addr *net.UDPAddr, data [8]byte) error {
+	p, err := s.packer.PackPathChallengePacket(data)
+	if err != nil {
+		return err
+	}
+	s.conn.WritePacket()
 }
 
 func (s *connection) sendProbePacket(encLevel protocol.EncryptionLevel) error {

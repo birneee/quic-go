@@ -859,3 +859,7 @@ func (h *sentPacketHandler) SetHandshakeConfirmed() {
 	// Make sure the timer is armed now, if necessary.
 	h.setLossDetectionTimer()
 }
+
+func (h *sentPacketHandler) OnConnectionMigration() {
+	h.congestion.OnConnectionMigration()
+}

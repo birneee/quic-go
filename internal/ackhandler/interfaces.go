@@ -34,6 +34,7 @@ type SentPacketHandler interface {
 
 	GetLossDetectionTimeout() time.Time
 	OnLossDetectionTimeout() error
+	OnConnectionMigration()
 }
 
 type sentPacketTracker interface {

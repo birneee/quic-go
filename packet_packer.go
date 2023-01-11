@@ -24,6 +24,7 @@ type packer interface {
 
 	SetMaxPacketSize(protocol.ByteCount)
 	PackMTUProbePacket(ping ackhandler.Frame, size protocol.ByteCount) (*packedPacket, error)
+	PackPathChallengePacket(data [8]byte) (*packedPacket, error)
 
 	HandleTransportParameters(*wire.TransportParameters)
 	SetToken([]byte)

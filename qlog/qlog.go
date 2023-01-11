@@ -505,3 +505,18 @@ func (t *connectionTracer) Debug(name, msg string) {
 	})
 	t.mutex.Unlock()
 }
+
+func (t *connectionTracer) UpdatedPath(newRemote net.Addr) {
+	//TODO define new event type
+	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
+	// ignore this event if we're not dealing with UDP addresses here
+	newRemoteAddr, ok := newRemote.(*net.UDPAddr)
+	if !ok {
+		return
+	}
+	t.mutex.Lock()
+	t.recordEvent(time.Now(), &eventPathUpdated{
+		DestAddr: newRemoteAddr,
+	})
+	t.mutex.Unlock()
+}

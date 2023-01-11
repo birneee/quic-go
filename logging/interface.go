@@ -143,4 +143,5 @@ type ConnectionTracer interface {
 	// Close is called when the connection is closed.
 	Close()
 	Debug(name, msg string)
+	UpdatedPath(newRemote net.Addr)
 }
