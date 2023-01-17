@@ -18,8 +18,9 @@ type ActiveConnectionID struct {
 
 // State is used to handover QUIC connection
 type State struct {
-	// used for connection identification e.g. for qlog
-	LogConnectionID protocol.ConnectionID
+	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.
+	// Remains unchanged over the whole connection time
+	OriginalDestinationConnectionID []byte
 	// active client connection IDs
 	ClientConnectionIDs []ActiveConnectionID
 	// active server connection IDs

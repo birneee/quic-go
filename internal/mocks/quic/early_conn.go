@@ -12,6 +12,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	quic "github.com/lucas-clemente/quic-go"
 	handover "github.com/lucas-clemente/quic-go/handover"
+	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	qerr "github.com/lucas-clemente/quic-go/internal/qerr"
 )
 
@@ -254,6 +255,20 @@ func (m *MockEarlyConnection) OpenUniStreamSync(arg0 context.Context) (quic.Send
 func (mr *MockEarlyConnectionMockRecorder) OpenUniStreamSync(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockEarlyConnection)(nil).OpenUniStreamSync), arg0)
+}
+
+// OriginalDestinationConnectionID mocks base method.
+func (m *MockEarlyConnection) OriginalDestinationConnectionID() protocol.ConnectionID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OriginalDestinationConnectionID")
+	ret0, _ := ret[0].(protocol.ConnectionID)
+	return ret0
+}
+
+// OriginalDestinationConnectionID indicates an expected call of OriginalDestinationConnectionID.
+func (mr *MockEarlyConnectionMockRecorder) OriginalDestinationConnectionID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockEarlyConnection)(nil).OriginalDestinationConnectionID))
 }
 
 // QueueHandshakeDoneFrame mocks base method.

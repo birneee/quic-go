@@ -269,6 +269,20 @@ func (mr *MockQuicConnMockRecorder) OpenUniStreamSync(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockQuicConn)(nil).OpenUniStreamSync), arg0)
 }
 
+// OriginalDestinationConnectionID mocks base method.
+func (m *MockQuicConn) OriginalDestinationConnectionID() ConnectionID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OriginalDestinationConnectionID")
+	ret0, _ := ret[0].(ConnectionID)
+	return ret0
+}
+
+// OriginalDestinationConnectionID indicates an expected call of OriginalDestinationConnectionID.
+func (mr *MockQuicConnMockRecorder) OriginalDestinationConnectionID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockQuicConn)(nil).OriginalDestinationConnectionID))
+}
+
 // QueueHandshakeDoneFrame mocks base method.
 func (m *MockQuicConn) QueueHandshakeDoneFrame() error {
 	m.ctrl.T.Helper()

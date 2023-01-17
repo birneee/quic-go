@@ -2397,11 +2397,11 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 	state := handover.State{}
 
 	state.Version = s.version
-	var err error
-	state.LogConnectionID, err = protocol.ParseConnectionIDHex(s.logID)
+	logConnectionId, err := protocol.ParseConnectionIDHex(s.logID)
 	if err != nil {
 		return handover.State{}, err
 	}
+	state.OriginalDestinationConnectionID = logConnectionId.Bytes()
 	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
 	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
 	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
@@ -2599,7 +2599,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		connTracer = conf.Tracer.TracerForConnection(
 			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
-			state.LogConnectionID, //TODO maybe add field with original id
+			protocol.ParseConnectionID(state.OriginalDestinationConnectionID), //TODO maybe add field with original id
 		)
 	}
 
@@ -2623,7 +2623,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		perspective:            perspective,
 		handshakeCompleteChan:  make(chan struct{}),
 		handshakeConfirmedChan: make(chan struct{}),
-		logID:                  state.LogConnectionID.String(),
+		logID:                  protocol.ParseConnectionID(state.OriginalDestinationConnectionID).String(),
 		logger:                 logger,
 		tracer:                 connTracer,
 		versionNegotiated:      false,
@@ -2859,4 +2859,12 @@ func (s *connection) QueueHandshakeDoneFrame() error {
 	}
 	s.queueControlFrame(&wire.HandshakeDoneFrame{})
 	return nil
+}
+
+func (s *connection) OriginalDestinationConnectionID() ConnectionID {
+	logID, err := protocol.ParseConnectionIDHex(s.logID)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse odcid: %v", err))
+	}
+	return logID
 }

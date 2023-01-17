@@ -236,6 +236,9 @@ type Connection interface {
 	ExtraStreamEncrypted() bool
 	// QueueHandshakeDoneFrame is required by H-QUIC proxy
 	QueueHandshakeDoneFrame() error
+	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.
+	// Remains unchanged over the whole connection time
+	OriginalDestinationConnectionID() ConnectionID
 }
 
 // An EarlyConnection is a connection that is handshaking.
