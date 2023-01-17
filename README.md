@@ -33,5 +33,7 @@ go test ./...
 
 Generating code:
 ```bash
+go install github.com/golang/mock/mockgen@latest
+go install golang.org/x/tools/cmd/goimports@latest
 go generate ./...
 ```
