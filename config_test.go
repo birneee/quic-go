@@ -113,6 +113,8 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(true))
 			case "AllowEarlyHandover":
 				f.Set(reflect.ValueOf(true))
+			case "FixedPTO":
+				f.Set(reflect.ValueOf(time.Second))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}
