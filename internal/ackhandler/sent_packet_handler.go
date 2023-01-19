@@ -97,6 +97,8 @@ type sentPacketHandler struct {
 	tracer        logging.ConnectionTracer
 	logger        utils.Logger
 	lastMigration time.Time
+
+	fixedPTO time.Duration
 }
 
 var (
@@ -119,6 +121,7 @@ func newSentPacketHandler(
 	clientAddressValidated bool,
 	pers protocol.Perspective,
 	hyblaWestwood bool,
+	fixedPTO time.Duration, // if 0 use default behavior
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 ) *sentPacketHandler {
@@ -161,6 +164,7 @@ func newSentPacketHandler(
 		rttStats:                       rttStats,
 		congestion:                     cc,
 		perspective:                    pers,
+		fixedPTO:                       fixedPTO,
 		tracer:                         tracer,
 		logger:                         logger,
 	}
@@ -490,6 +494,9 @@ func (h *sentPacketHandler) getLossTimeAndSpace() (time.Time, protocol.Encryptio
 }
 
 func (h *sentPacketHandler) getScaledPTO(includeMaxAckDelay bool) time.Duration {
+	if h.fixedPTO != 0 {
+		return h.fixedPTO
+	}
 	pto := h.rttStats.PTO(includeMaxAckDelay) << h.ptoCount
 	if pto > maxPTODuration || pto <= 0 {
 		return maxPTODuration

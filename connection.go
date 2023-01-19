@@ -320,6 +320,7 @@ var newConnection = func(
 		clientAddressValidated,
 		s.perspective,
 		s.config.HyblaWestwoodCongestionControl,
+		s.config.FixedPTO,
 		s.tracer,
 		s.logger,
 		s.version,
@@ -461,6 +462,7 @@ var newClientConnection = func(
 		false, /* has no effect */
 		s.perspective,
 		s.config.HyblaWestwoodCongestionControl,
+		s.config.FixedPTO,
 		s.tracer,
 		s.logger,
 		s.version,
@@ -2679,6 +2681,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		true, // TODO path challenge
 		s.perspective,
 		s.config.HyblaWestwoodCongestionControl,
+		s.config.FixedPTO,
 		s.tracer,
 		s.logger,
 		s.version,

@@ -4,6 +4,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/logging"
+	"time"
 )
 
 // NewAckHandler creates a new SentPacketHandler and a new ReceivedPacketHandler.
@@ -22,10 +23,11 @@ func NewAckHandler(
 	clientAddressValidated bool,
 	pers protocol.Perspective,
 	hyblaWestwood bool,
+	fixedPTO time.Duration,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, hyblaWestwood, tracer, logger)
+	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, hyblaWestwood, fixedPTO, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger, version)
 }

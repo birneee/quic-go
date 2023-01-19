@@ -188,5 +188,6 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 		ExtraStreamEncryption:          config.ExtraStreamEncryption,
 		HyblaWestwoodCongestionControl: config.HyblaWestwoodCongestionControl,
 		AllowEarlyHandover:             config.AllowEarlyHandover,
+		FixedPTO:                       config.FixedPTO,
 	}
 }

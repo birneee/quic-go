@@ -416,6 +416,8 @@ type Config struct {
 	// Only affects client behaviour.
 	// Optimistic approach! Success is not guaranteed due to race conditions.
 	AllowEarlyHandover bool
+	// if not 0 use this PTO instead of the calculated PTO
+	FixedPTO time.Duration
 }
 
 // ConnectionState records basic details about a QUIC connection
