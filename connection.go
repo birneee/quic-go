@@ -11,6 +11,7 @@ import (
 	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/qtls"
 	"github.com/lucas-clemente/quic-go/internal/xse"
+	"github.com/lucas-clemente/quic-go/path"
 	"io"
 	"net"
 	"reflect"
@@ -226,6 +227,8 @@ type connection struct {
 	keepAlivePingSent bool
 	keepAliveInterval time.Duration
 
+	pathManager path.PathManager
+
 	datagramQueue *datagramQueue
 
 	logID  string
@@ -305,9 +308,10 @@ var newConnection = func(
 		s.config.ConnectionIDGenerator,
 		s.version,
 	)
-	s.preSetup()
 	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
+	s.preSetup()
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
+		s.pathManager.CurrentSendPath(),
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
 		s.config.InitialCongestionWindow,
@@ -447,9 +451,10 @@ var newClientConnection = func(
 		s.config.ConnectionIDGenerator,
 		s.version,
 	)
-	s.preSetup()
 	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
+	s.preSetup()
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
+		s.pathManager.CurrentSendPath(),
 		initialPacketNumber,
 		getMaxPacketSize(s.conn.RemoteAddr()),
 		s.config.InitialCongestionWindow,
@@ -587,6 +592,8 @@ func (s *connection) preSetup() {
 
 	s.windowUpdateQueue = newWindowUpdateQueue(s.streamsMap, s.connFlowController, s.framer.QueueControlFrame)
 	s.datagramQueue = newDatagramQueue(s.scheduleSending, s.logger)
+
+	s.pathManager = path.NewPathManager(s.conn.RemoteAddr().(*net.UDPAddr), false, s.updateSendPath, s.queuePathChallengeFrame, s.logger, s.tracer)
 }
 
 // run the connection main loop
@@ -907,7 +914,7 @@ func (s *connection) handlePacketImpl(rp *receivedPacket) bool {
 		return false
 	}
 
-	s.sentPacketHandler.ReceivedBytes(rp.Size())
+	s.sentPacketHandler.ReceivedBytes(rp.Size(), s.pathManager.GetOrCreatePath(rp.remoteAddr))
 
 	if wire.IsVersionNegotiationPacket(rp.data) {
 		s.handleVersionNegotiationPacket(rp)
@@ -1067,11 +1074,8 @@ func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID proto
 	// TODO use new connection ID from the peer
 	// TODO reset congestion controller and RTT estimate
 	// TODO re-validate ECN capability
-	if err != handshake.ErrDecryptionFailed &&
-		s.config.EnableActiveMigration &&
-		s.conn.RemoteAddr().String() != p.remoteAddr.String() &&
-		s.handshakeConfirmed {
-		s.updatePath(p.remoteAddr)
+	if err != handshake.ErrDecryptionFailed {
+		s.pathManager.OnReceiveNonProbingPacket(p.remoteAddr.(*net.UDPAddr))
 	}
 
 	if s.receivedPacketHandler.IsPotentiallyDuplicate(pn, protocol.Encryption1RTT) {
@@ -1097,7 +1101,7 @@ func (s *connection) handleShortHeaderPacket(p *receivedPacket, destConnID proto
 			)
 		}
 	}
-	if err := s.handleUnpackedShortHeaderPacket(destConnID, pn, data, p.ecn, p.rcvTime, log); err != nil {
+	if err := s.handleUnpackedShortHeaderPacket(p.remoteAddr, destConnID, pn, data, p.ecn, p.rcvTime, log); err != nil {
 		s.closeLocal(err)
 		return false
 	}
@@ -1155,7 +1159,7 @@ func (s *connection) handleLongHeaderPacket(p *receivedPacket, hdr *wire.Header)
 		return false
 	}
 
-	if err := s.handleUnpackedPacket(packet, p.ecn, p.rcvTime, p.Size()); err != nil {
+	if err := s.handleUnpackedPacket(p.remoteAddr, packet, p.ecn, p.rcvTime, p.Size()); err != nil {
 		s.closeLocal(err)
 		return false
 	}
@@ -1319,6 +1323,7 @@ func (s *connection) handleVersionNegotiationPacket(p *receivedPacket) {
 }
 
 func (s *connection) handleUnpackedPacket(
+	addr net.Addr,
 	packet *unpackedPacket,
 	ecn protocol.ECN,
 	rcvTime time.Time,
@@ -1374,7 +1379,7 @@ func (s *connection) handleUnpackedPacket(
 			s.tracer.ReceivedLongHeaderPacket(packet.hdr, packetSize, frames)
 		}
 	}
-	isAckEliciting, err := s.handleFrames(packet.data, packet.hdr.DestConnectionID, packet.encryptionLevel, log)
+	isAckEliciting, err := s.handleFrames(addr, packet.data, packet.hdr.DestConnectionID, packet.encryptionLevel, log)
 	if err != nil {
 		return err
 	}
@@ -1382,6 +1387,7 @@ func (s *connection) handleUnpackedPacket(
 }
 
 func (s *connection) handleUnpackedShortHeaderPacket(
+	addr net.Addr,
 	destConnID protocol.ConnectionID,
 	pn protocol.PacketNumber,
 	data []byte,
@@ -1393,7 +1399,7 @@ func (s *connection) handleUnpackedShortHeaderPacket(
 	s.firstAckElicitingPacketAfterIdleSentTime = time.Time{}
 	s.keepAlivePingSent = false
 
-	isAckEliciting, err := s.handleFrames(data, destConnID, protocol.Encryption1RTT, log)
+	isAckEliciting, err := s.handleFrames(addr, data, destConnID, protocol.Encryption1RTT, log)
 	if err != nil {
 		return err
 	}
@@ -1401,6 +1407,7 @@ func (s *connection) handleUnpackedShortHeaderPacket(
 }
 
 func (s *connection) handleFrames(
+	addr net.Addr,
 	data []byte,
 	destConnID protocol.ConnectionID,
 	encLevel protocol.EncryptionLevel,
@@ -1424,7 +1431,7 @@ func (s *connection) handleFrames(
 		// Only process frames now if we're not logging.
 		// If we're logging, we need to make sure that the packet_received event is logged first.
 		if log == nil {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+			if err := s.handleFrame(addr, frame, encLevel, destConnID); err != nil {
 				return false, err
 			}
 		} else {
@@ -1439,7 +1446,7 @@ func (s *connection) handleFrames(
 		}
 		log(fs)
 		for _, frame := range frames {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+			if err := s.handleFrame(addr, frame, encLevel, destConnID); err != nil {
 				return false, err
 			}
 		}
@@ -1447,7 +1454,7 @@ func (s *connection) handleFrames(
 	return
 }
 
-func (s *connection) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel, destConnID protocol.ConnectionID) error {
+func (s *connection) handleFrame(addr net.Addr, f wire.Frame, encLevel protocol.EncryptionLevel, destConnID protocol.ConnectionID) error {
 	var err error
 	wire.LogFrame(s.logger, f, false)
 	switch frame := f.(type) {
@@ -1477,8 +1484,7 @@ func (s *connection) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel
 	case *wire.PathChallengeFrame:
 		s.handlePathChallengeFrame(frame)
 	case *wire.PathResponseFrame:
-		// since we don't send PATH_CHALLENGEs, we don't expect PATH_RESPONSEs
-		err = errors.New("unexpected PATH_RESPONSE frame")
+		s.handlePathResponseFrame(addr, frame)
 	case *wire.NewTokenFrame:
 		err = s.handleNewTokenFrame(frame)
 	case *wire.NewConnectionIDFrame:
@@ -1604,6 +1610,10 @@ func (s *connection) handleStopSendingFrame(frame *wire.StopSendingFrame) error 
 
 func (s *connection) handlePathChallengeFrame(frame *wire.PathChallengeFrame) {
 	s.queueControlFrame(&wire.PathResponseFrame{Data: frame.Data})
+}
+
+func (s *connection) handlePathResponseFrame(addr net.Addr, frame *wire.PathResponseFrame) {
+	s.pathManager.OnReceivePathResponseFrame(addr.(*net.UDPAddr), frame)
 }
 
 func (s *connection) handleNewTokenFrame(frame *wire.NewTokenFrame) error {
@@ -1913,6 +1923,12 @@ func (s *connection) sendPackets() error {
 			}
 			sendMode = ackhandler.SendAck
 		}
+
+		err := s.maybeSendPathChallengeOnlyPacket()
+		if err != nil {
+			return err
+		}
+
 		switch sendMode {
 		case ackhandler.SendNone:
 			return nil
@@ -1959,6 +1975,21 @@ func (s *connection) sendPackets() error {
 	}
 }
 
+func (s *connection) maybeSendPathChallengeOnlyPacket() error {
+	path := s.pathManager.CurrentSendPath()
+	if !path.PeerAddressValidated() && s.handshakeComplete {
+		packet, err := s.packer.PackPathChallengeOnlyPacket()
+		if err != nil {
+			return err
+		}
+		if packet == nil {
+			return nil
+		}
+		s.sendPackedPacket(packet, time.Now())
+	}
+	return nil
+}
+
 func (s *connection) maybeSendAckOnlyPacket() error {
 	if !s.handshakeConfirmed {
 		packet, err := s.packer.PackCoalescedPacket(true)
@@ -1988,6 +2019,7 @@ func (s *connection) maybeSendAckOnlyPacket() error {
 	return nil
 }
 
+// TODO clarify because Ping is a non-probing frame
 func (s *connection) sendProbePacket(encLevel protocol.EncryptionLevel) error {
 	// Queue probe packets until we actually send out a packet,
 	// or until there are no more packets to queue.
@@ -2282,6 +2314,10 @@ func (s *connection) tryQueueingUndecryptablePacket(p *receivedPacket, pt loggin
 	s.undecryptablePackets = append(s.undecryptablePackets, p)
 }
 
+func (s *connection) queuePathChallengeFrame(path path.Path) {
+	s.queueControlFrame(&wire.PathChallengeFrame{Data: path.ChallengeData()})
+}
+
 func (s *connection) queueControlFrame(f wire.Frame) {
 	s.framer.QueueControlFrame(f)
 	s.scheduleSending()
@@ -2456,16 +2492,11 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 
 // update path to peer
 // migrate to new remote address
-// TODO check if path is validated
-func (s *connection) updatePath(remoteAddr net.Addr) {
-	s.logger.Debugf("Migrated from %s to %s", s.conn.RemoteAddr(), remoteAddr)
-	//TODO change message when standardized https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3#section-5.1.8
-	if s.tracer != nil {
-		s.tracer.UpdatedPath(remoteAddr)
-	}
-	s.conn.SetCurrentRemoteAddr(remoteAddr)
+// is called by s.pathManager
+func (s *connection) updateSendPath(path path.Path) {
+	s.conn.SetRemoteAddr(path.Addr())
 	s.rttStats.OnConnectionMigration()
-	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
+	s.sentPacketHandler.UpdateSendPath(path) // and reset congestion control
 	s.handoverMigrationCtxCancel()
 }
 
@@ -2666,9 +2697,10 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.connIDGenerator.highestSeq = maxSN
 	}
 
-	s.preSetup()
 	s.ctx, s.ctxCancel = context.WithCancel(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
+	s.preSetup()
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
+		s.pathManager.CurrentSendPath(),
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
 		s.config.InitialCongestionWindow,

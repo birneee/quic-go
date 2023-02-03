@@ -1,6 +1,7 @@
 package ackhandler
 
 import (
+	"github.com/lucas-clemente/quic-go/path"
 	"sync"
 	"time"
 
@@ -18,9 +19,9 @@ type Packet struct {
 
 	IsPathMTUProbePacket bool // We don't report the loss of Path MTU probe packets to the congestion controller.
 
-	includedInBytesInFlight bool
-	declaredLost            bool
-	skippedPacket           bool
+	inFlightOnPath path.Path // nil if not in flight
+	declaredLost   bool
+	skippedPacket  bool
 }
 
 func (p *Packet) outstanding() bool {
@@ -38,7 +39,7 @@ func GetPacket() *Packet {
 	p.EncryptionLevel = protocol.EncryptionLevel(0)
 	p.SendTime = time.Time{}
 	p.IsPathMTUProbePacket = false
-	p.includedInBytesInFlight = false
+	p.inFlightOnPath = nil
 	p.declaredLost = false
 	p.skippedPacket = false
 	return p

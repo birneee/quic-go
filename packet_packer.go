@@ -27,6 +27,7 @@ type packer interface {
 
 	HandleTransportParameters(*wire.TransportParameters)
 	SetToken([]byte)
+	PackPathChallengeOnlyPacket() (*packedPacket, error)
 }
 
 type sealer interface {
@@ -141,6 +142,7 @@ type frameSource interface {
 	HasData() bool
 	AppendStreamFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
 	AppendControlFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
+	GetPathChallengeFrame() *wire.PathChallengeFrame
 }
 
 type ackFrameSource interface {
@@ -457,6 +459,26 @@ func (p *packetPacker) PackPacket(onlyAck bool) (*packedPacket, error) {
 	}, nil
 }
 
+func (p *packetPacker) PackPathChallengeOnlyPacket() (*packedPacket, error) {
+	sealer, err := p.cryptoSetup.Get1RTTSealer()
+	if err != nil {
+		return nil, err
+	}
+	hdr, payload := p.maybeGetShortHeaderPathChallengePacket(sealer)
+	if payload == nil {
+		return nil, nil
+	}
+	buffer := getPacketBuffer()
+	cont, err := p.appendPacket(buffer, hdr, payload, 0, protocol.Encryption1RTT, sealer, false)
+	if err != nil {
+		return nil, err
+	}
+	return &packedPacket{
+		buffer:         buffer,
+		packetContents: cont,
+	}, nil
+}
+
 func (p *packetPacker) maybeGetCryptoPacket(maxPacketSize protocol.ByteCount, encLevel protocol.EncryptionLevel, onlyAck, ackAllowed bool) (*wire.ExtendedHeader, *payload) {
 	if onlyAck {
 		if ack := p.acks.GetAckFrame(encLevel, true); ack != nil {
@@ -539,6 +561,21 @@ func (p *packetPacker) maybeGetShortHeaderPacket(sealer handshake.ShortHeaderSea
 	hdr := p.getShortHeader(sealer.KeyPhase())
 	maxPayloadSize := maxPacketSize - hdr.GetLength(p.version) - protocol.ByteCount(sealer.Overhead())
 	payload := p.maybeGetAppDataPacket(maxPayloadSize, onlyAck, ackAllowed)
+	return hdr, payload
+}
+
+func (p *packetPacker) maybeGetShortHeaderPathChallengePacket(sealer handshake.ShortHeaderSealer) (*wire.ExtendedHeader, *payload) {
+	frame := p.framer.GetPathChallengeFrame()
+	if frame == nil {
+		frame = p.retransmissionQueue.GetPathChallengeFrame()
+	}
+	if frame == nil {
+		return nil, nil
+	}
+	hdr := p.getShortHeader(sealer.KeyPhase())
+	payload := &payload{}
+	payload.frames = append(payload.frames, ackhandler.Frame{Frame: frame})
+	payload.length += frame.Length(p.version)
 	return hdr, payload
 }
 

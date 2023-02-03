@@ -176,10 +176,8 @@ func (m *MigratableUDPConn) Reopen() error {
 // MigrateUDPSocket migrates to a new UDP socket.
 // Returns new UDP address.
 func (m *MigratableUDPConn) MigrateUDPSocket() (*net.UDPAddr, error) {
-	err := m.internal.Close()
-	if err != nil {
-		return nil, err
-	}
+	oldSocket := m.internal
+	defer oldSocket.Close()
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {

@@ -16,6 +16,8 @@ type retransmissionQueue struct {
 
 	appData []wire.Frame
 
+	pathChallenges []*wire.PathChallengeFrame
+
 	version protocol.VersionNumber
 }
 
@@ -54,6 +56,10 @@ func (q *retransmissionQueue) HasAppData() bool {
 func (q *retransmissionQueue) AddAppData(f wire.Frame) {
 	if _, ok := f.(*wire.StreamFrame); ok {
 		panic("STREAM frames are handled with their respective streams.")
+	}
+	if pcf, ok := f.(*wire.PathChallengeFrame); ok {
+		q.pathChallenges = append(q.pathChallenges, pcf)
+		return
 	}
 	q.appData = append(q.appData, f)
 }
@@ -113,6 +119,15 @@ func (q *retransmissionQueue) GetAppDataFrame(maxLen protocol.ByteCount) wire.Fr
 		return nil
 	}
 	q.appData = q.appData[1:]
+	return f
+}
+
+func (q *retransmissionQueue) GetPathChallengeFrame() *wire.PathChallengeFrame {
+	if len(q.pathChallenges) == 0 {
+		return nil
+	}
+	f := q.pathChallenges[0]
+	q.pathChallenges = q.pathChallenges[1:]
 	return f
 }
 

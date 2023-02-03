@@ -20,6 +20,7 @@ type framer interface {
 	AppendStreamFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
 
 	Handle0RTTRejection() error
+	GetPathChallengeFrame() *wire.PathChallengeFrame
 }
 
 type framerI struct {
@@ -31,8 +32,9 @@ type framerI struct {
 	activeStreams map[protocol.StreamID]struct{}
 	streamQueue   []protocol.StreamID
 
-	controlFrameMutex sync.Mutex
-	controlFrames     []wire.Frame
+	controlFrameMutex   sync.Mutex
+	controlFrames       []wire.Frame
+	pathChallengeFrames []*wire.PathChallengeFrame
 }
 
 var _ framer = &framerI{}
@@ -63,7 +65,11 @@ func (f *framerI) HasData() bool {
 
 func (f *framerI) QueueControlFrame(frame wire.Frame) {
 	f.controlFrameMutex.Lock()
-	f.controlFrames = append(f.controlFrames, frame)
+	if pcf, ok := frame.(*wire.PathChallengeFrame); ok {
+		f.pathChallengeFrames = append(f.pathChallengeFrames, pcf)
+	} else {
+		f.controlFrames = append(f.controlFrames, frame)
+	}
 	f.controlFrameMutex.Unlock()
 }
 
@@ -168,4 +174,15 @@ func (f *framerI) Handle0RTTRejection() error {
 	f.controlFrames = f.controlFrames[:j]
 	f.controlFrameMutex.Unlock()
 	return nil
+}
+
+func (f *framerI) GetPathChallengeFrame() *wire.PathChallengeFrame {
+	f.controlFrameMutex.Lock()
+	defer f.controlFrameMutex.Unlock()
+	if len(f.pathChallengeFrames) == 0 {
+		return nil
+	}
+	frame := f.pathChallengeFrames[0]
+	f.pathChallengeFrames = f.pathChallengeFrames[1:]
+	return frame
 }

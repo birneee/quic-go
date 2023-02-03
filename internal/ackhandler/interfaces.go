@@ -1,10 +1,10 @@
 package ackhandler
 
 import (
-	"time"
-
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/wire"
+	"github.com/lucas-clemente/quic-go/path"
+	"time"
 )
 
 // SentPacketHandler handles ACKs received for outgoing packets
@@ -12,7 +12,7 @@ type SentPacketHandler interface {
 	// SentPacket may modify the packet
 	SentPacket(packet *Packet)
 	ReceivedAck(ackFrame *wire.AckFrame, encLevel protocol.EncryptionLevel, recvTime time.Time) (bool /* 1-RTT packet acked */, error)
-	ReceivedBytes(protocol.ByteCount)
+	ReceivedBytes(protocol.ByteCount, path.Path)
 	DropPackets(protocol.EncryptionLevel)
 	ResetForRetry() error
 	SetHandshakeConfirmed()
@@ -39,7 +39,7 @@ type SentPacketHandler interface {
 	// SetHighest1RTTPacketNumber is used for connection handover.
 	// Also validates peer address
 	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
-	OnConnectionMigration()
+	UpdateSendPath(path path.Path)
 }
 
 type sentPacketTracker interface {

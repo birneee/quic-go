@@ -4,6 +4,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/logging"
+	"github.com/lucas-clemente/quic-go/path"
 	"time"
 )
 
@@ -11,6 +12,7 @@ import (
 // clientAddressValidated indicates whether the address was validated beforehand by an address validation token.
 // clientAddressValidated has no effect for a client.
 func NewAckHandler(
+	sendPath path.Path,
 	initialPacketNumber protocol.PacketNumber,
 	initialMaxDatagramSize protocol.ByteCount,
 	initialCongestionWindow uint32, // number of packets
@@ -28,6 +30,6 @@ func NewAckHandler(
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, hyblaWestwood, fixedPTO, tracer, logger)
+	sph := newSentPacketHandler(sendPath, initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, minCongestionWindow, maxCongestionWindow, initialSlowStartThreshold, minSlowStartThreshold, maxSlowStartThreshold, rttStats, clientAddressValidated, pers, hyblaWestwood, fixedPTO, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger, version)
 }
