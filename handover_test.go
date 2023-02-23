@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/testdata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -38,6 +40,61 @@ var _ = Describe("Handover", func() {
 	AfterEach(func() {
 		Eventually(areConnsRunning).Should(BeFalse())
 		Eventually(areServersRunning).Should(BeFalse())
+	})
+
+	It("server to server handover", func() {
+		MaxIdleTimeout := 100 * time.Millisecond
+		server1AddrChan := make(chan net.Addr, 1)
+		server2AddrChan := make(chan net.Addr, 1)
+		serverStateChan := make(chan handover.State, 1)
+
+		go func() { // server 1
+			defer GinkgoRecover()
+			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+			Expect(err).ToNot(HaveOccurred())
+			defer server.Close()
+			server1AddrChan <- server.Addr()
+			conn, err := server.Accept(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			defer conn.(*connection).destroyImpl(nil)
+			serverState, err := conn.Handover(true, true)
+			Expect(err).ToNot(HaveOccurred())
+			serverStateChan <- serverState
+			<-conn.Context().Done()
+		}()
+		go func() { // server 2
+			defer GinkgoRecover()
+			serverState := <-serverStateChan
+			conn, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout})
+			Expect(err).ToNot(HaveOccurred())
+			defer conn.(*connection).destroyImpl(nil)
+			server2AddrChan <- conn.LocalAddr()
+			// transfer
+			err = acceptAndReceive(conn, message)
+			Expect(err).ToNot(HaveOccurred())
+			err = openAndSend(conn, message)
+			Expect(err).ToNot(HaveOccurred())
+			<-conn.Context().Done()
+		}()
+
+		originalServerAddr := <-server1AddrChan
+		clientConn, err := DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: MaxIdleTimeout})
+		Expect(err).ToNot(HaveOccurred())
+		select {
+		case <-clientConn.AwaitPathUpdate():
+		case <-time.After(MaxIdleTimeout):
+			Fail("path not updated")
+		}
+		// transfer
+		err = openAndSend(clientConn, message)
+		Expect(err).ToNot(HaveOccurred())
+		err = acceptAndReceive(clientConn, message)
+		Expect(err).ToNot(HaveOccurred())
+		migratedServerAddr := clientConn.RemoteAddr()
+		Expect(originalServerAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedServerAddr.(*net.UDPAddr).Port)) // check if migrated
+
+		// destroy sessions
+		clientConn.(*connection).destroyImpl(nil)
 	})
 
 	It("client to client handover", func() {
@@ -128,10 +185,13 @@ var _ = Describe("Handover", func() {
 
 	It("client handover twice", func() {
 		format.MaxLength = 8000
+		var wg sync.WaitGroup
 		serverAddrChan := make(chan net.Addr, 1)
 		serverRemoteAddrChan := make(chan net.Addr, 1)
+		wg.Add(1)
 		go func() {
 			defer GinkgoRecover()
+			defer wg.Done()
 			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: 100 * time.Millisecond})
 			Expect(err).ToNot(HaveOccurred())
 			defer server.Close()
@@ -148,17 +208,17 @@ var _ = Describe("Handover", func() {
 			<-serverConn.Context().Done()
 		}()
 		serverAddr := <-serverAddrChan
-		clientConn1, err := DialAddr(serverAddr.String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: 100 * time.Millisecond, EnableActiveMigration: true, LoggerPrefix: "client1"})
+		clientConn1, err := DialAddr(serverAddr.String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, EnableActiveMigration: true, LoggerPrefix: "client1"})
 		Expect(err).ToNot(HaveOccurred())
 		clientState1, err := clientConn1.Handover(true, true)
 		Expect(err).ToNot(HaveOccurred())
-		clientConn2, err := Restore(clientState1, PerspectiveClient, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, LoggerPrefix: "client2"})
+		clientConn2, err := Restore(clientState1, PerspectiveClient, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client2"})
 		Expect(err).ToNot(HaveOccurred())
 		clientState2, err := clientConn2.Handover(true, true)
 		Expect(err).ToNot(HaveOccurred())
-		clientConn3, err := Restore(clientState2, PerspectiveClient, &Config{MaxIdleTimeout: 100 * time.Millisecond, LoggerPrefix: "client3"})
+		clientConn3, err := Restore(clientState2, PerspectiveClient, &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client3"})
 		Expect(err).ToNot(HaveOccurred())
-		defer clientConn3.(*connection).destroyImpl(nil)
+		defer clientConn3.(*connection).destroy(nil)
 		// compare handover states
 		clientState1.ClientAddress = ""                               // ignore changed client address
 		clientState2.ClientAddress = ""                               // ignore changed client address
@@ -180,6 +240,7 @@ var _ = Describe("Handover", func() {
 		Expect(serverRemoteAddr.(*net.UDPAddr).Port).ToNot(Equal(clientConn2.LocalAddr().(*net.UDPAddr).Port))
 		Expect(serverRemoteAddr.(*net.UDPAddr).Port).To(Equal(clientConn3.LocalAddr().(*net.UDPAddr).Port))
 		Expect(err).ToNot(HaveOccurred())
+		wg.Wait()
 	})
 })
 

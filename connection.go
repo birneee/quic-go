@@ -240,6 +240,8 @@ type connection struct {
 	// ignore received 1RTT packets and opening streams.
 	handoverMigrationCtx       context.Context
 	handoverMigrationCtxCancel context.CancelFunc
+	// canceled and reconstructed when the path is updated
+	pathUpdateCtx utils.CounterContext
 }
 
 var (
@@ -577,6 +579,7 @@ func (s *connection) preSetup() {
 	s.sendingScheduled = make(chan struct{}, 1)
 	s.handshakeCtx, s.handshakeCtxCancel = context.WithCancel(context.Background())
 	s.handoverMigrationCtx, s.handoverMigrationCtxCancel = context.WithCancel(context.Background())
+	s.pathUpdateCtx = utils.NewCounterContext()
 	if s.config.ProxyConf == nil && !s.config.IgnoreReceived1RTTPacketsUntilFirstPathMigration {
 		s.handoverMigrationCtxCancel()
 	}
@@ -2399,11 +2402,6 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 	state := handover.State{}
 
 	state.Version = s.version
-	logConnectionId, err := protocol.ParseConnectionIDHex(s.logID)
-	if err != nil {
-		return handover.State{}, err
-	}
-	state.OriginalDestinationConnectionID = logConnectionId.Bytes()
 	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
 	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
 	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
@@ -2467,6 +2465,7 @@ func (s *connection) updatePath(remoteAddr net.Addr) {
 	s.rttStats.OnConnectionMigration()
 	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
 	s.handoverMigrationCtxCancel()
+	s.pathUpdateCtx.Increment()
 }
 
 // Returns nil when handshake is confirmed,
@@ -2601,7 +2600,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		connTracer = conf.Tracer.TracerForConnection(
 			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
-			protocol.ParseConnectionID(state.OriginalDestinationConnectionID), //TODO maybe add field with original id
+			state.OwnTransportParameters(PerspectiveServer).OriginalDestinationConnectionID,
 		)
 	}
 
@@ -2625,7 +2624,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		perspective:            perspective,
 		handshakeCompleteChan:  make(chan struct{}),
 		handshakeConfirmedChan: make(chan struct{}),
-		logID:                  protocol.ParseConnectionID(state.OriginalDestinationConnectionID).String(),
+		logID:                  state.OwnTransportParameters(PerspectiveServer).OriginalDestinationConnectionID.String(),
 		logger:                 logger,
 		tracer:                 connTracer,
 		versionNegotiated:      false,
@@ -2854,6 +2853,10 @@ func (s *connection) isWaitingForHandoverMigration() bool {
 	default:
 		return true
 	}
+}
+
+func (s *connection) AwaitPathUpdate() <-chan struct{} {
+	return s.pathUpdateCtx.CurrentContext().Done()
 }
 
 func (s *connection) QueueHandshakeDoneFrame() error {

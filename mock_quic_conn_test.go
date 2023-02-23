@@ -67,6 +67,20 @@ func (mr *MockQuicConnMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockQuicConn)(nil).AcceptUniStream), arg0)
 }
 
+// AwaitPathUpdate mocks base method.
+func (m *MockQuicConn) AwaitPathUpdate() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AwaitPathUpdate")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// AwaitPathUpdate indicates an expected call of AwaitPathUpdate.
+func (mr *MockQuicConnMockRecorder) AwaitPathUpdate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitPathUpdate", reflect.TypeOf((*MockQuicConn)(nil).AwaitPathUpdate))
+}
+
 // CloseWithError mocks base method.
 func (m *MockQuicConn) CloseWithError(arg0 ApplicationErrorCode, arg1 string) error {
 	m.ctrl.T.Helper()

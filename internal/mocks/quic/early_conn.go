@@ -69,6 +69,20 @@ func (mr *MockEarlyConnectionMockRecorder) AcceptUniStream(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockEarlyConnection)(nil).AcceptUniStream), arg0)
 }
 
+// AwaitPathUpdate mocks base method.
+func (m *MockEarlyConnection) AwaitPathUpdate() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AwaitPathUpdate")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// AwaitPathUpdate indicates an expected call of AwaitPathUpdate.
+func (mr *MockEarlyConnectionMockRecorder) AwaitPathUpdate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitPathUpdate", reflect.TypeOf((*MockEarlyConnection)(nil).AwaitPathUpdate))
+}
+
 // CloseWithError mocks base method.
 func (m *MockEarlyConnection) CloseWithError(arg0 qerr.ApplicationErrorCode, arg1 string) error {
 	m.ctrl.T.Helper()

@@ -322,19 +322,20 @@ func (p *TransportParameters) readNumericTransportParameter(
 	return nil
 }
 
-// Marshal the transport parameters
-func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
+func (p *TransportParameters) marshal(pers protocol.Perspective, addGreasedValue bool, includeExtraStreamEncryption bool) []byte {
 	// Typical Transport Parameters consume around 110 bytes, depending on the exact values,
 	// especially the lengths of the Connection IDs.
 	// Allocate 256 bytes, so we won't have to grow the slice in any case.
 	b := make([]byte, 0, 256)
 
-	// add a greased value
-	b = quicvarint.Append(b, uint64(27+31*rand.Intn(100)))
-	length := rand.Intn(16)
-	b = quicvarint.Append(b, uint64(length))
-	b = b[:len(b)+length]
-	rand.Read(b[len(b)-length:])
+	if addGreasedValue {
+		// add a greased value
+		b = quicvarint.Append(b, uint64(27+31*rand.Intn(100)))
+		length := rand.Intn(16)
+		b = quicvarint.Append(b, uint64(length))
+		b = b[:len(b)+length]
+		rand.Read(b[len(b)-length:])
+	}
 
 	// initial_max_stream_data_bidi_local
 	b = p.marshalVarintParam(b, initialMaxStreamDataBidiLocalParameterID, uint64(p.InitialMaxStreamDataBidiLocal))
@@ -410,11 +411,16 @@ func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
 		b = p.marshalVarintParam(b, maxDatagramFrameSizeParameterID, uint64(p.MaxDatagramFrameSize))
 	}
 	// extra_stream_encryption
-	if p.ExtraStreamEncryption {
+	if includeExtraStreamEncryption && p.ExtraStreamEncryption {
 		b = quicvarint.Append(b, uint64(extraStreamEncryptionParameterID))
-		b = quicvarint.Append(b, 0)
+		b = quicvarint.Append(b, 0) // length
 	}
 	return b
+}
+
+// Marshal the transport parameters
+func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
+	return p.marshal(pers, true, true)
 }
 
 func (p *TransportParameters) marshalVarintParam(b []byte, id transportParameterID, val uint64) []byte {
@@ -499,4 +505,8 @@ func (p *TransportParameters) String() string {
 	}
 	logString += "}"
 	return fmt.Sprintf(logString, logParams...)
+}
+
+func (p *TransportParameters) MarshalForHandover(pers protocol.Perspective) []byte {
+	return p.marshal(pers, false, false)
 }

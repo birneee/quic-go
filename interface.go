@@ -239,6 +239,7 @@ type Connection interface {
 	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.
 	// Remains unchanged over the whole connection time
 	OriginalDestinationConnectionID() ConnectionID
+	AwaitPathUpdate() <-chan struct{}
 }
 
 // An EarlyConnection is a connection that is handshaking.

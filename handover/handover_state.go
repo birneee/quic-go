@@ -18,9 +18,6 @@ type ActiveConnectionID struct {
 
 // State is used to handover QUIC connection
 type State struct {
-	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.
-	// Remains unchanged over the whole connection time
-	OriginalDestinationConnectionID []byte
 	// active client connection IDs
 	ClientConnectionIDs []ActiveConnectionID
 	// active server connection IDs
@@ -41,9 +38,9 @@ type State struct {
 	ServerAddress             string
 	ClientAddress             string
 	// TODO only include non-default parameters
-	ClientTransportParameters wire.TransportParameters
+	ClientTransportParameters []byte
 	// TODO only include non-default parameters
-	ServerTransportParameters wire.TransportParameters
+	ServerTransportParameters []byte
 	// might be an estimate from the opposite perspective
 	ClientHighestSentPacketNumber protocol.PacketNumber
 	// might be an estimate from the opposite perspective
@@ -249,35 +246,35 @@ func (s *State) SrcConnectionIDLength(perspective protocol.Perspective) int {
 }
 
 func (s *State) OwnTransportParameters(perspective protocol.Perspective) wire.TransportParameters {
+	var bytes []byte
 	if perspective == protocol.PerspectiveClient {
-		return s.ClientTransportParameters
+		bytes = s.ClientTransportParameters
 	} else {
-		return s.ServerTransportParameters
+		bytes = s.ServerTransportParameters
 	}
+
+	tp := wire.TransportParameters{}
+	err := tp.Unmarshal(bytes, perspective)
+	if err != nil {
+		panic(err)
+	}
+	return tp
 }
 
 func (s *State) SetOwnTransportParameters(perspective protocol.Perspective, tp wire.TransportParameters) {
 	if perspective == protocol.PerspectiveClient {
-		s.ClientTransportParameters = tp
+		s.ClientTransportParameters = tp.MarshalForHandover(perspective)
 	} else {
-		s.ServerTransportParameters = tp
+		s.ServerTransportParameters = tp.MarshalForHandover(perspective)
 	}
 }
 
 func (s *State) PeerTransportParameters(perspective protocol.Perspective) wire.TransportParameters {
-	if perspective == protocol.PerspectiveClient {
-		return s.ServerTransportParameters
-	} else {
-		return s.ClientTransportParameters
-	}
+	return s.OwnTransportParameters(perspective.Opposite())
 }
 
 func (s *State) SetPeerTransportParameters(perspective protocol.Perspective, tp wire.TransportParameters) {
-	if perspective == protocol.PerspectiveClient {
-		s.ServerTransportParameters = tp
-	} else {
-		s.ClientTransportParameters = tp
-	}
+	s.SetOwnTransportParameters(perspective.Opposite(), tp)
 }
 
 func (s *State) HighestSentPacketNumber(perspective protocol.Perspective) protocol.PacketNumber {
