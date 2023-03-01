@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	wire "github.com/lucas-clemente/quic-go/internal/wire"
 	xse "github.com/lucas-clemente/quic-go/internal/xse"
@@ -65,6 +66,20 @@ func (m *MockStreamManager) AcceptUniStream(arg0 context.Context) (ReceiveStream
 func (mr *MockStreamManagerMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockStreamManager)(nil).AcceptUniStream), arg0)
+}
+
+// BidiStreamState mocks base method.
+func (m *MockStreamManager) BidiStreamState() map[StreamID]handover.BidiStreamState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BidiStreamState")
+	ret0, _ := ret[0].(map[StreamID]handover.BidiStreamState)
+	return ret0
+}
+
+// BidiStreamState indicates an expected call of BidiStreamState.
+func (mr *MockStreamManagerMockRecorder) BidiStreamState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BidiStreamState", reflect.TypeOf((*MockStreamManager)(nil).BidiStreamState))
 }
 
 // CloseWithError mocks base method.
@@ -195,6 +210,21 @@ func (mr *MockStreamManagerMockRecorder) OpenUniStreamSync(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockStreamManager)(nil).OpenUniStreamSync), arg0)
 }
 
+// OpenedBidiStream mocks base method.
+func (m *MockStreamManager) OpenedBidiStream(id StreamID) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenedBidiStream", id)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OpenedBidiStream indicates an expected call of OpenedBidiStream.
+func (mr *MockStreamManagerMockRecorder) OpenedBidiStream(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedBidiStream", reflect.TypeOf((*MockStreamManager)(nil).OpenedBidiStream), id)
+}
+
 // ResetFor0RTT mocks base method.
 func (m *MockStreamManager) ResetFor0RTT() {
 	m.ctrl.T.Helper()
@@ -207,6 +237,21 @@ func (mr *MockStreamManagerMockRecorder) ResetFor0RTT() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetFor0RTT", reflect.TypeOf((*MockStreamManager)(nil).ResetFor0RTT))
 }
 
+// RestoreBidiStream mocks base method.
+func (m *MockStreamManager) RestoreBidiStream(state handover.BidiStreamState) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RestoreBidiStream", state)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RestoreBidiStream indicates an expected call of RestoreBidiStream.
+func (mr *MockStreamManagerMockRecorder) RestoreBidiStream(state interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreBidiStream", reflect.TypeOf((*MockStreamManager)(nil).RestoreBidiStream), state)
+}
+
 // SetXseCryptoSetup mocks base method.
 func (m *MockStreamManager) SetXseCryptoSetup(arg0 xse.CryptoSetup) {
 	m.ctrl.T.Helper()
@@ -217,6 +262,20 @@ func (m *MockStreamManager) SetXseCryptoSetup(arg0 xse.CryptoSetup) {
 func (mr *MockStreamManagerMockRecorder) SetXseCryptoSetup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXseCryptoSetup", reflect.TypeOf((*MockStreamManager)(nil).SetXseCryptoSetup), arg0)
+}
+
+// UniStreamStates mocks base method.
+func (m *MockStreamManager) UniStreamStates() map[protocol.StreamID]handover.UniStreamState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UniStreamStates")
+	ret0, _ := ret[0].(map[protocol.StreamID]handover.UniStreamState)
+	return ret0
+}
+
+// UniStreamStates indicates an expected call of UniStreamStates.
+func (mr *MockStreamManagerMockRecorder) UniStreamStates() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UniStreamStates", reflect.TypeOf((*MockStreamManager)(nil).UniStreamStates))
 }
 
 // UpdateLimits mocks base method.

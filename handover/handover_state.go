@@ -45,6 +45,8 @@ type State struct {
 	ClientHighestSentPacketNumber protocol.PacketNumber
 	// might be an estimate from the opposite perspective
 	ServerHighestSentPacketNumber protocol.PacketNumber
+	UniStreams                    map[protocol.StreamID]UniStreamState
+	BidiStreams                   map[protocol.StreamID]BidiStreamState
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {

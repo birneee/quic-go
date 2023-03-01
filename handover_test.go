@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -18,13 +19,16 @@ import (
 
 var _ = Describe("Handover", func() {
 	var (
-		message       = "hello"
+		message1      = "hello"
+		message2      = "hquic"
 		idleTimeout   = 100 * time.Millisecond
 		serverTlsConf *tls.Config
 		clientTlsConf *tls.Config
 	)
 
 	BeforeEach(func() {
+		//utils.DefaultLogger.SetLogLevel(utils.LogLevelDebug)
+		//log.SetOutput(os.Stdout)
 		protos := []string{"proto1"}
 		serverTlsConf = testdata.GetTLSConfig()
 		serverTlsConf.NextProtos = protos
@@ -42,6 +46,66 @@ var _ = Describe("Handover", func() {
 		Eventually(areServersRunning).Should(BeFalse())
 	})
 
+	It("server to server handover mid-stream", func() {
+		MaxIdleTimeout := 100 * time.Millisecond
+		server1AddrChan := make(chan net.Addr, 1)
+		server2AddrChan := make(chan net.Addr, 1)
+		serverStateChan := make(chan handover.State, 1)
+
+		go func() { // server 1
+			defer GinkgoRecover()
+			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server1"})
+			Expect(err).ToNot(HaveOccurred())
+			defer server.Close()
+			server1AddrChan <- server.Addr()
+			conn, err := server.Accept(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			defer conn.(*connection).destroyImpl(nil)
+			// transfer data
+			err = acceptAndReceive(conn, message1, false)
+			Expect(err).ToNot(HaveOccurred())
+			err = openAndSend(conn, message1, false)
+			Expect(err).ToNot(HaveOccurred())
+			// state handover
+			serverState, err := conn.Handover(true, true)
+			Expect(err).ToNot(HaveOccurred())
+			serverStateChan <- serverState
+			<-conn.Context().Done()
+		}()
+		go func() { // server 2
+			defer GinkgoRecover()
+			serverState := <-serverStateChan
+			conn, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"})
+			Expect(err).ToNot(HaveOccurred())
+			defer conn.(*connection).destroyImpl(nil)
+			server2AddrChan <- conn.LocalAddr()
+			// transfer
+			stream, err := conn.OpenedBidiStream(0)
+			Expect(err).ToNot(HaveOccurred())
+			err = receiveMessage(stream, message2, true)
+			Expect(err).ToNot(HaveOccurred())
+			stream, err = conn.OpenedBidiStream(1)
+			Expect(err).ToNot(HaveOccurred())
+			err = sendMessage(stream, message2, true)
+			Expect(err).ToNot(HaveOccurred())
+			<-conn.Context().Done()
+		}()
+
+		originalServerAddr := <-server1AddrChan
+		clientConn, err := DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: MaxIdleTimeout})
+		Expect(err).ToNot(HaveOccurred())
+		// transfer
+		err = openAndSend(clientConn, message1+message2, true)
+		Expect(err).ToNot(HaveOccurred())
+		err = acceptAndReceive(clientConn, message1+message2, true)
+		Expect(err).ToNot(HaveOccurred())
+		migratedServerAddr := clientConn.RemoteAddr()
+		Expect(originalServerAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedServerAddr.(*net.UDPAddr).Port)) // check if migrated
+
+		// destroy sessions
+		clientConn.(*connection).destroyImpl(nil)
+	})
+
 	It("server to server handover", func() {
 		MaxIdleTimeout := 100 * time.Millisecond
 		server1AddrChan := make(chan net.Addr, 1)
@@ -50,7 +114,7 @@ var _ = Describe("Handover", func() {
 
 		go func() { // server 1
 			defer GinkgoRecover()
-			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server1"})
 			Expect(err).ToNot(HaveOccurred())
 			defer server.Close()
 			server1AddrChan <- server.Addr()
@@ -65,14 +129,14 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
-			conn, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout})
+			conn, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"})
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.(*connection).destroyImpl(nil)
 			server2AddrChan <- conn.LocalAddr()
 			// transfer
-			err = acceptAndReceive(conn, message)
+			err = openAndSend(conn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(conn, message)
+			err = acceptAndReceive(conn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
 			<-conn.Context().Done()
 		}()
@@ -80,18 +144,14 @@ var _ = Describe("Handover", func() {
 		originalServerAddr := <-server1AddrChan
 		clientConn, err := DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: MaxIdleTimeout})
 		Expect(err).ToNot(HaveOccurred())
-		select {
-		case <-clientConn.AwaitPathUpdate():
-		case <-time.After(MaxIdleTimeout):
-			Fail("path not updated")
-		}
 		// transfer
-		err = openAndSend(clientConn, message)
+		err = acceptAndReceive(clientConn, message1, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(clientConn, message)
+		err = openAndSend(clientConn, message1, true)
 		Expect(err).ToNot(HaveOccurred())
 		migratedServerAddr := clientConn.RemoteAddr()
 		Expect(originalServerAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedServerAddr.(*net.UDPAddr).Port)) // check if migrated
+		<-clientConn.Context().Done()
 
 		// destroy sessions
 		clientConn.(*connection).destroyImpl(nil)
@@ -108,9 +168,9 @@ var _ = Describe("Handover", func() {
 			originalClientAddr := serverSession.RemoteAddr()
 
 			// transfer
-			err := acceptAndReceive(serverSession, message)
+			err := acceptAndReceive(serverSession, message1, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(serverSession, message)
+			err = openAndSend(serverSession, message1, true)
 			Expect(err).ToNot(HaveOccurred())
 			<-serverSession.Context().Done()
 
@@ -125,9 +185,9 @@ var _ = Describe("Handover", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// transfer
-		err = openAndSend(migratedClientSession, message)
+		err = openAndSend(migratedClientSession, message1, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(migratedClientSession, message)
+		err = acceptAndReceive(migratedClientSession, message1, true)
 		Expect(err).ToNot(HaveOccurred())
 
 		// destroy sessions
@@ -162,17 +222,17 @@ var _ = Describe("Handover", func() {
 			restoredServerConn, err := Restore(handoverState, PerspectiveServer, &Config{MaxIdleTimeout: idleTimeout})
 			Expect(err).ToNot(HaveOccurred())
 			restoredServerAddrChan <- restoredServerConn.LocalAddr()
-			err = acceptAndReceive(restoredServerConn, message)
+			err = acceptAndReceive(restoredServerConn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(restoredServerConn, message)
+			err = openAndSend(restoredServerConn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
 			<-restoredServerConn.Context().Done()
 		}()
 
 		// transfer
-		err = openAndSend(clientConn, message)
+		err = openAndSend(clientConn, message1, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(clientConn, message)
+		err = acceptAndReceive(clientConn, message1, true)
 		Expect(err).ToNot(HaveOccurred())
 
 		restoredServerAddr := <-restoredServerAddrChan
@@ -200,9 +260,9 @@ var _ = Describe("Handover", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer serverConn.(*connection).destroy(nil)
 			// transfer
-			err = acceptAndReceive(serverConn, message)
+			err = acceptAndReceive(serverConn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(serverConn, message)
+			err = openAndSend(serverConn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
 			serverRemoteAddrChan <- serverConn.RemoteAddr()
 			<-serverConn.Context().Done()
@@ -230,9 +290,9 @@ var _ = Describe("Handover", func() {
 		clientState2.ServerHighestSentPacketNumber = 0                // ignore
 		Expect(clientState1).To(BeEquivalentTo(clientState2))
 		// transmit
-		err = openAndSend(clientConn3, message)
+		err = openAndSend(clientConn3, message1, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(clientConn3, message)
+		err = acceptAndReceive(clientConn3, message1, true)
 		Expect(err).ToNot(HaveOccurred())
 		// check if migrated
 		serverRemoteAddr := <-serverRemoteAddrChan
@@ -244,19 +304,33 @@ var _ = Describe("Handover", func() {
 	})
 })
 
-func receiveMessage(stream Stream, msg string) error {
-	buf := make([]byte, 2*len(msg))
-	n, err := stream.Read(buf)
+func receiveMessage(stream Stream, msg string, checkEOF bool) error {
+	buf := make([]byte, len(msg))
+	n, err := io.ReadAtLeast(stream, buf, len(msg))
 	if err != nil {
 		return err
 	}
 	if string(buf[:n]) != msg {
-		return fmt.Errorf("failed to read message")
+		return fmt.Errorf("failed to read message: expected \"%s\" but received \"%s\"", msg, buf[:n])
+	}
+	if checkEOF {
+		err := checkStreamEOF(stream)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func sendMessage(stream Stream, msg string) error {
+func checkStreamEOF(stream ReceiveStream) error {
+	n, err := stream.Read(nil)
+	if err != io.EOF || n != 0 {
+		return fmt.Errorf("not at EOF")
+	}
+	return nil
+}
+
+func sendMessage(stream Stream, msg string, closeStreamAfterWrite bool) error {
 	buf := []byte(msg)
 	n, err := stream.Write(buf)
 	if err != nil {
@@ -265,27 +339,33 @@ func sendMessage(stream Stream, msg string) error {
 	if n != len(buf) {
 		return fmt.Errorf("failed to write all")
 	}
+	if closeStreamAfterWrite {
+		err := stream.Close()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func openAndSend(conn Connection, msg string) error {
+func openAndSend(conn Connection, msg string, closeStreamAfterWrite bool) error {
 	stream, err := conn.OpenStream()
 	if err != nil {
 		return err
 	}
-	err = sendMessage(stream, msg)
+	err = sendMessage(stream, msg, closeStreamAfterWrite)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func acceptAndReceive(conn Connection, msg string) error {
+func acceptAndReceive(conn Connection, msg string, checkEOF bool) error {
 	stream, err := conn.AcceptStream(context.Background())
 	if err != nil {
 		return err
 	}
-	err = receiveMessage(stream, msg)
+	err = receiveMessage(stream, msg, checkEOF)
 	if err != nil {
 		return err
 	}

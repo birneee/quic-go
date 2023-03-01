@@ -46,9 +46,9 @@ var _ = Describe("Migration", func() {
 			clientConn, err = DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, MaxIdleTimeout: time.Second})
 			Expect(err).ToNot(HaveOccurred())
 			// transfer
-			err = openAndSend(clientConn, message)
+			err = openAndSend(clientConn, message, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = acceptAndReceive(clientConn, message)
+			err = acceptAndReceive(clientConn, message, true)
 			Expect(err).ToNot(HaveOccurred())
 		}()
 		//run server
@@ -59,9 +59,9 @@ var _ = Describe("Migration", func() {
 		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String()))
 		Expect(server.Addr().String()).To(Equal(migratedServerAddr.String()))
 		// transfer
-		err = acceptAndReceive(serverConn, message)
+		err = acceptAndReceive(serverConn, message, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = openAndSend(serverConn, message)
+		err = openAndSend(serverConn, message, true)
 		Expect(err).ToNot(HaveOccurred())
 		<-serverConn.Context().Done()
 		<-clientConn.Context().Done()
@@ -81,9 +81,9 @@ var _ = Describe("Migration", func() {
 			serverConn, err = server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			// transfer
-			err = acceptAndReceive(serverConn, message)
+			err = acceptAndReceive(serverConn, message, true)
 			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(serverConn, message)
+			err = openAndSend(serverConn, message, true)
 			Expect(err).ToNot(HaveOccurred())
 		}()
 		//start client
@@ -95,9 +95,9 @@ var _ = Describe("Migration", func() {
 		Expect(originalClientAddr.String()).ToNot(Equal(migratedClientAddr.String()))
 		Expect(clientConn.LocalAddr().String()).To(Equal(migratedClientAddr.String()))
 		// transfer
-		err = openAndSend(clientConn, message)
+		err = openAndSend(clientConn, message, true)
 		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(clientConn, message)
+		err = acceptAndReceive(clientConn, message, true)
 		Expect(err).ToNot(HaveOccurred())
 		<-clientConn.Context().Done()
 		<-serverConn.Context().Done()

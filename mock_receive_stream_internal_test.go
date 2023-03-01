@@ -144,3 +144,31 @@ func (mr *MockReceiveStreamIMockRecorder) handleStreamFrame(arg0 interface{}) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "handleStreamFrame", reflect.TypeOf((*MockReceiveStreamI)(nil).handleStreamFrame), arg0)
 }
+
+// receiveState mocks base method.
+func (m *MockReceiveStreamI) receiveState() (ByteCount, ByteCount, map[ByteCount][]byte) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "receiveState")
+	ret0, _ := ret[0].(ByteCount)
+	ret1, _ := ret[1].(ByteCount)
+	ret2, _ := ret[2].(map[ByteCount][]byte)
+	return ret0, ret1, ret2
+}
+
+// receiveState indicates an expected call of receiveState.
+func (mr *MockReceiveStreamIMockRecorder) receiveState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "receiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).receiveState))
+}
+
+// restoreReceiveState mocks base method.
+func (m *MockReceiveStreamI) restoreReceiveState(offset, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "restoreReceiveState", offset, finOffset, pendingFrames)
+}
+
+// restoreReceiveState indicates an expected call of restoreReceiveState.
+func (mr *MockReceiveStreamIMockRecorder) restoreReceiveState(offset, finOffset, pendingFrames interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "restoreReceiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).restoreReceiveState), offset, finOffset, pendingFrames)
+}

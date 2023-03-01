@@ -46,6 +46,26 @@ func (x xseStreamI) updateSendWindow(count protocol.ByteCount) {
 	x.Stream.UpdateSendWindow(count)
 }
 
+func (x xseStreamI) sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseStreamI) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseStreamI) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseStreamI) restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // this compatibility wrapper is required to use a xse.SendStream as a quic.sendStreamI
 type xseSendStreamI struct {
 	xse.SendStream
@@ -73,6 +93,16 @@ func (x xseSendStreamI) updateSendWindow(count protocol.ByteCount) {
 	x.SendStream.UpdateSendWindow(count)
 }
 
+func (x xseSendStreamI) sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseSendStreamI) restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // this compatibility wrapper is required to use a xse.ReceiveStream as a quic.xseReceiveStreamI
 type xseReceiveStreamI struct {
 	xse.ReceiveStream
@@ -94,4 +124,14 @@ func (x xseReceiveStreamI) closeForShutdown(err error) {
 
 func (x xseReceiveStreamI) getWindowUpdate() protocol.ByteCount {
 	return x.ReceiveStream.GetWindowUpdate()
+}
+
+func (x xseReceiveStreamI) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseReceiveStreamI) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	//TODO implement me
+	panic("implement me")
 }

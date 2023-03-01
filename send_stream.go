@@ -22,6 +22,8 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
+	sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+	restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
 }
 
 type sendStream struct {
@@ -515,4 +517,49 @@ func (s *sendStream) CloseForShutdown(err error) {
 
 func (s *sendStream) UpdateSendWindow(count protocol.ByteCount) {
 	s.updateSendWindow(count)
+}
+
+func (s *sendStream) writeFinOffset() protocol.ByteCount {
+	if s.finishedWriting {
+		return s.writeOffset
+	}
+	return protocol.MaxByteCount
+}
+
+func (s *sendStream) pendingSendFrames() map[ByteCount][]byte {
+	pendingFrames := make(map[ByteCount][]byte)
+	for _, frame := range s.retransmissionQueue {
+		pendingFrames[frame.Offset] = frame.Data
+	}
+	return pendingFrames
+}
+
+func (s *sendStream) sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	offset = s.writeOffset
+	finOffset = s.writeFinOffset()
+	pendingFrames = s.pendingSendFrames()
+	return
+}
+
+// if fin offset is not known yet set to MaxByteCount
+func (s *sendStream) restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.writeOffset = offset
+	if finOffset != protocol.MaxByteCount {
+		s.writeOffset = finOffset
+		s.finishedWriting = true
+	}
+	for offset, frame := range pendingFrames {
+		f := wire.GetStreamFrame()
+		f.Offset = offset
+		f.StreamID = s.streamID
+		f.DataLenPresent = true
+		f.Data = f.Data[:len(frame)]
+		copy(f.Data, frame)
+		if offset+ByteCount(len(frame)) == finOffset {
+			f.Fin = true
+		}
+		s.queueRetransmission(f)
+	}
 }

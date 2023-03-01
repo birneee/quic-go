@@ -21,6 +21,8 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
+	receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+	restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
 }
 
 type receiveStream struct {
@@ -346,4 +348,49 @@ func (s *receiveStream) CloseForShutdown(err error) {
 
 func (s *receiveStream) GetWindowUpdate() protocol.ByteCount {
 	return s.getWindowUpdate()
+}
+
+func (s *receiveStream) readOffset() ByteCount {
+	return s.frameQueue.readPos - ByteCount(s.readPosInFrame)
+}
+
+func (s *receiveStream) readFinOffset() protocol.ByteCount {
+	return s.finalOffset
+}
+
+func (s *receiveStream) pendingReceivedFrames() map[ByteCount][]byte {
+	data := make(map[ByteCount][]byte)
+	for offset, frame := range s.frameQueue.queue {
+		data[offset] = frame.Data
+	}
+	//add remaining part of current frame
+	remainingLength := len(s.currentFrame) - s.readPosInFrame
+	if remainingLength > 0 {
+		buf := make([]byte, remainingLength)
+		data[s.frameQueue.readPos-ByteCount(s.readPosInFrame)] = buf
+		copy(buf, s.currentFrame[s.readPosInFrame:])
+	}
+	return data
+}
+
+func (s *receiveStream) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	offset = s.readOffset()
+	finOffset = s.readFinOffset()
+	pendingFrames = s.pendingReceivedFrames()
+	return
+}
+
+func (s *receiveStream) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	s.frameQueue.readPos = offset
+	s.frameQueue.gaps.Front().Value.Start = offset
+	s.finalOffset = finOffset
+	if s.frameQueue.readPos == s.finalOffset {
+		s.finRead = true
+	}
+	for offset, data := range pendingFrames {
+		err := s.frameQueue.Push(data, offset, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

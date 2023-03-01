@@ -283,6 +283,21 @@ func (mr *MockQuicConnMockRecorder) OpenUniStreamSync(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockQuicConn)(nil).OpenUniStreamSync), arg0)
 }
 
+// OpenedBidiStream mocks base method.
+func (m *MockQuicConn) OpenedBidiStream(id StreamID) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenedBidiStream", id)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OpenedBidiStream indicates an expected call of OpenedBidiStream.
+func (mr *MockQuicConnMockRecorder) OpenedBidiStream(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedBidiStream", reflect.TypeOf((*MockQuicConn)(nil).OpenedBidiStream), id)
+}
+
 // OriginalDestinationConnectionID mocks base method.
 func (m *MockQuicConn) OriginalDestinationConnectionID() ConnectionID {
 	m.ctrl.T.Helper()

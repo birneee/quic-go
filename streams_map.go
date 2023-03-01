@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/xse"
 	"net"
 	"sync"
@@ -341,4 +342,65 @@ func (m *streamsMap) UseResetMaps() {
 
 func (m *streamsMap) SetXseCryptoSetup(xseCryptoSetup xse.CryptoSetup) {
 	m.xseCryptoSetup = xseCryptoSetup
+}
+
+func (m *streamsMap) RestoreBidiStream(state handover.BidiStreamState) (Stream, error) {
+	var stream Stream
+	var err error
+	if state.ID.InitiatedBy() == m.perspective {
+		stream, err = m.outgoingBidiStreams.RestoreStream(state.ID.StreamNum(), state, m.perspective)
+	} else {
+		stream, err = m.incomingBidiStreams.RestoreStream(state.ID.StreamNum(), state, m.perspective)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
+}
+
+func streamIToBidiStreamState(s streamI, perspective Perspective) handover.BidiStreamState {
+	readOffset, readFinOffset, pendingReceivedFrames := s.receiveState()
+	writeOffset, writeFinOffset, pendingSendFrames := s.sendState()
+	return handover.NewBidiStreamStateFromPerspective(
+		perspective,
+		s.StreamID(),
+		readOffset,
+		writeOffset,
+		readFinOffset,
+		writeFinOffset,
+		pendingReceivedFrames,
+		pendingSendFrames)
+}
+
+func (m *streamsMap) BidiStreamState() map[StreamID]handover.BidiStreamState {
+	states := make(map[protocol.StreamID]handover.BidiStreamState)
+	for _, stream := range m.outgoingBidiStreams.streams {
+		states[stream.StreamID()] = streamIToBidiStreamState(stream, m.perspective)
+	}
+	for _, entry := range m.incomingBidiStreams.streams {
+		stream := entry.stream
+		states[stream.StreamID()] = streamIToBidiStreamState(stream, m.perspective)
+	}
+	return states
+}
+
+func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
+	if id.InitiatedBy() == m.perspective {
+		return m.outgoingBidiStreams.GetStream(id.StreamNum())
+	} else {
+		return m.incomingBidiStreams.GetStream(id.StreamNum())
+	}
+}
+
+func (m *streamsMap) UniStreamStates() map[protocol.StreamID]handover.UniStreamState {
+	ss := make(map[protocol.StreamID]handover.UniStreamState)
+	for range m.outgoingUniStreams.streams {
+		//TODO implement me
+		panic("implement me")
+	}
+	for range m.incomingUniStreams.streams {
+		//TODO implement me
+		panic("implement me")
+	}
+	return ss
 }

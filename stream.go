@@ -58,11 +58,16 @@ type streamI interface {
 	handleStreamFrame(*wire.StreamFrame) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
+	receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+	restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+
 	// for sending
 	hasData() bool
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	updateSendWindow(protocol.ByteCount)
+	sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+	restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
 }
 
 var (

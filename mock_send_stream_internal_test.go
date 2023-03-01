@@ -174,6 +174,34 @@ func (mr *MockSendStreamIMockRecorder) popStreamFrame(maxBytes interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "popStreamFrame", reflect.TypeOf((*MockSendStreamI)(nil).popStreamFrame), maxBytes)
 }
 
+// restoreSendState mocks base method.
+func (m *MockSendStreamI) restoreSendState(offset, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "restoreSendState", offset, finOffset, pendingFrames)
+}
+
+// restoreSendState indicates an expected call of restoreSendState.
+func (mr *MockSendStreamIMockRecorder) restoreSendState(offset, finOffset, pendingFrames interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "restoreSendState", reflect.TypeOf((*MockSendStreamI)(nil).restoreSendState), offset, finOffset, pendingFrames)
+}
+
+// sendState mocks base method.
+func (m *MockSendStreamI) sendState() (ByteCount, ByteCount, map[ByteCount][]byte) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "sendState")
+	ret0, _ := ret[0].(ByteCount)
+	ret1, _ := ret[1].(ByteCount)
+	ret2, _ := ret[2].(map[ByteCount][]byte)
+	return ret0, ret1, ret2
+}
+
+// sendState indicates an expected call of sendState.
+func (mr *MockSendStreamIMockRecorder) sendState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "sendState", reflect.TypeOf((*MockSendStreamI)(nil).sendState))
+}
+
 // updateSendWindow mocks base method.
 func (m *MockSendStreamI) updateSendWindow(arg0 protocol.ByteCount) {
 	m.ctrl.T.Helper()

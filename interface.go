@@ -240,6 +240,9 @@ type Connection interface {
 	// Remains unchanged over the whole connection time
 	OriginalDestinationConnectionID() ConnectionID
 	AwaitPathUpdate() <-chan struct{}
+	// get already opened stream.
+	// returns error if stream is not yet opened
+	OpenedBidiStream(id StreamID) (Stream, error)
 }
 
 // An EarlyConnection is a connection that is handshaking.

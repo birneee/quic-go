@@ -56,6 +56,11 @@ type streamManager interface {
 	UseResetMaps()
 	// TODO set this in constructor
 	SetXseCryptoSetup(xse.CryptoSetup)
+	BidiStreamState() map[StreamID]handover.BidiStreamState
+	UniStreamStates() map[protocol.StreamID]handover.UniStreamState
+	RestoreBidiStream(state handover.BidiStreamState) (Stream, error)
+	// error if not open yet
+	OpenedBidiStream(id StreamID) (Stream, error)
 }
 
 type cryptoStreamHandler interface {
@@ -2391,14 +2396,6 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 		s.IgnoreCurrentRemoteAddress()
 	}
 
-	// TODO allow handover with open streams
-	if len(s.streamsMap.(*streamsMap).incomingBidiStreams.streams) != 0 ||
-		len(s.streamsMap.(*streamsMap).outgoingBidiStreams.streams) != 0 ||
-		len(s.streamsMap.(*streamsMap).incomingUniStreams.streams) != 0 ||
-		len(s.streamsMap.(*streamsMap).outgoingUniStreams.streams) != 0 {
-		panic("illegal handover state")
-	}
-
 	state := handover.State{}
 
 	state.Version = s.version
@@ -2447,6 +2444,17 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 
 	if s.tracer != nil {
 		s.tracer.Debug("hquic_handover_state_created", "")
+	}
+
+	state.UniStreams = s.streamsMap.UniStreamStates()
+	state.BidiStreams = s.streamsMap.BidiStreamState()
+
+	if s.logger.Debug() {
+		b, err := json.Marshal(state)
+		if err != nil {
+			panic(err)
+		}
+		s.logger.Debugf("created handover state: %s", string(b))
 	}
 
 	return state, nil
@@ -2554,6 +2562,8 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 		uint64(ownParams.InitialMaxData),
 	)
 }
+
+var RestorePacketNumberSkip protocol.PacketNumber = 10000
 
 // Restore session from H-QUIC state
 func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Connection, error) {
@@ -2689,7 +2699,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	// skip some packets for two reasons:
 	//  - this number might be an estimate from the opposite perspective
 	//  - some packets might be sent during the handshake
-	s.sentPacketHandler.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber(perspective) + 10000)
+	s.sentPacketHandler.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber(perspective) + RestorePacketNumberSkip)
 
 	initialStream := newCryptoStream()
 	handshakeStream := newCryptoStream()
@@ -2781,7 +2791,6 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.connIDManager.SetHandshakeComplete()
 		s.connIDGenerator.SetHandshakeComplete()
 		s.handleHandshakeConfirmed()
-		s.sentPacketHandler.SetHighest1RTTPacketNumber(0) //TODO use packet number from state
 		s.applyTransportParameters()
 		// On the server side, the early session is ready as soon as we processed
 		// the client's transport parameters.
@@ -2789,6 +2798,16 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	}
 
 	s.receivedFirstPacket = true
+
+	for _, stream := range state.BidiStreams {
+		_, err := s.streamsMap.RestoreBidiStream(stream)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _ = range state.UniStreams {
+		panic("implement me")
+	}
 
 	//TODO send PATH_CHALLENGE instead of PING
 	err = s.sendProbePacket(protocol.Encryption1RTT)
@@ -2799,6 +2818,15 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	go func() {
 		_ = s.run() // returns as soon as the session is closed
 	}()
+
+	if s.logger.Debug() {
+		b, err := json.Marshal(state)
+		if err != nil {
+			panic(err)
+		}
+		s.logger.Debugf("restored handover state: %s", string(b))
+	}
+
 	return s, nil
 }
 
@@ -2873,4 +2901,8 @@ func (s *connection) OriginalDestinationConnectionID() ConnectionID {
 		panic(fmt.Errorf("failed to parse odcid: %v", err))
 	}
 	return logID
+}
+
+func (s *connection) OpenedBidiStream(id StreamID) (Stream, error) {
+	return s.streamsMap.OpenedBidiStream(id)
 }
