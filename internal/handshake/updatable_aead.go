@@ -333,28 +333,30 @@ func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 }
 
 func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
-	aead := newUpdatableAEAD(
+	a := newUpdatableAEAD(
 		rttStats,
 		tracer,
 		logger,
 		state.Version,
 	)
 
-	aead.keyPhase = state.KeyPhase
-	//aead.highestRcvdPN = state.HighestReceivedPacketNumber(perspective) //TODO add
+	a.keyPhase = state.KeyPhase
+	a.highestRcvdPN = state.HighestSentPacketNumber(perspective.Opposite())
 	suite := qtls.CipherSuiteTLS13ByID(state.CipherSuiteId)
 
+	a.rcvAEAD = NewRecreatableAEAD(suite, state.ReceiveTrafficSecret(perspective), a.version)
+	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
+	a.sendAEAD = NewRecreatableAEAD(suite, state.SendTrafficSecret(perspective), a.version)
+	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
 	if perspective == protocol.PerspectiveClient {
-		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
-		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
+		a.setAEADParameters(a.rcvAEAD, suite)
 	} else {
-		aead.SetWriteKey(suite, state.SendTrafficSecret(perspective))
-		aead.SetReadKey(suite, state.ReceiveTrafficSecret(perspective))
+		a.setAEADParameters(a.sendAEAD, suite)
 	}
+	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.ReceiveTrafficSecret(perspective))
+	a.nextRcvAEAD = NewRecreatableAEAD(suite, a.nextRcvTrafficSecret, a.version)
+	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.SendTrafficSecret(perspective))
+	a.nextSendAEAD = NewRecreatableAEAD(suite, a.nextSendTrafficSecret, a.version)
 
-	// header protectors must be restored after read/write keys, otherwise they are overwritten
-	aead.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
-	aead.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
-
-	return aead
+	return a
 }

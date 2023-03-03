@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/xse"
 	"io"
 	"sync"
@@ -21,8 +22,8 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
-	receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
-	restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte)
+	storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
 }
 
 type receiveStream struct {
@@ -373,14 +374,17 @@ func (s *receiveStream) pendingReceivedFrames() map[ByteCount][]byte {
 	return data
 }
 
-func (s *receiveStream) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
-	offset = s.readOffset()
-	finOffset = s.readFinOffset()
-	pendingFrames = s.pendingReceivedFrames()
-	return
+func (s *receiveStream) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+	state.SetIncomingOffset(perspective, s.readOffset())
+	state.SetIncomingFinOffset(perspective, s.readFinOffset())
+	state.SetPendingIncomingFrames(perspective, s.pendingReceivedFrames())
+	s.flowController.StoreState(state, perspective)
 }
 
-func (s *receiveStream) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (s *receiveStream) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+	offset := state.IncomingOffset(perspective)
+	finOffset := state.IncomingFinOffset(perspective)
+	pendingFrames := state.PendingIncomingFrames(perspective)
 	s.frameQueue.readPos = offset
 	s.frameQueue.gaps.Front().Value.Start = offset
 	s.finalOffset = finOffset
@@ -393,4 +397,5 @@ func (s *receiveStream) restoreReceiveState(offset ByteCount, finOffset ByteCoun
 			panic(err)
 		}
 	}
+	s.flowController.RestoreState(state, perspective)
 }

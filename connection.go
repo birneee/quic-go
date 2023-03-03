@@ -56,9 +56,9 @@ type streamManager interface {
 	UseResetMaps()
 	// TODO set this in constructor
 	SetXseCryptoSetup(xse.CryptoSetup)
-	BidiStreamState() map[StreamID]handover.BidiStreamState
+	BidiStreamStates() map[StreamID]handover.BidiStreamState
 	UniStreamStates() map[protocol.StreamID]handover.UniStreamState
-	RestoreBidiStream(state handover.BidiStreamState) (Stream, error)
+	RestoreBidiStream(state *handover.BidiStreamState) (Stream, error)
 	// error if not open yet
 	OpenedBidiStream(id StreamID) (Stream, error)
 }
@@ -845,7 +845,7 @@ func (s *connection) handleHandshakeComplete() {
 	s.connIDGenerator.SetHandshakeComplete()
 
 	if s.config.ProxyConf != nil && s.config.AllowEarlyHandover {
-		err := s.useProxy()
+		err := s.AddProxy(s.config.ProxyConf)
 		if err != nil {
 			s.closeLocal(err)
 		}
@@ -900,7 +900,7 @@ func (s *connection) handleHandshakeConfirmed() {
 	}
 
 	if s.config.ProxyConf != nil && !s.config.AllowEarlyHandover {
-		err := s.useProxy()
+		err := s.AddProxy(s.config.ProxyConf)
 		if err != nil {
 			s.closeLocal(err)
 		}
@@ -2447,7 +2447,9 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 	}
 
 	state.UniStreams = s.streamsMap.UniStreamStates()
-	state.BidiStreams = s.streamsMap.BidiStreamState()
+	state.BidiStreams = s.streamsMap.BidiStreamStates()
+
+	s.connFlowController.StoreState(&state, s.perspective)
 
 	if s.logger.Debug() {
 		b, err := json.Marshal(state)
@@ -2566,7 +2568,7 @@ func correctConfig(conf *Config, ownParams wire.TransportParameters) {
 var RestorePacketNumberSkip protocol.PacketNumber = 10000
 
 // Restore session from H-QUIC state
-func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Connection, error) {
+func Restore(state handover.State, perspective protocol.Perspective, conf *Config) (Connection, map[StreamID]Stream, map[StreamID]SendStream, map[StreamID]ReceiveStream, error) {
 	if conf == nil {
 		conf = &Config{}
 	}
@@ -2575,7 +2577,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 
 	pconn, err := ListenMigratableUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0}) //TODO make param
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	remoteAddr := state.RemoteAddress(perspective)
 
@@ -2585,7 +2587,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	} else {
 		sconn, err := wrapConn(pconn)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
 		conn = newSendConn(sconn, remoteAddr, nil)
 	}
@@ -2616,14 +2618,14 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 
 	runner, err := getMultiplexer().AddConn(pconn, state.SrcConnectionIDLength(perspective), conf.StatelessResetKey, conf.Tracer)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	var tokenGenerator *handshake.TokenGenerator
 	if perspective == protocol.PerspectiveServer {
 		tokenGenerator, err = handshake.NewTokenGenerator(rand.Reader)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
@@ -2714,7 +2716,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 
 	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, conn.LocalAddr(), perspective, connTracer, logger, s.rttStats, tlsConf)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	s.cryptoStreamHandler = cs
@@ -2777,7 +2779,7 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 			StatelessResetToken: resetToken,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
@@ -2799,20 +2801,24 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 
 	s.receivedFirstPacket = true
 
-	for _, stream := range state.BidiStreams {
-		_, err := s.streamsMap.RestoreBidiStream(stream)
+	bidiStreams := make(map[StreamID]Stream, 0)
+	for _, streamState := range state.BidiStreams {
+		stream, err := s.streamsMap.RestoreBidiStream(&streamState)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
+		bidiStreams[stream.StreamID()] = stream
 	}
 	for _ = range state.UniStreams {
 		panic("implement me")
 	}
 
+	s.connFlowController.RestoreState(&state, perspective)
+
 	//TODO send PATH_CHALLENGE instead of PING
 	err = s.sendProbePacket(protocol.Encryption1RTT)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	go func() {
@@ -2827,10 +2833,10 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 		s.logger.Debugf("restored handover state: %s", string(b))
 	}
 
-	return s, nil
+	return s, bidiStreams, nil, nil, nil
 }
 
-func (s *connection) useProxy() error {
+func (s *connection) AddProxy(config *ProxyConfig) error {
 	if !s.config.EnableActiveMigration {
 		return errors.New("active migration has to be enabled")
 	}
@@ -2838,9 +2844,10 @@ func (s *connection) useProxy() error {
 		return errors.New("active migration has to be enabled by peer")
 	}
 
-	proxyControlSession, err := DialProxyAddr(s.config.ProxyConf.Addr,
-		s.config.ProxyConf.TlsConf,
-		s.config.ProxyConf.Config,
+	config = config.Clone()
+	proxyControlConn, err := DialProxyAddr(config.Addr,
+		config.TlsConf,
+		config.Config,
 	)
 	if err != nil {
 		return err
@@ -2849,8 +2856,8 @@ func (s *connection) useProxy() error {
 	if err != nil {
 		return err
 	}
-	if s.config.ProxyConf.ModifyState != nil {
-		s.config.ProxyConf.ModifyState(&state)
+	if config.ModifyState != nil {
+		config.ModifyState(&state)
 	}
 
 	marshalledState, err := json.Marshal(state)
@@ -2861,7 +2868,7 @@ func (s *connection) useProxy() error {
 		s.logger.Debugf("created handover state: %s", string(marshalledState))
 	}
 
-	err = proxyControlSession.SendHandover(&state)
+	err = proxyControlConn.SendHandover(&state)
 	if err != nil {
 		s.closeLocal(fmt.Errorf("failed to send handover state: %v", err))
 	}

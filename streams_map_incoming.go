@@ -208,7 +208,7 @@ func (m *incomingStreamsMap[T]) GetStream(num protocol.StreamNum) (T, error) {
 	return entry.stream, nil
 }
 
-func (m *incomingStreamsMap[T]) RestoreStream(num protocol.StreamNum, state handover.BidiStreamState, perspective Perspective) (T, error) {
+func (m *incomingStreamsMap[T]) RestoreStream(num protocol.StreamNum, state *handover.BidiStreamState, perspective Perspective) (T, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
@@ -221,15 +221,10 @@ func (m *incomingStreamsMap[T]) RestoreStream(num protocol.StreamNum, state hand
 	default:
 	}
 	m.nextStreamToOpen = utils.Max(m.nextStreamToOpen, num+1)
+	m.nextStreamToAccept = m.nextStreamToOpen
 	stream := m.streams[num].stream
-	any(stream).(receiveStreamI).restoreReceiveState(
-		state.ReadOffset(perspective),
-		state.ReadFinOffset(perspective),
-		state.PendingReceivedData(perspective))
-	any(stream).(sendStreamI).restoreSendState(
-		state.WriteOffset(perspective),
-		state.WriteFinOffset(perspective),
-		state.PendingSentData(perspective))
+	any(stream).(receiveStreamI).restoreReceiveState(state, perspective)
+	any(stream).(sendStreamI).restoreSendState(state, perspective)
 	return stream, nil
 
 }

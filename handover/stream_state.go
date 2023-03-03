@@ -7,11 +7,12 @@ import (
 
 type UniStreamState struct {
 	ID logging.StreamID
-	// offset until stream data is acknowledged
+	// offset until stream data is acknowledged or read by application layer
 	Offset protocol.ByteCount
-	// -1 if not known yet
+	// MaxByteCount if not known yet
 	FinOffset     protocol.ByteCount
 	PendingFrames map[protocol.ByteCount][]byte
+	MaxData       protocol.ByteCount
 }
 
 type BidiStreamState struct {
@@ -26,19 +27,8 @@ type BidiStreamState struct {
 	ServerDirectionFinOffset     protocol.ByteCount
 	ClientDirectionPendingFrames map[protocol.ByteCount][]byte
 	ServerDirectionPendingFrames map[protocol.ByteCount][]byte
-}
-
-func NewBidiStreamStateFromPerspective(perspective protocol.Perspective, id logging.StreamID, incomingOffset logging.ByteCount, outgoingOffset logging.ByteCount, incomingFinOffset protocol.ByteCount, outgoingFinOffset protocol.ByteCount, pendingIncomingFrames map[protocol.ByteCount][]byte, pendingOutgoingFrames map[protocol.ByteCount][]byte) BidiStreamState {
-	ss := BidiStreamState{
-		ID: id,
-	}
-	ss.SetIncomingOffset(perspective, incomingOffset)
-	ss.SetOutgoingOffset(perspective, outgoingOffset)
-	ss.SetIncomingFinOffset(perspective, incomingFinOffset)
-	ss.SetOutgoingFinOffset(perspective, outgoingFinOffset)
-	ss.SetPendingIncomingFrames(perspective, pendingIncomingFrames)
-	ss.SetPendingOutgoingFrames(perspective, pendingOutgoingFrames)
-	return ss
+	ClientDirectionMaxData       protocol.ByteCount
+	ServerDirectionMaxData       protocol.ByteCount
 }
 
 // getter and setter for client and server perspective
@@ -67,7 +57,7 @@ func (s *BidiStreamState) SetPendingOutgoingFrames(perspective protocol.Perspect
 	s.SetPendingIncomingFrames(perspective.Opposite(), data)
 }
 
-func (s *BidiStreamState) ReadOffset(perspective protocol.Perspective) protocol.ByteCount {
+func (s *BidiStreamState) IncomingOffset(perspective protocol.Perspective) protocol.ByteCount {
 	if perspective == logging.PerspectiveClient {
 		return s.ClientDirectionOffset
 	} else {
@@ -75,11 +65,11 @@ func (s *BidiStreamState) ReadOffset(perspective protocol.Perspective) protocol.
 	}
 }
 
-func (s *BidiStreamState) WriteOffset(perspective protocol.Perspective) protocol.ByteCount {
-	return s.ReadOffset(perspective.Opposite())
+func (s *BidiStreamState) OutgoingOffset(perspective protocol.Perspective) protocol.ByteCount {
+	return s.IncomingOffset(perspective.Opposite())
 }
 
-func (s *BidiStreamState) ReadFinOffset(perspective protocol.Perspective) protocol.ByteCount {
+func (s *BidiStreamState) IncomingFinOffset(perspective protocol.Perspective) protocol.ByteCount {
 	if perspective == logging.PerspectiveClient {
 		return s.ClientDirectionFinOffset
 	} else {
@@ -88,10 +78,10 @@ func (s *BidiStreamState) ReadFinOffset(perspective protocol.Perspective) protoc
 }
 
 func (s *BidiStreamState) WriteFinOffset(perspective protocol.Perspective) protocol.ByteCount {
-	return s.ReadFinOffset(perspective.Opposite())
+	return s.IncomingFinOffset(perspective.Opposite())
 }
 
-func (s *BidiStreamState) PendingReceivedData(perspective protocol.Perspective) map[logging.ByteCount][]byte {
+func (s *BidiStreamState) PendingIncomingFrames(perspective protocol.Perspective) map[logging.ByteCount][]byte {
 	if perspective == logging.PerspectiveClient {
 		return s.ClientDirectionPendingFrames
 	} else {
@@ -100,7 +90,7 @@ func (s *BidiStreamState) PendingReceivedData(perspective protocol.Perspective) 
 }
 
 func (s *BidiStreamState) PendingSentData(perspective protocol.Perspective) map[logging.ByteCount][]byte {
-	return s.PendingReceivedData(perspective.Opposite())
+	return s.PendingIncomingFrames(perspective.Opposite())
 }
 
 func (s *BidiStreamState) SetIncomingFinOffset(perspective protocol.Perspective, offset protocol.ByteCount) {
@@ -113,4 +103,28 @@ func (s *BidiStreamState) SetIncomingFinOffset(perspective protocol.Perspective,
 
 func (s *BidiStreamState) SetOutgoingFinOffset(perspective protocol.Perspective, offset protocol.ByteCount) {
 	s.SetIncomingFinOffset(perspective.Opposite(), offset)
+}
+
+func (s *BidiStreamState) SetIncomingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
+	if perspective == protocol.PerspectiveClient {
+		s.ClientDirectionMaxData = maxData
+	} else {
+		s.ServerDirectionMaxData = maxData
+	}
+}
+
+func (s *BidiStreamState) SetOutgoingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
+	s.SetIncomingMaxData(perspective.Opposite(), maxData)
+}
+
+func (s *BidiStreamState) IncomingMaxData(perspective protocol.Perspective) protocol.ByteCount {
+	if perspective == protocol.PerspectiveClient {
+		return s.ClientDirectionMaxData
+	} else {
+		return s.ServerDirectionMaxData
+	}
+}
+
+func (s *BidiStreamState) OutgoingMaxData(perspective protocol.Perspective) protocol.ByteCount {
+	return s.IncomingMaxData(perspective.Opposite())
 }

@@ -69,6 +69,20 @@ func (mr *MockEarlyConnectionMockRecorder) AcceptUniStream(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockEarlyConnection)(nil).AcceptUniStream), arg0)
 }
 
+// AddProxy mocks base method.
+func (m *MockEarlyConnection) AddProxy(arg0 *quic.ProxyConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddProxy", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddProxy indicates an expected call of AddProxy.
+func (mr *MockEarlyConnectionMockRecorder) AddProxy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProxy", reflect.TypeOf((*MockEarlyConnection)(nil).AddProxy), arg0)
+}
+
 // AwaitPathUpdate mocks base method.
 func (m *MockEarlyConnection) AwaitPathUpdate() <-chan struct{} {
 	m.ctrl.T.Helper()

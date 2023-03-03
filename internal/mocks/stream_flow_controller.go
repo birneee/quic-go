@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 )
 
@@ -99,6 +100,18 @@ func (mr *MockStreamFlowControllerMockRecorder) IsNewlyBlocked() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsNewlyBlocked", reflect.TypeOf((*MockStreamFlowController)(nil).IsNewlyBlocked))
 }
 
+// RestoreState mocks base method.
+func (m *MockStreamFlowController) RestoreState(arg0 *handover.BidiStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RestoreState", arg0, arg1)
+}
+
+// RestoreState indicates an expected call of RestoreState.
+func (mr *MockStreamFlowControllerMockRecorder) RestoreState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreState), arg0, arg1)
+}
+
 // SendWindowSize mocks base method.
 func (m *MockStreamFlowController) SendWindowSize() protocol.ByteCount {
 	m.ctrl.T.Helper()
@@ -111,6 +124,18 @@ func (m *MockStreamFlowController) SendWindowSize() protocol.ByteCount {
 func (mr *MockStreamFlowControllerMockRecorder) SendWindowSize() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendWindowSize", reflect.TypeOf((*MockStreamFlowController)(nil).SendWindowSize))
+}
+
+// StoreState mocks base method.
+func (m *MockStreamFlowController) StoreState(arg0 *handover.BidiStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StoreState", arg0, arg1)
+}
+
+// StoreState indicates an expected call of StoreState.
+func (mr *MockStreamFlowControllerMockRecorder) StoreState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreState), arg0, arg1)
 }
 
 // UpdateHighestReceived mocks base method.

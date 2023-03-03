@@ -1,6 +1,9 @@
 package flowcontrol
 
-import "github.com/lucas-clemente/quic-go/internal/protocol"
+import (
+	"github.com/lucas-clemente/quic-go/handover"
+	"github.com/lucas-clemente/quic-go/internal/protocol"
+)
 
 type flowController interface {
 	// for sending
@@ -24,12 +27,16 @@ type StreamFlowController interface {
 	// Abandon should be called when reading from the stream is aborted early,
 	// and there won't be any further calls to AddBytesRead.
 	Abandon()
+	StoreState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	RestoreState(state *handover.BidiStreamState, perspective protocol.Perspective)
 }
 
 // The ConnectionFlowController is the flow controller for the connection.
 type ConnectionFlowController interface {
 	flowController
 	Reset() error
+	StoreState(state *handover.State, perspective protocol.Perspective)
+	RestoreState(state *handover.State, perspective protocol.Perspective)
 }
 
 type connectionFlowControllerI interface {

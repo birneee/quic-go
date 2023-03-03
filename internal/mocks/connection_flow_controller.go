@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 )
 
@@ -101,6 +102,18 @@ func (mr *MockConnectionFlowControllerMockRecorder) Reset() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockConnectionFlowController)(nil).Reset))
 }
 
+// RestoreState mocks base method.
+func (m *MockConnectionFlowController) RestoreState(arg0 *handover.State, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RestoreState", arg0, arg1)
+}
+
+// RestoreState indicates an expected call of RestoreState.
+func (mr *MockConnectionFlowControllerMockRecorder) RestoreState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).RestoreState), arg0, arg1)
+}
+
 // SendWindowSize mocks base method.
 func (m *MockConnectionFlowController) SendWindowSize() protocol.ByteCount {
 	m.ctrl.T.Helper()
@@ -113,6 +126,18 @@ func (m *MockConnectionFlowController) SendWindowSize() protocol.ByteCount {
 func (mr *MockConnectionFlowControllerMockRecorder) SendWindowSize() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendWindowSize", reflect.TypeOf((*MockConnectionFlowController)(nil).SendWindowSize))
+}
+
+// StoreState mocks base method.
+func (m *MockConnectionFlowController) StoreState(arg0 *handover.State, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StoreState", arg0, arg1)
+}
+
+// StoreState indicates an expected call of StoreState.
+func (mr *MockConnectionFlowControllerMockRecorder) StoreState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).StoreState), arg0, arg1)
 }
 
 // UpdateSendWindow mocks base method.

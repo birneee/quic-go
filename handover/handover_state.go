@@ -47,6 +47,8 @@ type State struct {
 	ServerHighestSentPacketNumber protocol.PacketNumber
 	UniStreams                    map[protocol.StreamID]UniStreamState
 	BidiStreams                   map[protocol.StreamID]BidiStreamState
+	ClientDirectionMaxData        protocol.ByteCount
+	ServerDirectionMaxData        protocol.ByteCount
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
@@ -293,6 +295,30 @@ func (s *State) SetHighestSentPacketNumber(perspective protocol.Perspective, pn 
 	} else {
 		s.ClientHighestSentPacketNumber = pn
 	}
+}
+
+func (s *State) IncomingMaxData(perspective protocol.Perspective) protocol.ByteCount {
+	if perspective == protocol.PerspectiveClient {
+		return s.ClientDirectionMaxData
+	} else {
+		return s.ServerDirectionMaxData
+	}
+}
+
+func (s *State) OutgoingMaxData(perspective protocol.Perspective) protocol.ByteCount {
+	return s.IncomingMaxData(perspective.Opposite())
+}
+
+func (s *State) SetIncomingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
+	if perspective == protocol.PerspectiveClient {
+		s.ClientDirectionMaxData = maxData
+	} else {
+		s.ServerDirectionMaxData = maxData
+	}
+}
+
+func (s *State) SetOutgoingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
+	s.SetIncomingMaxData(perspective.Opposite(), maxData)
 }
 
 // Clone

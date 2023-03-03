@@ -2,6 +2,7 @@ package flowcontrol
 
 import (
 	"fmt"
+	"github.com/lucas-clemente/quic-go/handover"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/qerr"
@@ -146,4 +147,17 @@ func (c *streamFlowController) GetWindowUpdate() protocol.ByteCount {
 	}
 	c.mutex.Unlock()
 	return offset
+}
+
+func (c *streamFlowController) StoreState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+	state.SetIncomingMaxData(perspective, c.receiveWindow)
+	state.SetOutgoingMaxData(perspective, c.sendWindow)
+}
+
+func (c *streamFlowController) RestoreState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+	c.receiveWindow = state.IncomingMaxData(perspective)
+	c.bytesRead = c.receiveWindow
+	c.sendWindow = state.OutgoingMaxData(perspective)
+	c.bytesSent = state.OutgoingOffset(perspective)
+	c.queueWindowUpdate()
 }

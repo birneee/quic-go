@@ -243,6 +243,7 @@ type Connection interface {
 	// get already opened stream.
 	// returns error if stream is not yet opened
 	OpenedBidiStream(id StreamID) (Stream, error)
+	AddProxy(conf *ProxyConfig) error
 }
 
 // An EarlyConnection is a connection that is handshaking.

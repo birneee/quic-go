@@ -344,7 +344,7 @@ func (m *streamsMap) SetXseCryptoSetup(xseCryptoSetup xse.CryptoSetup) {
 	m.xseCryptoSetup = xseCryptoSetup
 }
 
-func (m *streamsMap) RestoreBidiStream(state handover.BidiStreamState) (Stream, error) {
+func (m *streamsMap) RestoreBidiStream(state *handover.BidiStreamState) (Stream, error) {
 	var stream Stream
 	var err error
 	if state.ID.InitiatedBy() == m.perspective {
@@ -359,20 +359,15 @@ func (m *streamsMap) RestoreBidiStream(state handover.BidiStreamState) (Stream, 
 }
 
 func streamIToBidiStreamState(s streamI, perspective Perspective) handover.BidiStreamState {
-	readOffset, readFinOffset, pendingReceivedFrames := s.receiveState()
-	writeOffset, writeFinOffset, pendingSendFrames := s.sendState()
-	return handover.NewBidiStreamStateFromPerspective(
-		perspective,
-		s.StreamID(),
-		readOffset,
-		writeOffset,
-		readFinOffset,
-		writeFinOffset,
-		pendingReceivedFrames,
-		pendingSendFrames)
+	ss := handover.BidiStreamState{
+		ID: s.StreamID(),
+	}
+	s.storeReceiveState(&ss, perspective)
+	s.storeSendState(&ss, perspective)
+	return ss
 }
 
-func (m *streamsMap) BidiStreamState() map[StreamID]handover.BidiStreamState {
+func (m *streamsMap) BidiStreamStates() map[StreamID]handover.BidiStreamState {
 	states := make(map[protocol.StreamID]handover.BidiStreamState)
 	for _, stream := range m.outgoingBidiStreams.streams {
 		states[stream.StreamID()] = streamIToBidiStreamState(stream, m.perspective)

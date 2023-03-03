@@ -67,6 +67,20 @@ func (mr *MockQuicConnMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockQuicConn)(nil).AcceptUniStream), arg0)
 }
 
+// AddProxy mocks base method.
+func (m *MockQuicConn) AddProxy(conf *ProxyConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddProxy", conf)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddProxy indicates an expected call of AddProxy.
+func (mr *MockQuicConnMockRecorder) AddProxy(conf interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProxy", reflect.TypeOf((*MockQuicConn)(nil).AddProxy), conf)
+}
+
 // AwaitPathUpdate mocks base method.
 func (m *MockQuicConn) AwaitPathUpdate() <-chan struct{} {
 	m.ctrl.T.Helper()

@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/ackhandler"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/wire"
@@ -46,22 +47,22 @@ func (x xseStreamI) updateSendWindow(count protocol.ByteCount) {
 	x.Stream.UpdateSendWindow(count)
 }
 
-func (x xseStreamI) sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseStreamI) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseStreamI) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseStreamI) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseStreamI) restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseStreamI) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -93,12 +94,12 @@ func (x xseSendStreamI) updateSendWindow(count protocol.ByteCount) {
 	x.SendStream.UpdateSendWindow(count)
 }
 
-func (x xseSendStreamI) sendState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseSendStreamI) restoreSendState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseSendStreamI) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -126,12 +127,12 @@ func (x xseReceiveStreamI) getWindowUpdate() protocol.ByteCount {
 	return x.ReceiveStream.GetWindowUpdate()
 }
 
-func (x xseReceiveStreamI) receiveState() (offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseReceiveStreamI) restoreReceiveState(offset ByteCount, finOffset ByteCount, pendingFrames map[ByteCount][]byte) {
+func (x xseReceiveStreamI) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
