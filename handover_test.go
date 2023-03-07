@@ -322,7 +322,8 @@ func receiveMessage(stream Stream, msg string, checkEOF bool) error {
 }
 
 func checkStreamEOF(stream ReceiveStream) error {
-	n, err := stream.Read(nil)
+	buf := make([]byte, 1)
+	n, err := stream.Read(buf)
 	if err != io.EOF || n != 0 {
 		return fmt.Errorf("not at EOF")
 	}
