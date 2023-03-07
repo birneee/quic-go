@@ -117,10 +117,12 @@ func (c *connectionFlowController) StoreState(state *handover.State, perspective
 	state.SetOutgoingMaxData(perspective, c.sendWindow)
 }
 
+// TODO restore bytesRead and bytesSent
 func (c *connectionFlowController) RestoreState(state *handover.State, perspective protocol.Perspective) {
 	c.receiveWindow = state.IncomingMaxData(perspective)
 	c.bytesRead = c.receiveWindow
+	oldSendWindowSize := c.sendWindowSize()
 	c.sendWindow = state.OutgoingMaxData(perspective)
-	//TODO set bytesSent
+	c.bytesSent = c.sendWindow - oldSendWindowSize
 	c.queueWindowUpdate()
 }
