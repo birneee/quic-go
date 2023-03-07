@@ -2495,6 +2495,7 @@ func (s *connection) awaitHandshakeConfirmed() error {
 	}
 }
 
+// TODO handle within event loop
 func (s *connection) MigrateUDPSocket() (*net.UDPAddr, error) {
 	err := s.awaitHandshakeConfirmed()
 	if err != nil {
@@ -2836,12 +2837,20 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	return s, bidiStreams, nil, nil, nil
 }
 
+// TODO handle within event queue
 func (s *connection) AddProxy(config *ProxyConfig) error {
 	if !s.config.EnableActiveMigration {
 		return errors.New("active migration has to be enabled")
 	}
 	if s.peerParams.DisableActiveMigration {
 		return errors.New("active migration has to be enabled by peer")
+	}
+
+	if config.Config == nil {
+		config.Config = &Config{}
+	}
+	if config.Config.LoggerPrefix == "" {
+		config.Config.LoggerPrefix = fmt.Sprintf("%s %s", s.config.LoggerPrefix, "proxy_control")
 	}
 
 	config = config.Clone()
@@ -2858,14 +2867,6 @@ func (s *connection) AddProxy(config *ProxyConfig) error {
 	}
 	if config.ModifyState != nil {
 		config.ModifyState(&state)
-	}
-
-	marshalledState, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-	if s.logger.Debug() {
-		s.logger.Debugf("created handover state: %s", string(marshalledState))
 	}
 
 	err = proxyControlConn.SendHandover(&state)

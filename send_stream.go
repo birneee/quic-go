@@ -548,13 +548,14 @@ func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspecti
 	finOffset := state.WriteFinOffset(perspective)
 	pendingFrames := state.PendingSentData(perspective)
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	s.writeOffset = offset
 	if finOffset != protocol.MaxByteCount {
 		s.writeOffset = finOffset
 		s.finishedWriting = true
 	}
+	s.mutex.Unlock()
 	for offset, frame := range pendingFrames {
+		s.mutex.Lock()
 		f := wire.GetStreamFrame()
 		f.Offset = offset
 		f.StreamID = s.streamID
@@ -564,6 +565,8 @@ func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspecti
 		if offset+ByteCount(len(frame)) == finOffset {
 			f.Fin = true
 		}
+		s.numOutstandingFrames++
+		s.mutex.Unlock()
 		s.queueRetransmission(f)
 	}
 	s.flowController.RestoreState(state, perspective)

@@ -352,7 +352,8 @@ func (s *receiveStream) GetWindowUpdate() protocol.ByteCount {
 }
 
 func (s *receiveStream) readOffset() ByteCount {
-	return s.frameQueue.readPos - ByteCount(s.readPosInFrame)
+	currentFrameRemainingLength := len(s.currentFrame) - s.readPosInFrame
+	return s.frameQueue.readPos + ByteCount(currentFrameRemainingLength)
 }
 
 func (s *receiveStream) readFinOffset() protocol.ByteCount {
