@@ -532,6 +532,9 @@ func (s *sendStream) pendingSendFrames() map[ByteCount][]byte {
 	for _, frame := range s.retransmissionQueue {
 		pendingFrames[frame.Offset] = frame.Data
 	}
+	if s.nextFrame != nil {
+		pendingFrames[s.nextFrame.Offset] = s.nextFrame.Data
+	}
 	return pendingFrames
 }
 
@@ -545,6 +548,12 @@ func (s *sendStream) storeSendState(state *handover.BidiStreamState, perspective
 // if fin offset is not known yet set to MaxByteCount
 func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	offset := state.OutgoingOffset(perspective)
+	for frameOffset, frameData := range state.PendingSentData(perspective) {
+		frameEnd := frameOffset + ByteCount(len(frameData))
+		if frameEnd > offset {
+			offset = frameEnd
+		}
+	}
 	finOffset := state.WriteFinOffset(perspective)
 	pendingFrames := state.PendingSentData(perspective)
 	s.mutex.Lock()
