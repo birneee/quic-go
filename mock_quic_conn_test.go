@@ -10,7 +10,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 )
 
@@ -68,10 +67,10 @@ func (mr *MockQuicConnMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Ca
 }
 
 // AddProxy mocks base method.
-func (m *MockQuicConn) AddProxy(conf *ProxyConfig) error {
+func (m *MockQuicConn) AddProxy(conf *ProxyConfig) ProxySetupResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddProxy", conf)
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(ProxySetupResponse)
 	return ret0
 }
 
@@ -166,12 +165,11 @@ func (mr *MockQuicConnMockRecorder) GetVersion() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockQuicConn) Handover(destroy, ignoreCurrentPath bool) (handover.State, error) {
+func (m *MockQuicConn) Handover(destroy, ignoreCurrentPath bool) HandoverStateResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handover", destroy, ignoreCurrentPath)
-	ret0, _ := ret[0].(handover.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(HandoverStateResponse)
+	return ret0
 }
 
 // Handover indicates an expected call of Handover.

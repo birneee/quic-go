@@ -228,7 +228,7 @@ type Connection interface {
 	// Handover creates H-QUIC state.
 	// Session is silently destroyed when destroy is set.
 	// Session no longer sends and ignores incoming packets from the current path when ignoreCurrentPath is set.
-	Handover(destroy bool, ignoreCurrentPath bool) (handover.State, error)
+	Handover(destroy bool, ignoreCurrentPath bool) HandoverStateResponse
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
@@ -243,7 +243,7 @@ type Connection interface {
 	// get already opened stream.
 	// returns error if stream is not yet opened
 	OpenedBidiStream(id StreamID) (Stream, error)
-	AddProxy(conf *ProxyConfig) error
+	AddProxy(conf *ProxyConfig) ProxySetupResponse
 }
 
 // An EarlyConnection is a connection that is handshaking.

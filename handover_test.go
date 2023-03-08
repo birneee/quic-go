@@ -67,7 +67,9 @@ var _ = Describe("Handover", func() {
 			err = openAndSend(conn, message1, false)
 			Expect(err).ToNot(HaveOccurred())
 			// state handover
-			serverState, err := conn.Handover(true, true)
+			res := conn.Handover(true, true)
+			serverState := res.State
+			err = res.Error
 			Expect(err).ToNot(HaveOccurred())
 			serverStateChan <- serverState
 			<-conn.Context().Done()
@@ -120,7 +122,9 @@ var _ = Describe("Handover", func() {
 			conn, err := server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.(*connection).destroyImpl(nil)
-			serverState, err := conn.Handover(true, true)
+			res := conn.Handover(true, true)
+			serverState := res.State
+			err = res.Error
 			Expect(err).ToNot(HaveOccurred())
 			serverStateChan <- serverState
 			<-conn.Context().Done()
@@ -178,7 +182,9 @@ var _ = Describe("Handover", func() {
 		}()
 		clientSession, err := DialAddr(server.Addr().String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: 100 * time.Millisecond})
 		Expect(err).ToNot(HaveOccurred())
-		handoverState, err := clientSession.Handover(true, false)
+		res := clientSession.Handover(true, false)
+		handoverState := res.State
+		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
 		migratedClientSession, _, _, _, err := Restore(handoverState, protocol.PerspectiveClient, &Config{LoggerPrefix: "cloned"})
 		Expect(err).ToNot(HaveOccurred())
@@ -212,7 +218,9 @@ var _ = Describe("Handover", func() {
 		originalServerAddr := <-originalServerAddrChan
 		clientConn, err := DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: idleTimeout})
 		Expect(err).ToNot(HaveOccurred())
-		handoverState, err := clientConn.Handover(false, true)
+		res := clientConn.Handover(false, true)
+		handoverState := res.State
+		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
 
 		restoredServerAddrChan := make(chan net.Addr, 1)
@@ -269,11 +277,15 @@ var _ = Describe("Handover", func() {
 		serverAddr := <-serverAddrChan
 		clientConn1, err := DialAddr(serverAddr.String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, EnableActiveMigration: true, LoggerPrefix: "client1"})
 		Expect(err).ToNot(HaveOccurred())
-		clientState1, err := clientConn1.Handover(true, true)
+		res := clientConn1.Handover(true, true)
+		clientState1 := res.State
+		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
 		clientConn2, _, _, _, err := Restore(clientState1, PerspectiveClient, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client2"})
 		Expect(err).ToNot(HaveOccurred())
-		clientState2, err := clientConn2.Handover(true, true)
+		res = clientConn2.Handover(true, true)
+		clientState2 := res.State
+		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
 		clientConn3, _, _, _, err := Restore(clientState2, PerspectiveClient, &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client3"})
 		Expect(err).ToNot(HaveOccurred())
@@ -306,7 +318,7 @@ var _ = Describe("Handover", func() {
 func receiveMessage(stream Stream, msg string, checkEOF bool) error {
 	buf := make([]byte, len(msg))
 	n, err := io.ReadAtLeast(stream, buf, len(msg))
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return err
 	}
 	if string(buf[:n]) != msg {

@@ -11,7 +11,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	quic "github.com/lucas-clemente/quic-go"
-	handover "github.com/lucas-clemente/quic-go/handover"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	qerr "github.com/lucas-clemente/quic-go/internal/qerr"
 )
@@ -70,10 +69,10 @@ func (mr *MockEarlyConnectionMockRecorder) AcceptUniStream(arg0 interface{}) *go
 }
 
 // AddProxy mocks base method.
-func (m *MockEarlyConnection) AddProxy(arg0 *quic.ProxyConfig) error {
+func (m *MockEarlyConnection) AddProxy(arg0 *quic.ProxyConfig) quic.ProxySetupResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddProxy", arg0)
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(quic.ProxySetupResponse)
 	return ret0
 }
 
@@ -154,12 +153,11 @@ func (mr *MockEarlyConnectionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockEarlyConnection) Handover(arg0, arg1 bool) (handover.State, error) {
+func (m *MockEarlyConnection) Handover(arg0, arg1 bool) quic.HandoverStateResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
-	ret0, _ := ret[0].(handover.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(quic.HandoverStateResponse)
+	return ret0
 }
 
 // Handover indicates an expected call of Handover.

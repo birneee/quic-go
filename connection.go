@@ -241,12 +241,9 @@ type connection struct {
 	runner                 connRunner
 	//TODO this should not be necessary
 	cloned bool
-	// closed when H-QUIC handover migration is done.
-	// ignore received 1RTT packets and opening streams.
-	handoverMigrationCtx       context.Context
-	handoverMigrationCtxCancel context.CancelFunc
 	// canceled and reconstructed when the path is updated
-	pathUpdateCtx utils.CounterContext
+	pathUpdateCtx         utils.CounterContext
+	handoverStateRequests chan HandoverStateRequest
 }
 
 var (
@@ -583,11 +580,8 @@ func (s *connection) preSetup() {
 	s.closeChan = make(chan closeError, 1)
 	s.sendingScheduled = make(chan struct{}, 1)
 	s.handshakeCtx, s.handshakeCtxCancel = context.WithCancel(context.Background())
-	s.handoverMigrationCtx, s.handoverMigrationCtxCancel = context.WithCancel(context.Background())
 	s.pathUpdateCtx = utils.NewCounterContext()
-	if s.config.ProxyConf == nil && !s.config.IgnoreReceived1RTTPacketsUntilFirstPathMigration {
-		s.handoverMigrationCtxCancel()
-	}
+	s.handoverStateRequests = make(chan HandoverStateRequest, 10)
 
 	now := time.Now()
 	s.lastPacketReceivedTime = now
@@ -600,6 +594,15 @@ func (s *connection) preSetup() {
 // run the connection main loop
 func (s *connection) run() error {
 	defer s.ctxCancel()
+
+	if s.config.ProxyConf != nil {
+		go func() {
+			res := s.AddProxy(s.config.ProxyConf)
+			if res.Error != nil {
+				s.closeLocal(res.Error)
+			}
+		}()
+	}
 
 	s.timer = *newTimer()
 
@@ -715,8 +718,11 @@ runLoop:
 				}
 			case <-s.handshakeCompleteChan:
 				s.handleHandshakeComplete()
+			case req := <-s.handoverStateRequests:
+				s.handoverStateRequests <- req
 			}
 		}
+		s.maybeHandleHandoverStateRequests()
 
 		now := time.Now()
 		if timeout := s.sentPacketHandler.GetLossDetectionTimeout(); !timeout.IsZero() && timeout.Before(now) {
@@ -844,12 +850,7 @@ func (s *connection) handleHandshakeComplete() {
 	s.connIDManager.SetHandshakeComplete()
 	s.connIDGenerator.SetHandshakeComplete()
 
-	if s.config.ProxyConf != nil && s.config.AllowEarlyHandover {
-		err := s.AddProxy(s.config.ProxyConf)
-		if err != nil {
-			s.closeLocal(err)
-		}
-	}
+	s.maybeHandleHandoverStateRequests()
 
 	if s.perspective == protocol.PerspectiveClient {
 		s.applyTransportParameters()
@@ -899,12 +900,7 @@ func (s *connection) handleHandshakeConfirmed() {
 		)
 	}
 
-	if s.config.ProxyConf != nil && !s.config.AllowEarlyHandover {
-		err := s.AddProxy(s.config.ProxyConf)
-		if err != nil {
-			s.closeLocal(err)
-		}
-	}
+	s.maybeHandleHandoverStateRequests()
 }
 
 func (s *connection) handlePacketImpl(rp *receivedPacket) bool {
@@ -1547,11 +1543,6 @@ func (s *connection) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protoco
 }
 
 func (s *connection) handleStreamFrame(frame *wire.StreamFrame) error {
-	if s.isWaitingForHandoverMigration() {
-		// Cannot be handled before handover
-		// ignore this StreamFrame
-		return nil
-	}
 	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
 	if err != nil {
 		return err
@@ -2089,12 +2080,6 @@ func (s *connection) sendPackedPacket(packet *packedPacket, now time.Time) {
 		s.logPacket(packet)
 		return
 	}
-	//TODO this can be removed, when server ensures HandshakeDoneFrame is sent and stream can be already opened
-	if s.isWaitingForHandoverMigration() && packet.EncryptionLevel() == protocol.Encryption1RTT && s.perspective == protocol.PerspectiveClient {
-		s.logger.Debugf("Ignore sending 1RTT packets until path change")
-		s.logPacket(packet)
-		return
-	}
 	if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && packet.IsAckEliciting() {
 		s.firstAckElicitingPacketAfterIdleSentTime = now
 	}
@@ -2177,67 +2162,29 @@ func (s *connection) logPacket(packet *packedPacket) {
 	s.logPacketContents(packet.packetContents)
 }
 
-// awaitMigration returns nil when no error occurred
-func (s *connection) awaitHandoverMigration() error {
-	select {
-	case <-s.handoverMigrationCtx.Done():
-		return nil
-	case <-s.ctx.Done():
-		return nil
-	case <-time.After(s.config.MaxIdleTimeout):
-		err := fmt.Errorf("failed to open stream: handover timeout")
-		s.closeLocal(err)
-		return err
-	}
-}
-
 // AcceptStream returns the next stream openend by the peer
 func (s *connection) AcceptStream(ctx context.Context) (Stream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.AcceptStream(ctx)
 }
 
 func (s *connection) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.AcceptUniStream(ctx)
 }
 
 // OpenStream opens a stream
 func (s *connection) OpenStream() (Stream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.OpenStream()
 }
 
 func (s *connection) OpenStreamSync(ctx context.Context) (Stream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.OpenStreamSync(ctx)
 }
 
 func (s *connection) OpenUniStream() (SendStream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.OpenUniStream()
 }
 
 func (s *connection) OpenUniStreamSync(ctx context.Context) (SendStream, error) {
-	err := s.awaitHandoverMigration()
-	if err != nil {
-		return nil, err
-	}
 	return s.streamsMap.OpenUniStreamSync(ctx)
 }
 
@@ -2361,15 +2308,38 @@ func (s *connection) NextConnection() Connection {
 
 // Handover waits until handshake is confirmed
 // if AllowEarlyHandover is set, waits until handshake is completed
-func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) (handover.State, error) {
-	if s.config.AllowEarlyHandover {
-		<-s.handshakeCtx.Done()
-	} else {
-		// wait until confirmed, as described in RFC 9000
-		_, _ = <-s.handshakeConfirmedChan
+func (s *connection) Handover(destroy bool, ignoreCurrentPath bool) HandoverStateResponse {
+	rc := make(chan HandoverStateResponse, 1)
+	s.handoverStateRequests <- HandoverStateRequest{
+		Destroy:           destroy,
+		IgnoreCurrentPath: ignoreCurrentPath,
+		Return:            rc,
 	}
+	s.scheduleSending() // wakeup run loop
+	return <-rc
+}
 
-	return s.handover(destroy, ignoreCurrentPath)
+func (s *connection) maybeHandleHandoverStateRequests() {
+	if !s.handshakeComplete {
+		return
+	}
+	if !s.handshakeConfirmed && !s.config.AllowEarlyHandover {
+		return
+	}
+	for {
+		var req HandoverStateRequest
+		select {
+		case req = <-s.handoverStateRequests:
+		default:
+			return // no request queued
+		}
+		state, err := s.handover(req.Destroy, req.IgnoreCurrentPath)
+		req.Return <- HandoverStateResponse{
+			State: state,
+			Error: err,
+			Early: !s.handshakeConfirmed,
+		}
+	}
 }
 
 // handover must be called after handshake is confirmed
@@ -2389,7 +2359,7 @@ func (s *connection) handover(destroy bool, ignoreCurrentPath bool) (handover.St
 	}
 
 	if destroy {
-		s.destroy(errors.New("destroyed by handover"))
+		s.destroyImpl(errors.New("destroyed by handover"))
 	}
 
 	if ignoreCurrentPath {
@@ -2474,7 +2444,6 @@ func (s *connection) updatePath(remoteAddr net.Addr) {
 	s.conn.SetCurrentRemoteAddr(remoteAddr)
 	s.rttStats.OnConnectionMigration()
 	s.sentPacketHandler.OnConnectionMigration() // reset congestion control
-	s.handoverMigrationCtxCancel()
 	s.pathUpdateCtx.Increment()
 }
 
@@ -2837,14 +2806,24 @@ func Restore(state handover.State, perspective protocol.Perspective, conf *Confi
 	return s, bidiStreams, nil, nil, nil
 }
 
-// TODO handle within event queue
-func (s *connection) AddProxy(config *ProxyConfig) error {
+// return true if proxy was added early
+func (s *connection) AddProxy(config *ProxyConfig) ProxySetupResponse {
 	if !s.config.EnableActiveMigration {
-		return errors.New("active migration has to be enabled")
+		return ProxySetupResponse{Error: errors.New("active migration has to be enabled")}
 	}
-	if s.peerParams.DisableActiveMigration {
-		return errors.New("active migration has to be enabled by peer")
+
+	// TODO check this later, because peer params might not be available yet
+	//if s.peerParams.DisableActiveMigration {
+	//	return errors.New("active migration has to be enabled by peer")
+	//}
+
+	responseChan := make(chan HandoverStateResponse, 1)
+	s.handoverStateRequests <- HandoverStateRequest{
+		Destroy:           false,
+		IgnoreCurrentPath: true,
+		Return:            responseChan,
 	}
+	s.scheduleSending() // wakeup run loop
 
 	if config.Config == nil {
 		config.Config = &Config{}
@@ -2859,11 +2838,13 @@ func (s *connection) AddProxy(config *ProxyConfig) error {
 		config.Config,
 	)
 	if err != nil {
-		return err
+		return ProxySetupResponse{Error: err}
 	}
-	state, err := s.handover(false, true)
+	res := <-responseChan
+	state := res.State
+	err = res.Error
 	if err != nil {
-		return err
+		return ProxySetupResponse{Error: err}
 	}
 	if config.ModifyState != nil {
 		config.ModifyState(&state)
@@ -2874,21 +2855,11 @@ func (s *connection) AddProxy(config *ProxyConfig) error {
 		s.closeLocal(fmt.Errorf("failed to send handover state: %v", err))
 	}
 
-	return nil
+	return ProxySetupResponse{Early: res.Early}
 }
 
 func (s *connection) ExtraStreamEncrypted() bool {
 	return s.config.ExtraStreamEncryption.enabled() && s.peerParams.ExtraStreamEncryption
-}
-
-// does not block
-func (s *connection) isWaitingForHandoverMigration() bool {
-	select {
-	case _, _ = <-s.handoverMigrationCtx.Done():
-		return false
-	default:
-		return true
-	}
 }
 
 func (s *connection) AwaitPathUpdate() <-chan struct{} {
