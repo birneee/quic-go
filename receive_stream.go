@@ -362,9 +362,11 @@ func (s *receiveStream) readFinOffset() protocol.ByteCount {
 
 func (s *receiveStream) pendingReceivedFrames() map[ByteCount][]byte {
 	data := make(map[ByteCount][]byte)
+	s.mutex.Lock()
 	for offset, frame := range s.frameQueue.queue {
 		data[offset] = frame.Data
 	}
+	s.mutex.Unlock()
 	//add remaining part of current frame
 	remainingLength := len(s.currentFrame) - s.readPosInFrame
 	if remainingLength > 0 {

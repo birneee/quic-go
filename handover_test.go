@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var _ = FDescribe("Handover", func() {
+var _ = Describe("Handover", func() {
 	var (
 		message1      = "hello"
 		message2      = "hquic"
