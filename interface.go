@@ -132,6 +132,7 @@ type ReceiveStream interface {
 	// A zero value for t means Read will not time out.
 
 	SetReadDeadline(t time.Time) error
+	ReadOffset() ByteCount
 }
 
 // A SendStream is a unidirectional Send Stream.
@@ -166,6 +167,7 @@ type SendStream interface {
 	// some data was successfully written.
 	// A zero value for t means Write will not time out.
 	SetWriteDeadline(t time.Time) error
+	WriteOffset() ByteCount
 }
 
 // A Connection is a QUIC connection between two peers.

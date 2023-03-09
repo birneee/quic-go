@@ -106,6 +106,20 @@ func (mr *MockStreamIMockRecorder) Read(p interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockStreamI)(nil).Read), p)
 }
 
+// ReadOffset mocks base method.
+func (m *MockStreamI) ReadOffset() ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadOffset")
+	ret0, _ := ret[0].(ByteCount)
+	return ret0
+}
+
+// ReadOffset indicates an expected call of ReadOffset.
+func (mr *MockStreamIMockRecorder) ReadOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadOffset", reflect.TypeOf((*MockStreamI)(nil).ReadOffset))
+}
+
 // SetDeadline mocks base method.
 func (m *MockStreamI) SetDeadline(t time.Time) error {
 	m.ctrl.T.Helper()
@@ -175,6 +189,20 @@ func (m *MockStreamI) Write(p []byte) (int, error) {
 func (mr *MockStreamIMockRecorder) Write(p interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockStreamI)(nil).Write), p)
+}
+
+// WriteOffset mocks base method.
+func (m *MockStreamI) WriteOffset() ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteOffset")
+	ret0, _ := ret[0].(ByteCount)
+	return ret0
+}
+
+// WriteOffset indicates an expected call of WriteOffset.
+func (mr *MockStreamIMockRecorder) WriteOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteOffset", reflect.TypeOf((*MockStreamI)(nil).WriteOffset))
 }
 
 // closeForShutdown mocks base method.

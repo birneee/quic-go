@@ -64,6 +64,20 @@ func (mr *MockReceiveStreamIMockRecorder) Read(p interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockReceiveStreamI)(nil).Read), p)
 }
 
+// ReadOffset mocks base method.
+func (m *MockReceiveStreamI) ReadOffset() ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadOffset")
+	ret0, _ := ret[0].(ByteCount)
+	return ret0
+}
+
+// ReadOffset indicates an expected call of ReadOffset.
+func (mr *MockReceiveStreamIMockRecorder) ReadOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadOffset", reflect.TypeOf((*MockReceiveStreamI)(nil).ReadOffset))
+}
+
 // SetReadDeadline mocks base method.
 func (m *MockReceiveStreamI) SetReadDeadline(t time.Time) error {
 	m.ctrl.T.Helper()

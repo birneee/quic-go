@@ -527,6 +527,10 @@ func (s *sendStream) writeFinOffset() protocol.ByteCount {
 	return protocol.MaxByteCount
 }
 
+func (s *sendStream) WriteOffset() ByteCount {
+	return s.writeOffset
+}
+
 func (s *sendStream) pendingSendFrames() map[ByteCount][]byte {
 	pendingFrames := make(map[ByteCount][]byte)
 	for _, frame := range s.retransmissionQueue {

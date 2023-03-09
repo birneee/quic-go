@@ -384,8 +384,13 @@ func (s *receiveStream) storeReceiveState(state *handover.BidiStreamState, persp
 
 func (s *receiveStream) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	offset := state.IncomingOffset(perspective)
-	finOffset := state.IncomingFinOffset(perspective)
 	pendingFrames := state.PendingIncomingFrames(perspective)
+	for frameOffset, _ := range pendingFrames {
+		if frameOffset < offset {
+			offset = frameOffset
+		}
+	}
+	finOffset := state.IncomingFinOffset(perspective)
 	s.frameQueue.readPos = offset
 	s.frameQueue.gaps.Front().Value.Start = offset
 	s.finalOffset = finOffset
@@ -399,4 +404,8 @@ func (s *receiveStream) restoreReceiveState(state *handover.BidiStreamState, per
 		}
 	}
 	s.flowController.RestoreState(state, perspective)
+}
+
+func (s *receiveStream) ReadOffset() ByteCount {
+	return s.readOffset()
 }

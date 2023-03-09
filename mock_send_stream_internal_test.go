@@ -122,6 +122,20 @@ func (mr *MockSendStreamIMockRecorder) Write(p interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockSendStreamI)(nil).Write), p)
 }
 
+// WriteOffset mocks base method.
+func (m *MockSendStreamI) WriteOffset() ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteOffset")
+	ret0, _ := ret[0].(ByteCount)
+	return ret0
+}
+
+// WriteOffset indicates an expected call of WriteOffset.
+func (mr *MockSendStreamIMockRecorder) WriteOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteOffset", reflect.TypeOf((*MockSendStreamI)(nil).WriteOffset))
+}
+
 // closeForShutdown mocks base method.
 func (m *MockSendStreamI) closeForShutdown(arg0 error) {
 	m.ctrl.T.Helper()
