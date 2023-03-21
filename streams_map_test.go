@@ -88,7 +88,9 @@ var _ = Describe("Streams Map", func() {
 
 			BeforeEach(func() {
 				mockSender = NewMockStreamSender(mockCtrl)
-				m = newStreamsMap(mockSender, newFlowController, MaxBidiStreamNum, MaxUniStreamNum, perspective, protocol.VersionWhatever).(*streamsMap)
+				m = newStreamsMap(mockSender, newFlowController, MaxBidiStreamNum, MaxUniStreamNum, perspective, protocol.VersionWhatever, func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+					panic("state serialization not supported")
+				}).(*streamsMap)
 			})
 
 			Context("opening", func() {

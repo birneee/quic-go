@@ -173,13 +173,13 @@ func (mr *MockReceiveStreamIMockRecorder) restoreReceiveState(state, perspective
 }
 
 // storeReceiveState mocks base method.
-func (m *MockReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeReceiveState", state, perspective)
+	m.ctrl.Call(m, "storeReceiveState", state, perspective, config)
 }
 
 // storeReceiveState indicates an expected call of storeReceiveState.
-func (mr *MockReceiveStreamIMockRecorder) storeReceiveState(state, perspective interface{}) *gomock.Call {
+func (mr *MockReceiveStreamIMockRecorder) storeReceiveState(state, perspective, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).storeReceiveState), state, perspective)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).storeReceiveState), state, perspective, config)
 }

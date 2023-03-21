@@ -3,9 +3,9 @@ package quic
 import "github.com/lucas-clemente/quic-go/handover"
 
 type HandoverStateRequest struct {
-	Destroy           bool
-	IgnoreCurrentPath bool
-	Return            chan HandoverStateResponse
+	Destroy bool
+	Return  chan HandoverStateResponse
+	Config  *ConnectionStateStoreConf
 }
 
 type HandoverStateResponse struct {

@@ -5,6 +5,7 @@
 package quic
 
 import (
+	net "net"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -86,6 +87,20 @@ func (mr *MockPacketHandlerManagerMockRecorder) CloseServer() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseServer", reflect.TypeOf((*MockPacketHandlerManager)(nil).CloseServer))
 }
 
+// ConnIDLength mocks base method.
+func (m *MockPacketHandlerManager) ConnIDLength() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConnIDLength")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ConnIDLength indicates an expected call of ConnIDLength.
+func (mr *MockPacketHandlerManagerMockRecorder) ConnIDLength() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnIDLength", reflect.TypeOf((*MockPacketHandlerManager)(nil).ConnIDLength))
+}
+
 // Destroy mocks base method.
 func (m *MockPacketHandlerManager) Destroy() error {
 	m.ctrl.T.Helper()
@@ -100,6 +115,20 @@ func (mr *MockPacketHandlerManagerMockRecorder) Destroy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockPacketHandlerManager)(nil).Destroy))
 }
 
+// GetConnectionByID mocks base method.
+func (m *MockPacketHandlerManager) GetConnectionByID(id protocol.ConnectionID) Connection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConnectionByID", id)
+	ret0, _ := ret[0].(Connection)
+	return ret0
+}
+
+// GetConnectionByID indicates an expected call of GetConnectionByID.
+func (mr *MockPacketHandlerManagerMockRecorder) GetConnectionByID(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionByID", reflect.TypeOf((*MockPacketHandlerManager)(nil).GetConnectionByID), id)
+}
+
 // GetStatelessResetToken mocks base method.
 func (m *MockPacketHandlerManager) GetStatelessResetToken(arg0 protocol.ConnectionID) protocol.StatelessResetToken {
 	m.ctrl.T.Helper()
@@ -112,6 +141,20 @@ func (m *MockPacketHandlerManager) GetStatelessResetToken(arg0 protocol.Connecti
 func (mr *MockPacketHandlerManagerMockRecorder) GetStatelessResetToken(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatelessResetToken", reflect.TypeOf((*MockPacketHandlerManager)(nil).GetStatelessResetToken), arg0)
+}
+
+// PacketConn mocks base method.
+func (m *MockPacketHandlerManager) PacketConn() net.PacketConn {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PacketConn")
+	ret0, _ := ret[0].(net.PacketConn)
+	return ret0
+}
+
+// PacketConn indicates an expected call of PacketConn.
+func (mr *MockPacketHandlerManagerMockRecorder) PacketConn() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PacketConn", reflect.TypeOf((*MockPacketHandlerManager)(nil).PacketConn))
 }
 
 // Remove mocks base method.
@@ -172,4 +215,16 @@ func (m *MockPacketHandlerManager) SetServer(arg0 unknownPacketHandler) {
 func (mr *MockPacketHandlerManagerMockRecorder) SetServer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetServer", reflect.TypeOf((*MockPacketHandlerManager)(nil).SetServer), arg0)
+}
+
+// SetUnknownConnectionHandler mocks base method.
+func (m *MockPacketHandlerManager) SetUnknownConnectionHandler(arg0 func(ConnectionID, *receivedPacket)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetUnknownConnectionHandler", arg0)
+}
+
+// SetUnknownConnectionHandler indicates an expected call of SetUnknownConnectionHandler.
+func (mr *MockPacketHandlerManagerMockRecorder) SetUnknownConnectionHandler(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnknownConnectionHandler", reflect.TypeOf((*MockPacketHandlerManager)(nil).SetUnknownConnectionHandler), arg0)
 }

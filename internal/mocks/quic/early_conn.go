@@ -13,6 +13,7 @@ import (
 	quic "github.com/lucas-clemente/quic-go"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
 	qerr "github.com/lucas-clemente/quic-go/internal/qerr"
+	logging "github.com/lucas-clemente/quic-go/logging"
 )
 
 // MockEarlyConnection is a mock of EarlyConnection interface.
@@ -153,7 +154,7 @@ func (mr *MockEarlyConnectionMockRecorder) ExtraStreamEncrypted() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockEarlyConnection) Handover(arg0, arg1 bool) quic.HandoverStateResponse {
+func (m *MockEarlyConnection) Handover(arg0 bool, arg1 *quic.ConnectionStateStoreConf) quic.HandoverStateResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
 	ret0, _ := ret[0].(quic.HandoverStateResponse)
@@ -312,6 +313,20 @@ func (mr *MockEarlyConnectionMockRecorder) OriginalDestinationConnectionID() *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockEarlyConnection)(nil).OriginalDestinationConnectionID))
 }
 
+// QlogWriter mocks base method.
+func (m *MockEarlyConnection) QlogWriter() logging.QlogWriter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QlogWriter")
+	ret0, _ := ret[0].(logging.QlogWriter)
+	return ret0
+}
+
+// QlogWriter indicates an expected call of QlogWriter.
+func (mr *MockEarlyConnectionMockRecorder) QlogWriter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QlogWriter", reflect.TypeOf((*MockEarlyConnection)(nil).QlogWriter))
+}
+
 // QueueHandshakeDoneFrame mocks base method.
 func (m *MockEarlyConnection) QueueHandshakeDoneFrame() error {
 	m.ctrl.T.Helper()
@@ -367,4 +382,18 @@ func (m *MockEarlyConnection) SendMessage(arg0 []byte) error {
 func (mr *MockEarlyConnectionMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockEarlyConnection)(nil).SendMessage), arg0)
+}
+
+// UpdateRemoteAddr mocks base method.
+func (m *MockEarlyConnection) UpdateRemoteAddr(arg0 net.UDPAddr, arg1, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRemoteAddr", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRemoteAddr indicates an expected call of UpdateRemoteAddr.
+func (mr *MockEarlyConnectionMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteAddr", reflect.TypeOf((*MockEarlyConnection)(nil).UpdateRemoteAddr), arg0, arg1, arg2)
 }

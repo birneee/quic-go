@@ -23,7 +23,7 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
 	restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective)
 }
 
@@ -60,6 +60,8 @@ type sendStream struct {
 	flowController flowcontrol.StreamFlowController
 
 	version protocol.VersionNumber
+	// for hquic stream state with pending data
+	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame
 }
 
 var (
@@ -73,14 +75,17 @@ func newSendStream(
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
+	// required for stream state serialization
+	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame,
 ) *sendStream {
 	s := &sendStream{
-		streamID:       streamID,
-		sender:         sender,
-		flowController: flowController,
-		writeChan:      make(chan struct{}, 1),
-		writeOnce:      make(chan struct{}, 1), // cap: 1, to protect against concurrent use of Write
-		version:        version,
+		streamID:             streamID,
+		sender:               sender,
+		flowController:       flowController,
+		writeChan:            make(chan struct{}, 1),
+		writeOnce:            make(chan struct{}, 1), // cap: 1, to protect against concurrent use of Write
+		version:              version,
+		streamFramesInFlight: streamFramesInFlight,
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
@@ -533,19 +538,36 @@ func (s *sendStream) WriteOffset() ByteCount {
 
 func (s *sendStream) pendingSendFrames() map[ByteCount][]byte {
 	pendingFrames := make(map[ByteCount][]byte)
+	// queued frames
 	for _, frame := range s.retransmissionQueue {
 		pendingFrames[frame.Offset] = frame.Data
 	}
+	// next frame
 	if s.nextFrame != nil {
 		pendingFrames[s.nextFrame.Offset] = s.nextFrame.Data
+	}
+	// in flight frames
+	for _, frame := range s.streamFramesInFlight(protocol.Encryption1RTT) {
+		pendingFrames[frame.Offset] = frame.Data
 	}
 	return pendingFrames
 }
 
-func (s *sendStream) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
-	state.SetOutgoingOffset(perspective, s.writeOffset)
+func (s *sendStream) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+	pendingFrames := s.pendingSendFrames()
+	writeOffset := s.writeOffset
+	if !config.IncludePendingOutgoingFrames {
+		for offset, _ := range pendingFrames {
+			if offset < writeOffset {
+				writeOffset = offset
+			}
+		}
+	}
+	state.SetOutgoingOffset(perspective, writeOffset)
 	state.SetOutgoingFinOffset(perspective, s.writeFinOffset())
-	state.SetPendingOutgoingFrames(perspective, s.pendingSendFrames())
+	if config.IncludePendingOutgoingFrames {
+		state.SetPendingOutgoingFrames(perspective, pendingFrames)
+	}
 	s.flowController.StoreState(state, perspective)
 }
 
@@ -575,9 +597,7 @@ func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspecti
 		f.DataLenPresent = true
 		f.Data = f.Data[:len(frame)]
 		copy(f.Data, frame)
-		if offset+ByteCount(len(frame)) == finOffset {
-			f.Fin = true
-		}
+		f.Fin = offset+ByteCount(len(frame)) == finOffset
 		s.numOutstandingFrames++
 		s.mutex.Unlock()
 		s.queueRetransmission(f)

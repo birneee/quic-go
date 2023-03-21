@@ -57,7 +57,7 @@ func (x xseStreamI) WriteOffset() ByteCount {
 	panic("implement me")
 }
 
-func (x xseStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -67,7 +67,7 @@ func (x xseStreamI) restoreReceiveState(state *handover.BidiStreamState, perspec
 	panic("implement me")
 }
 
-func (x xseStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -109,7 +109,7 @@ func (x xseSendStreamI) WriteOffset() ByteCount {
 	panic("implement me")
 }
 
-func (x xseSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -142,7 +142,7 @@ func (x xseReceiveStreamI) getWindowUpdate() protocol.ByteCount {
 	return x.ReceiveStream.GetWindowUpdate()
 }
 
-func (x xseReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }

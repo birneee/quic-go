@@ -914,3 +914,20 @@ func (h *sentPacketHandler) OnConnectionMigration() {
 	h.congestion.OnConnectionMigration()
 	h.lastMigration = time.Now()
 }
+
+func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+	var streamFrames []*wire.StreamFrame
+	if encLevel != protocol.Encryption1RTT {
+		panic("implement me")
+	}
+	for _, packet := range h.appDataPackets.history.packetMap {
+		for _, frame := range packet.Value.Frames {
+			if frame, ok := frame.Frame.(*wire.StreamFrame); ok {
+				if frame.StreamID == streamID {
+					streamFrames = append(streamFrames, frame)
+				}
+			}
+		}
+	}
+	return streamFrames
+}

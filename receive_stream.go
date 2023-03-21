@@ -22,7 +22,7 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
 	restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
 }
 
@@ -377,10 +377,12 @@ func (s *receiveStream) pendingReceivedFrames() map[ByteCount][]byte {
 	return data
 }
 
-func (s *receiveStream) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (s *receiveStream) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	state.SetIncomingOffset(perspective, s.readOffset())
 	state.SetIncomingFinOffset(perspective, s.readFinOffset())
-	state.SetPendingIncomingFrames(perspective, s.pendingReceivedFrames())
+	if config.IncludePendingIncomingFrames {
+		state.SetPendingIncomingFrames(perspective, s.pendingReceivedFrames())
+	}
 	s.flowController.StoreState(state, perspective)
 }
 

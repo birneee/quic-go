@@ -325,27 +325,27 @@ func (mr *MockStreamIMockRecorder) restoreSendState(state, perspective interface
 }
 
 // storeReceiveState mocks base method.
-func (m *MockStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeReceiveState", state, perspective)
+	m.ctrl.Call(m, "storeReceiveState", state, perspective, config)
 }
 
 // storeReceiveState indicates an expected call of storeReceiveState.
-func (mr *MockStreamIMockRecorder) storeReceiveState(state, perspective interface{}) *gomock.Call {
+func (mr *MockStreamIMockRecorder) storeReceiveState(state, perspective, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockStreamI)(nil).storeReceiveState), state, perspective)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockStreamI)(nil).storeReceiveState), state, perspective, config)
 }
 
 // storeSendState mocks base method.
-func (m *MockStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeSendState", state, perspective)
+	m.ctrl.Call(m, "storeSendState", state, perspective, config)
 }
 
 // storeSendState indicates an expected call of storeSendState.
-func (mr *MockStreamIMockRecorder) storeSendState(state, perspective interface{}) *gomock.Call {
+func (mr *MockStreamIMockRecorder) storeSendState(state, perspective, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockStreamI)(nil).storeSendState), state, perspective)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockStreamI)(nil).storeSendState), state, perspective, config)
 }
 
 // updateSendWindow mocks base method.

@@ -59,7 +59,7 @@ type streamI interface {
 	handleStreamFrame(*wire.StreamFrame) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
 	restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective)
 
 	// for sending
@@ -67,7 +67,7 @@ type streamI interface {
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
 	restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective)
 }
 
@@ -100,6 +100,8 @@ func newStream(streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
+	// required for stream state serialization
+	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame,
 ) *stream {
 	s := &stream{sender: sender, version: version}
 	senderForSendStream := &uniStreamSender{
@@ -111,7 +113,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version)
+	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version, streamFramesInFlight)
 	senderForReceiveStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {

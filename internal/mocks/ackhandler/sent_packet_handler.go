@@ -263,6 +263,20 @@ func (mr *MockSentPacketHandlerMockRecorder) SetMaxDatagramSize(arg0 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxDatagramSize", reflect.TypeOf((*MockSentPacketHandler)(nil).SetMaxDatagramSize), arg0)
 }
 
+// StreamFramesInFlight mocks base method.
+func (m *MockSentPacketHandler) StreamFramesInFlight(arg0 protocol.StreamID, arg1 protocol.EncryptionLevel) []*wire.StreamFrame {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StreamFramesInFlight", arg0, arg1)
+	ret0, _ := ret[0].([]*wire.StreamFrame)
+	return ret0
+}
+
+// StreamFramesInFlight indicates an expected call of StreamFramesInFlight.
+func (mr *MockSentPacketHandlerMockRecorder) StreamFramesInFlight(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFramesInFlight", reflect.TypeOf((*MockSentPacketHandler)(nil).StreamFramesInFlight), arg0, arg1)
+}
+
 // TimeUntilSend mocks base method.
 func (m *MockSentPacketHandler) TimeUntilSend() time.Time {
 	m.ctrl.T.Helper()

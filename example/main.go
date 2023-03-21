@@ -170,7 +170,7 @@ func main() {
 			}
 			log.Printf("Creating qlog file %s.\n", filename)
 			return utils.NewBufferedWriteCloser(bufio.NewWriter(f), f)
-		})
+		}, &qlog.Config{})
 	}
 
 	var wg sync.WaitGroup

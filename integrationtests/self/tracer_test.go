@@ -43,7 +43,7 @@ var _ = Describe("Handshake tests", func() {
 				}
 				fmt.Fprintf(GinkgoWriter, "%s qlog tracing connection %x\n", p, connectionID)
 				return utils.NewBufferedWriteCloser(bufio.NewWriter(&bytes.Buffer{}), io.NopCloser(nil))
-			}))
+			}, &qlog.Config{}))
 		}
 		if enableCustomTracer {
 			tracers = append(tracers, &customTracer{})

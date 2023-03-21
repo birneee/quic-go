@@ -42,6 +42,10 @@ type packetHandlerManager interface {
 	connRunner
 	SetServer(unknownPacketHandler)
 	CloseServer()
+	SetUnknownConnectionHandler(func(ConnectionID, *receivedPacket))
+	ConnIDLength() int
+	GetConnectionByID(id protocol.ConnectionID) Connection
+	PacketConn() net.PacketConn
 }
 
 type quicConn interface {
@@ -105,6 +109,10 @@ type baseServer struct {
 	connQueueLen int32 // to be used as an atomic
 
 	logger utils.Logger
+}
+
+func (s *baseServer) PacketHandlerManager() PacketHandlerManager {
+	return s.connHandler
 }
 
 var (
@@ -219,6 +227,9 @@ func listen(conn net.PacketConn, tlsConf *tls.Config, config *Config, acceptEarl
 	}
 	go s.run()
 	connHandler.SetServer(s)
+	if s.config.HandleUnknownConnectionPacket != nil {
+		connHandler.SetUnknownConnectionHandler(s.config.HandleUnknownConnectionPacket)
+	}
 	s.logger.Debugf("Listening for %s connections on %s", conn.LocalAddr().Network(), conn.LocalAddr().String())
 	return s, nil
 }

@@ -48,10 +48,11 @@ type packetHandlerMap struct {
 
 	closeQueue chan closePacket
 
-	handlers          map[protocol.ConnectionID]packetHandler
-	resetTokens       map[protocol.StatelessResetToken] /* stateless reset token */ packetHandler
-	server            unknownPacketHandler
-	numZeroRTTEntries int
+	handlers                map[protocol.ConnectionID]packetHandler
+	resetTokens             map[protocol.StatelessResetToken] /* stateless reset token */ packetHandler
+	server                  unknownPacketHandler
+	handleUnknownConnection func(ConnectionID, *receivedPacket)
+	numZeroRTTEntries       int
 
 	listening chan struct{} // is closed when listen returns
 	closed    bool
@@ -408,6 +409,9 @@ func (h *packetHandlerMap) handlePacket(p *receivedPacket) {
 		}
 	}
 	if !wire.IsLongHeaderPacket(p.data[0]) {
+		if h.handleUnknownConnection != nil {
+			h.handleUnknownConnection(connID, p)
+		}
 		go h.maybeSendStatelessReset(p, connID)
 		return
 	}
@@ -484,7 +488,7 @@ func (h *packetHandlerMap) GetStatelessResetToken(connID protocol.ConnectionID) 
 }
 
 func (h *packetHandlerMap) maybeSendStatelessReset(p *receivedPacket, connID protocol.ConnectionID) {
-	defer p.buffer.Release()
+	defer p.buffer.MaybeRelease()
 	if !h.statelessResetEnabled {
 		return
 	}
@@ -501,5 +505,39 @@ func (h *packetHandlerMap) maybeSendStatelessReset(p *receivedPacket, connID pro
 	data = append(data, token[:]...)
 	if _, err := h.conn.WritePacket(data, p.remoteAddr, p.info.OOB()); err != nil {
 		h.logger.Debugf("Error sending Stateless Reset: %s", err)
+	}
+}
+
+func (h *packetHandlerMap) SetUnknownConnectionHandler(uch func(ConnectionID, *receivedPacket)) {
+	h.mutex.Lock()
+	h.handleUnknownConnection = uch
+	h.mutex.Unlock()
+}
+
+func (h *packetHandlerMap) ConnIDLength() int {
+	return h.connIDLen
+}
+
+func (h *packetHandlerMap) GetConnectionByID(id protocol.ConnectionID) Connection {
+	handler, ok := h.handlers[id]
+	if !ok {
+		return nil // unknown connection
+	}
+	if conn, ok := handler.(*connection); ok {
+		return conn
+	}
+	panic("unsupported handler type")
+}
+
+func (h *packetHandlerMap) PacketConn() net.PacketConn {
+	return unwrapRawConn(h.conn)
+}
+
+func unwrapRawConn(conn rawConn) net.PacketConn {
+	switch conn := conn.(type) {
+	case *basicConn:
+		return conn
+	default:
+		panic("type not supported")
 	}
 }

@@ -40,6 +40,7 @@ type SentPacketHandler interface {
 	// Also validates peer address
 	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
 	OnConnectionMigration()
+	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
 }
 
 type sentPacketTracker interface {

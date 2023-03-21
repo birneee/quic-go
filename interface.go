@@ -230,7 +230,7 @@ type Connection interface {
 	// Handover creates H-QUIC state.
 	// Session is silently destroyed when destroy is set.
 	// Session no longer sends and ignores incoming packets from the current path when ignoreCurrentPath is set.
-	Handover(destroy bool, ignoreCurrentPath bool) HandoverStateResponse
+	Handover(destroy bool, config *ConnectionStateStoreConf) HandoverStateResponse
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
@@ -246,6 +246,8 @@ type Connection interface {
 	// returns error if stream is not yet opened
 	OpenedBidiStream(id StreamID) (Stream, error)
 	AddProxy(conf *ProxyConfig) ProxySetupResponse
+	UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath bool, ignoreMigrationToCurrentPath bool) error
+	QlogWriter() logging.QlogWriter
 }
 
 // An EarlyConnection is a connection that is handshaking.
@@ -425,6 +427,8 @@ type Config struct {
 	AllowEarlyHandover bool
 	// if not 0 use this PTO instead of the calculated PTO
 	FixedPTO time.Duration
+	// Handler for short header packets with an unknown connection id
+	HandleUnknownConnectionPacket func(ConnectionID, *receivedPacket)
 }
 
 // ConnectionState records basic details about a QUIC connection
@@ -459,6 +463,7 @@ type EarlyListener interface {
 	// MigrateUDPSocket migrates connection to a new UDP socket.
 	// Returns new UDP address.
 	MigrateUDPSocket() (*net.UDPAddr, error)
+	PacketHandlerManager() PacketHandlerManager
 }
 
 type ProxyConfig struct {
@@ -479,4 +484,18 @@ func (c *ProxyConfig) Clone() *ProxyConfig {
 		TlsConf:     c.TlsConf.Clone(),
 		ModifyState: c.ModifyState,
 	}
+}
+
+type ReceivedPacket = receivedPacket
+
+type PacketHandlerManager interface {
+	AddWithConnID(protocol.ConnectionID, protocol.ConnectionID, func() packetHandler) bool
+	Destroy() error
+	connRunner
+	SetServer(unknownPacketHandler)
+	CloseServer()
+	SetUnknownConnectionHandler(func(ConnectionID, *receivedPacket))
+	ConnIDLength() int
+	GetConnectionByID(id protocol.ConnectionID) Connection
+	PacketConn() net.PacketConn
 }

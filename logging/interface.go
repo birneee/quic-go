@@ -4,6 +4,7 @@ package logging
 
 import (
 	"context"
+	"github.com/francoispqt/gojay"
 	"net"
 	"time"
 
@@ -145,4 +146,16 @@ type ConnectionTracer interface {
 	Debug(name, msg string)
 	UpdatedPath(newRemote net.Addr)
 	XseReceiveRecord(streamID StreamID, rawLength int, dataLength int)
+	// nil if logger does not provide qlog capabilities
+	QlogWriter() QlogWriter
+}
+
+type QlogEventDetails interface {
+	Category() string
+	Name() string
+	gojay.MarshalerJSONObject
+}
+
+type QlogWriter interface {
+	RecordEvent(eventTime time.Time, details QlogEventDetails)
 }

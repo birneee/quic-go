@@ -67,7 +67,10 @@ var _ = Describe("Handover", func() {
 			err = openAndSend(conn, message1, false)
 			Expect(err).ToNot(HaveOccurred())
 			// state handover
-			res := conn.Handover(true, true)
+			res := conn.Handover(true, &ConnectionStateStoreConf{
+				IncludePendingOutgoingFrames: true,
+				IncludePendingIncomingFrames: true,
+			})
 			serverState := res.State
 			err = res.Error
 			Expect(err).ToNot(HaveOccurred())
@@ -77,7 +80,13 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
-			conn, bidiStreams, sendStreams, receiveStreams, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"})
+			conn, restoredStreams, err := Restore(serverState, &ConnectionRestoreConfig{
+				Perspective: PerspectiveServer,
+				QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"},
+			})
+			bidiStreams := restoredStreams.BidiStreams
+			sendStreams := restoredStreams.SendStreams
+			receiveStreams := restoredStreams.ReceiveStreams
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(bidiStreams)).To(BeEquivalentTo(2))
 			Expect(sendStreams).To(BeEmpty())
@@ -101,7 +110,7 @@ var _ = Describe("Handover", func() {
 		err = acceptAndReceive(clientConn, message1+message2, true)
 		Expect(err).ToNot(HaveOccurred())
 		migratedServerAddr := clientConn.RemoteAddr()
-		Expect(originalServerAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedServerAddr.(*net.UDPAddr).Port)) // check if migrated
+		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String())) // check if migrated
 
 		// destroy sessions
 		clientConn.(*connection).destroyImpl(nil)
@@ -122,7 +131,7 @@ var _ = Describe("Handover", func() {
 			conn, err := server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.(*connection).destroyImpl(nil)
-			res := conn.Handover(true, true)
+			res := conn.Handover(true, &ConnectionStateStoreConf{})
 			serverState := res.State
 			err = res.Error
 			Expect(err).ToNot(HaveOccurred())
@@ -132,7 +141,10 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
-			conn, _, _, _, err := Restore(serverState, PerspectiveServer, &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"})
+			conn, _, err := Restore(serverState, &ConnectionRestoreConfig{
+				Perspective: PerspectiveServer,
+				QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout, LoggerPrefix: "server2"},
+			})
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.(*connection).destroyImpl(nil)
 			server2AddrChan <- conn.LocalAddr()
@@ -153,7 +165,7 @@ var _ = Describe("Handover", func() {
 		err = openAndSend(clientConn, message1, true)
 		Expect(err).ToNot(HaveOccurred())
 		migratedServerAddr := clientConn.RemoteAddr()
-		Expect(originalServerAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedServerAddr.(*net.UDPAddr).Port)) // check if migrated
+		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String())) // check if migrated
 		<-clientConn.Context().Done()
 
 		// destroy sessions
@@ -182,11 +194,16 @@ var _ = Describe("Handover", func() {
 		}()
 		clientSession, err := DialAddr(server.Addr().String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: 100 * time.Millisecond})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientSession.Handover(true, false)
+		res := clientSession.Handover(true, &ConnectionStateStoreConf{
+			IncludePendingOutgoingFrames: false,
+		})
 		handoverState := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		migratedClientSession, _, _, _, err := Restore(handoverState, protocol.PerspectiveClient, &Config{LoggerPrefix: "cloned"})
+		migratedClientSession, _, err := Restore(handoverState, &ConnectionRestoreConfig{
+			Perspective: protocol.PerspectiveClient,
+			QuicConf:    &Config{LoggerPrefix: "cloned"},
+		})
 		Expect(err).ToNot(HaveOccurred())
 
 		// transfer
@@ -218,7 +235,9 @@ var _ = Describe("Handover", func() {
 		originalServerAddr := <-originalServerAddrChan
 		clientConn, err := DialAddr(originalServerAddr.String(), clientTlsConf, &Config{EnableActiveMigration: true, IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: idleTimeout})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientConn.Handover(false, true)
+		res := clientConn.Handover(false, &ConnectionStateStoreConf{
+			IgnoreCurrentPath: true,
+		})
 		handoverState := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
@@ -226,7 +245,10 @@ var _ = Describe("Handover", func() {
 		restoredServerAddrChan := make(chan net.Addr, 1)
 		go func() {
 			defer GinkgoRecover()
-			restoredServerConn, _, _, _, err := Restore(handoverState, PerspectiveServer, &Config{MaxIdleTimeout: idleTimeout})
+			restoredServerConn, _, err := Restore(handoverState, &ConnectionRestoreConfig{
+				Perspective: PerspectiveServer,
+				QuicConf:    &Config{MaxIdleTimeout: idleTimeout},
+			})
 			Expect(err).ToNot(HaveOccurred())
 			restoredServerAddrChan <- restoredServerConn.LocalAddr()
 			err = acceptAndReceive(restoredServerConn, message1, true)
@@ -277,17 +299,23 @@ var _ = Describe("Handover", func() {
 		serverAddr := <-serverAddrChan
 		clientConn1, err := DialAddr(serverAddr.String(), clientTlsConf, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, EnableActiveMigration: true, LoggerPrefix: "client1"})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientConn1.Handover(true, true)
+		res := clientConn1.Handover(true, &ConnectionStateStoreConf{})
 		clientState1 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn2, _, _, _, err := Restore(clientState1, PerspectiveClient, &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client2"})
+		clientConn2, _, err := Restore(clientState1, &ConnectionRestoreConfig{
+			Perspective: PerspectiveClient,
+			QuicConf:    &Config{IgnoreReceived1RTTPacketsUntilFirstPathMigration: true, MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client2"},
+		})
 		Expect(err).ToNot(HaveOccurred())
-		res = clientConn2.Handover(true, true)
+		res = clientConn2.Handover(true, &ConnectionStateStoreConf{})
 		clientState2 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn3, _, _, _, err := Restore(clientState2, PerspectiveClient, &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client3"})
+		clientConn3, _, err := Restore(clientState2, &ConnectionRestoreConfig{
+			Perspective: PerspectiveClient,
+			QuicConf:    &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, LoggerPrefix: "client3"},
+		})
 		Expect(err).ToNot(HaveOccurred())
 		defer clientConn3.(*connection).destroy(nil)
 		// compare handover states

@@ -182,6 +182,20 @@ func (mr *MockConnectionTracerMockRecorder) NegotiatedVersion(arg0, arg1, arg2 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NegotiatedVersion", reflect.TypeOf((*MockConnectionTracer)(nil).NegotiatedVersion), arg0, arg1, arg2)
 }
 
+// QlogWriter mocks base method.
+func (m *MockConnectionTracer) QlogWriter() QlogWriter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QlogWriter")
+	ret0, _ := ret[0].(QlogWriter)
+	return ret0
+}
+
+// QlogWriter indicates an expected call of QlogWriter.
+func (mr *MockConnectionTracerMockRecorder) QlogWriter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QlogWriter", reflect.TypeOf((*MockConnectionTracer)(nil).QlogWriter))
+}
+
 // ReceivedLongHeaderPacket mocks base method.
 func (m *MockConnectionTracer) ReceivedLongHeaderPacket(arg0 *wire.ExtendedHeader, arg1 protocol.ByteCount, arg2 []Frame) {
 	m.ctrl.T.Helper()

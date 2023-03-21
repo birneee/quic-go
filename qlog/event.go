@@ -17,7 +17,7 @@ import (
 func milliseconds(dur time.Duration) float64 { return float64(dur.Nanoseconds()) / 1e6 }
 
 type eventDetails interface {
-	Category() category
+	Category() string
 	Name() string
 	gojay.MarshalerJSONObject
 }
@@ -32,7 +32,7 @@ var _ gojay.MarshalerJSONObject = event{}
 func (e event) IsNil() bool { return false }
 func (e event) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.Float64Key("time", milliseconds(e.RelativeTime))
-	enc.StringKey("name", e.Category().String()+":"+e.Name())
+	enc.StringKey("name", e.Category()+":"+e.Name())
 	enc.ObjectKey("data", e.eventDetails)
 }
 

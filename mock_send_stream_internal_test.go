@@ -202,15 +202,15 @@ func (mr *MockSendStreamIMockRecorder) restoreSendState(state, perspective inter
 }
 
 // storeSendState mocks base method.
-func (m *MockSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeSendState", state, perspective)
+	m.ctrl.Call(m, "storeSendState", state, perspective, config)
 }
 
 // storeSendState indicates an expected call of storeSendState.
-func (mr *MockSendStreamIMockRecorder) storeSendState(state, perspective interface{}) *gomock.Call {
+func (mr *MockSendStreamIMockRecorder) storeSendState(state, perspective, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockSendStreamI)(nil).storeSendState), state, perspective)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockSendStreamI)(nil).storeSendState), state, perspective, config)
 }
 
 // updateSendWindow mocks base method.

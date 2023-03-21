@@ -45,7 +45,7 @@ func main() {
 	// a quic.Config that doesn't do a Retry
 	quicConf := &quic.Config{
 		RequireAddressValidation: func(net.Addr) bool { return testcase == "retry" },
-		Tracer:                   qlog.NewTracer(getLogWriter),
+		Tracer:                   qlog.NewTracer(getLogWriter, &qlog.Config{}),
 	}
 	cert, err := tls.LoadX509KeyPair("/certs/cert.pem", "/certs/priv.key")
 	if err != nil {

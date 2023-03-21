@@ -156,7 +156,7 @@ func (c *streamFlowController) StoreState(state *handover.BidiStreamState, persp
 
 func (c *streamFlowController) RestoreState(state *handover.BidiStreamState, perspective protocol.Perspective) {
 	c.receiveWindow = state.IncomingMaxData(perspective)
-	c.bytesRead = c.receiveWindow
+	c.bytesRead = state.IncomingOffset(perspective)
 	c.sendWindow = state.OutgoingMaxData(perspective)
 	c.bytesSent = state.OutgoingOffset(perspective)
 	c.queueWindowUpdate()

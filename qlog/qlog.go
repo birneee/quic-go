@@ -53,18 +53,19 @@ type tracer struct {
 	logging.NullTracer
 
 	getLogWriter func(p logging.Perspective, connectionID []byte) io.WriteCloser
+	config       *Config
 }
 
 var _ logging.Tracer = &tracer{}
 
 // NewTracer creates a new qlog tracer.
-func NewTracer(getLogWriter func(p logging.Perspective, connectionID []byte) io.WriteCloser) logging.Tracer {
-	return &tracer{getLogWriter: getLogWriter}
+func NewTracer(getLogWriter func(p logging.Perspective, connectionID []byte) io.WriteCloser, config *Config) logging.Tracer {
+	return &tracer{getLogWriter: getLogWriter, config: config}
 }
 
 func (t *tracer) TracerForConnection(_ context.Context, p logging.Perspective, odcid protocol.ConnectionID) logging.ConnectionTracer {
 	if w := t.getLogWriter(p, odcid.Bytes()); w != nil {
-		return NewConnectionTracer(w, p, odcid)
+		return NewConnectionTracer(w, p, odcid, t.config)
 	}
 	return nil
 }
@@ -82,12 +83,13 @@ type connectionTracer struct {
 	runStopped chan struct{}
 
 	lastMetrics *metrics
+	config      *Config
 }
 
 var _ logging.ConnectionTracer = &connectionTracer{}
 
 // NewConnectionTracer creates a new tracer to record a qlog for a connection.
-func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protocol.ConnectionID) logging.ConnectionTracer {
+func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protocol.ConnectionID, config *Config) logging.ConnectionTracer {
 	t := &connectionTracer{
 		w:             w,
 		perspective:   p,
@@ -95,6 +97,7 @@ func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protoco
 		runStopped:    make(chan struct{}),
 		events:        make(chan event, eventChanSize),
 		referenceTime: time.Now(),
+		config:        config,
 	}
 	go t.run()
 	return t
@@ -155,6 +158,9 @@ func (t *connectionTracer) export() error {
 }
 
 func (t *connectionTracer) recordEvent(eventTime time.Time, details eventDetails) {
+	if !t.config.Included(details.Category() + ":" + details.Name()) {
+		return
+	}
 	t.events <- event{
 		RelativeTime: eventTime.Sub(t.referenceTime),
 		eventDetails: details,
@@ -530,4 +536,8 @@ func (t *connectionTracer) XseReceiveRecord(streamID logging.StreamID, rawLength
 		dataLength: dataLength,
 	})
 	t.mutex.Unlock()
+}
+
+func (t *connectionTracer) QlogWriter() logging.QlogWriter {
+	return t
 }

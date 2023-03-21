@@ -1,6 +1,7 @@
 package handover
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/wire"
@@ -49,6 +50,8 @@ type State struct {
 	BidiStreams                   map[protocol.StreamID]BidiStreamState
 	ClientDirectionMaxData        protocol.ByteCount
 	ServerDirectionMaxData        protocol.ByteCount
+	ServerDirectionBytes          protocol.ByteCount
+	ClientDirectionBytes          protocol.ByteCount
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
@@ -325,4 +328,33 @@ func (s *State) SetOutgoingMaxData(perspective protocol.Perspective, maxData pro
 // TODO deep copy
 func (s *State) Clone() *State {
 	return &*s
+}
+
+func (s *State) BytesSent(perspective protocol.Perspective) protocol.ByteCount {
+	if perspective == protocol.PerspectiveClient {
+		return s.ServerDirectionBytes
+	} else {
+		return s.ClientDirectionBytes
+	}
+}
+
+func (s *State) SetBytesSent(perspective protocol.Perspective, sent protocol.ByteCount) {
+	if perspective == protocol.PerspectiveClient {
+		s.ServerDirectionBytes = sent
+	} else {
+		s.ClientDirectionBytes = sent
+	}
+}
+
+func (s *State) Serialize() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+func Parse(b []byte) (*State, error) {
+	state := &State{}
+	err := json.Unmarshal(b, state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }

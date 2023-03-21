@@ -148,7 +148,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 			bw := bufio.NewWriter(f)
 			return utils.NewBufferedWriteCloser(bw, f)
-		})
+		}, &qlog.Config{})
 	}
 })
 

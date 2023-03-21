@@ -69,17 +69,17 @@ func (mr *MockStreamManagerMockRecorder) AcceptUniStream(arg0 interface{}) *gomo
 }
 
 // BidiStreamStates mocks base method.
-func (m *MockStreamManager) BidiStreamStates() map[StreamID]handover.BidiStreamState {
+func (m *MockStreamManager) BidiStreamStates(config *ConnectionStateStoreConf) map[StreamID]handover.BidiStreamState {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BidiStreamStates")
+	ret := m.ctrl.Call(m, "BidiStreamStates", config)
 	ret0, _ := ret[0].(map[StreamID]handover.BidiStreamState)
 	return ret0
 }
 
 // BidiStreamStates indicates an expected call of BidiStreamStates.
-func (mr *MockStreamManagerMockRecorder) BidiStreamStates() *gomock.Call {
+func (mr *MockStreamManagerMockRecorder) BidiStreamStates(config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BidiStreamStates", reflect.TypeOf((*MockStreamManager)(nil).BidiStreamStates))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BidiStreamStates", reflect.TypeOf((*MockStreamManager)(nil).BidiStreamStates), config)
 }
 
 // CloseWithError mocks base method.

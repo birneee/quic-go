@@ -241,3 +241,14 @@ func (m *connTracerMultiplexer) XseReceiveRecord(streamID StreamID, rawLength in
 		t.XseReceiveRecord(streamID, rawLength, dataLength)
 	}
 }
+
+func (m *connTracerMultiplexer) QlogWriter() QlogWriter {
+	var writers []QlogWriter
+	for _, tracer := range m.tracers {
+		writer := tracer.QlogWriter()
+		if writer != nil {
+			writers = append(writers, writer)
+		}
+	}
+	return &qlogWriterMultiplexer{writers: writers}
+}

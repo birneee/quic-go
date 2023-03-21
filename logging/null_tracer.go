@@ -61,3 +61,5 @@ func (n NullConnectionTracer) Close()                                           
 func (n NullConnectionTracer) Debug(name, msg string)                                            {}
 func (n NullConnectionTracer) UpdatedPath(newRemote net.Addr)                                    {}
 func (n NullConnectionTracer) XseReceiveRecord(streamID StreamID, rawLength int, dataLength int) {}
+
+func (n NullConnectionTracer) QlogWriter() QlogWriter { return nil }

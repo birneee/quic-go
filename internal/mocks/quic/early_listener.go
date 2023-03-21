@@ -93,3 +93,17 @@ func (mr *MockEarlyListenerMockRecorder) MigrateUDPSocket() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateUDPSocket", reflect.TypeOf((*MockEarlyListener)(nil).MigrateUDPSocket))
 }
+
+// PacketHandlerManager mocks base method.
+func (m *MockEarlyListener) PacketHandlerManager() quic.PacketHandlerManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PacketHandlerManager")
+	ret0, _ := ret[0].(quic.PacketHandlerManager)
+	return ret0
+}
+
+// PacketHandlerManager indicates an expected call of PacketHandlerManager.
+func (mr *MockEarlyListenerMockRecorder) PacketHandlerManager() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PacketHandlerManager", reflect.TypeOf((*MockEarlyListener)(nil).PacketHandlerManager))
+}

@@ -53,7 +53,7 @@ type entry struct {
 var _ = Describe("Tracing", func() {
 	Context("tracer", func() {
 		It("returns nil when there's no io.WriteCloser", func() {
-			t := NewTracer(func(logging.Perspective, []byte) io.WriteCloser { return nil })
+			t := NewTracer(func(logging.Perspective, []byte) io.WriteCloser { return nil }, &Config{})
 			Expect(t.TracerForConnection(
 				context.Background(),
 				logging.PerspectiveClient,
@@ -68,6 +68,7 @@ var _ = Describe("Tracing", func() {
 			&limitedWriter{WriteCloser: nopWriteCloser(buf), N: 250},
 			protocol.PerspectiveServer,
 			protocol.ParseConnectionID([]byte{0xde, 0xad, 0xbe, 0xef}),
+			&Config{},
 		)
 		for i := uint32(0); i < 1000; i++ {
 			t.UpdatedPTOCount(i)
@@ -88,7 +89,7 @@ var _ = Describe("Tracing", func() {
 
 		BeforeEach(func() {
 			buf = &bytes.Buffer{}
-			t := NewTracer(func(logging.Perspective, []byte) io.WriteCloser { return nopWriteCloser(buf) })
+			t := NewTracer(func(logging.Perspective, []byte) io.WriteCloser { return nopWriteCloser(buf) }, &Config{})
 			tracer = t.TracerForConnection(
 				context.Background(),
 				logging.PerspectiveServer,

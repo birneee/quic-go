@@ -40,7 +40,9 @@ var _ = Describe("Stream", func() {
 	BeforeEach(func() {
 		mockSender = NewMockStreamSender(mockCtrl)
 		mockFC = mocks.NewMockStreamFlowController(mockCtrl)
-		str = newStream(streamID, mockSender, mockFC, protocol.VersionWhatever)
+		str = newStream(streamID, mockSender, mockFC, protocol.VersionWhatever, func(level protocol.EncryptionLevel) []*wire.StreamFrame {
+			panic("state serialization not supported")
+		})
 
 		timeout := scaleDuration(250 * time.Millisecond)
 		strWithTimeout = struct {

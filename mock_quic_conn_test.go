@@ -11,6 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/lucas-clemente/quic-go/internal/protocol"
+	logging "github.com/lucas-clemente/quic-go/logging"
 )
 
 // MockQuicConn is a mock of QuicConn interface.
@@ -165,17 +166,17 @@ func (mr *MockQuicConnMockRecorder) GetVersion() *gomock.Call {
 }
 
 // Handover mocks base method.
-func (m *MockQuicConn) Handover(destroy, ignoreCurrentPath bool) HandoverStateResponse {
+func (m *MockQuicConn) Handover(destroy bool, config *ConnectionStateStoreConf) HandoverStateResponse {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handover", destroy, ignoreCurrentPath)
+	ret := m.ctrl.Call(m, "Handover", destroy, config)
 	ret0, _ := ret[0].(HandoverStateResponse)
 	return ret0
 }
 
 // Handover indicates an expected call of Handover.
-func (mr *MockQuicConnMockRecorder) Handover(destroy, ignoreCurrentPath interface{}) *gomock.Call {
+func (mr *MockQuicConnMockRecorder) Handover(destroy, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicConn)(nil).Handover), destroy, ignoreCurrentPath)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQuicConn)(nil).Handover), destroy, config)
 }
 
 // HandshakeComplete mocks base method.
@@ -324,6 +325,20 @@ func (mr *MockQuicConnMockRecorder) OriginalDestinationConnectionID() *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockQuicConn)(nil).OriginalDestinationConnectionID))
 }
 
+// QlogWriter mocks base method.
+func (m *MockQuicConn) QlogWriter() logging.QlogWriter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QlogWriter")
+	ret0, _ := ret[0].(logging.QlogWriter)
+	return ret0
+}
+
+// QlogWriter indicates an expected call of QlogWriter.
+func (mr *MockQuicConnMockRecorder) QlogWriter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QlogWriter", reflect.TypeOf((*MockQuicConn)(nil).QlogWriter))
+}
+
 // QueueHandshakeDoneFrame mocks base method.
 func (m *MockQuicConn) QueueHandshakeDoneFrame() error {
 	m.ctrl.T.Helper()
@@ -379,6 +394,20 @@ func (m *MockQuicConn) SendMessage(arg0 []byte) error {
 func (mr *MockQuicConnMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockQuicConn)(nil).SendMessage), arg0)
+}
+
+// UpdateRemoteAddr mocks base method.
+func (m *MockQuicConn) UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath, ignoreMigrationToCurrentPath bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRemoteAddr", addr, ignoreReceivedPacketsFromCurrentPath, ignoreMigrationToCurrentPath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRemoteAddr indicates an expected call of UpdateRemoteAddr.
+func (mr *MockQuicConnMockRecorder) UpdateRemoteAddr(addr, ignoreReceivedPacketsFromCurrentPath, ignoreMigrationToCurrentPath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteAddr", reflect.TypeOf((*MockQuicConn)(nil).UpdateRemoteAddr), addr, ignoreReceivedPacketsFromCurrentPath, ignoreMigrationToCurrentPath)
 }
 
 // destroy mocks base method.
