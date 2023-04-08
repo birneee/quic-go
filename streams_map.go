@@ -379,14 +379,22 @@ func (m *streamsMap) RestoreBidiStream(state *handover.BidiStreamState) (Stream,
 	var stream Stream
 	var err error
 	if state.ID.InitiatedBy() == m.perspective {
-		stream, err = m.outgoingBidiStreams.RestoreStream(state.ID.StreamNum(), state, m.perspective)
+		stream, err = RestoreBidiStream(m.outgoingBidiStreams, state.ID.StreamNum(), state, m.perspective)
 	} else {
-		stream, err = m.incomingBidiStreams.RestoreStream(state.ID.StreamNum(), state, m.perspective)
+		stream, err = RestoreIncomingBidiStream(m.incomingBidiStreams, state.ID.StreamNum(), state, m.perspective)
 	}
 	if err != nil {
 		return nil, err
 	}
 	return stream, nil
+}
+
+func (m *streamsMap) RestoreSendStream(state *handover.UniStreamState) (SendStream, error) {
+	return RestoreOutgoingUniStream(m.outgoingUniStreams, state.ID.StreamNum(), state, m.perspective)
+}
+
+func (m *streamsMap) RestoreReceiveStream(state *handover.UniStreamState) (ReceiveStream, error) {
+	return RestoreIncomingUniStream(m.incomingUniStreams, state.ID.StreamNum(), state, m.perspective)
 }
 
 func streamIToBidiStreamState(s streamI, perspective Perspective, config *ConnectionStateStoreConf) handover.BidiStreamState {
@@ -418,15 +426,22 @@ func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
 	}
 }
 
-func (m *streamsMap) UniStreamStates() map[protocol.StreamID]handover.UniStreamState {
+func (m *streamsMap) UniStreamStates(config *ConnectionStateStoreConf) map[protocol.StreamID]handover.UniStreamState {
 	ss := make(map[protocol.StreamID]handover.UniStreamState)
-	for range m.outgoingUniStreams.streams {
-		//TODO implement me
-		panic("implement me")
+	for _, stream := range m.outgoingUniStreams.streams {
+		s := handover.UniStreamState{
+			ID: stream.StreamID(),
+		}
+		stream.storeSendState(&s, m.perspective, config)
+		ss[s.ID] = s
 	}
-	for range m.incomingUniStreams.streams {
-		//TODO implement me
-		panic("implement me")
+	for _, entry := range m.incomingUniStreams.streams {
+		stream := entry.stream
+		s := handover.UniStreamState{
+			ID: stream.StreamID(),
+		}
+		stream.storeReceiveState(&s, m.perspective, config)
+		ss[s.ID] = s
 	}
 	return ss
 }

@@ -61,6 +61,7 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 			panic(err)
 		}
 	}
+	c.QuicConf.EnableDatagrams = ownTransportParams.MaxDatagramFrameSize != 0
 	return c
 }
 

@@ -190,7 +190,7 @@ func (mr *MockSendStreamIMockRecorder) popStreamFrame(maxBytes interface{}) *gom
 }
 
 // restoreSendState mocks base method.
-func (m *MockSendStreamI) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockSendStreamI) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "restoreSendState", state, perspective)
 }
@@ -202,7 +202,7 @@ func (mr *MockSendStreamIMockRecorder) restoreSendState(state, perspective inter
 }
 
 // storeSendState mocks base method.
-func (m *MockSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (m *MockSendStreamI) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "storeSendState", state, perspective, config)
 }

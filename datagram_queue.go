@@ -6,9 +6,14 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/wire"
 )
 
+type queuedDatagram struct {
+	awaitDequeue bool
+	frame        *wire.DatagramFrame
+}
+
 type datagramQueue struct {
-	sendQueue chan *wire.DatagramFrame
-	nextFrame *wire.DatagramFrame
+	sendQueue chan *queuedDatagram
+	nextFrame *queuedDatagram
 	rcvQueue  chan []byte
 
 	closeErr error
@@ -24,7 +29,7 @@ type datagramQueue struct {
 func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
 	return &datagramQueue{
 		hasData:   hasData,
-		sendQueue: make(chan *wire.DatagramFrame, 1),
+		sendQueue: make(chan *queuedDatagram, protocol.DatagramSendQueueLen),
 		rcvQueue:  make(chan []byte, protocol.DatagramRcvQueueLen),
 		dequeued:  make(chan struct{}),
 		closed:    make(chan struct{}),
@@ -32,11 +37,24 @@ func newDatagramQueue(hasData func(), logger utils.Logger) *datagramQueue {
 	}
 }
 
+// AddWithoutWaitForDequeue queues a new DATAGRAM frame for sending.
+// Does not block until dequeue.
+// Might block because send queue is full.
+func (h *datagramQueue) AddWithoutWaitForDequeue(f *wire.DatagramFrame) error {
+	select {
+	case h.sendQueue <- &queuedDatagram{awaitDequeue: false, frame: f}:
+		h.hasData()
+		return nil
+	case <-h.closed:
+		return h.closeErr
+	}
+}
+
 // AddAndWait queues a new DATAGRAM frame for sending.
 // It blocks until the frame has been dequeued.
 func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame) error {
 	select {
-	case h.sendQueue <- f:
+	case h.sendQueue <- &queuedDatagram{awaitDequeue: true, frame: f}:
 		h.hasData()
 	case <-h.closed:
 		return h.closeErr
@@ -54,15 +72,17 @@ func (h *datagramQueue) AddAndWait(f *wire.DatagramFrame) error {
 // If actually sent out, Pop needs to be called before the next call to Peek.
 func (h *datagramQueue) Peek() *wire.DatagramFrame {
 	if h.nextFrame != nil {
-		return h.nextFrame
+		return h.nextFrame.frame
 	}
 	select {
 	case h.nextFrame = <-h.sendQueue:
-		h.dequeued <- struct{}{}
+		if h.nextFrame.awaitDequeue {
+			h.dequeued <- struct{}{}
+		}
 	default:
 		return nil
 	}
-	return h.nextFrame
+	return h.nextFrame.frame
 }
 
 func (h *datagramQueue) Pop() {

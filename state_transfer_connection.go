@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"io"
 	"net"
 )
 
 type StateTransferConnection interface {
-	ReceiveState() (*handover.State, error)
-	SendState(state *handover.State) error
+	ReceiveState() ([]byte, error)
+	SendState(state []byte) error
 	SendRequest(connectionID protocol.ConnectionID) error
 	ReceiveRequest() (protocol.ConnectionID, error)
 	CloseWithError(ApplicationErrorCode, string) error
 	RemoteAddr() net.Addr
+	QuicConn() Connection
 }
 
 type transferConnection struct {
@@ -25,6 +25,7 @@ type transferConnection struct {
 	ctxCancel        context.CancelFunc
 	receivedStates   chan *DataStateTransferMessage
 	receivedRequests chan *RequestStateTransferMessage
+	closeError       error
 }
 
 var _ StateTransferConnection = &transferConnection{}
@@ -107,7 +108,7 @@ func (c *transferConnection) sendMessage(message StateTransferMessage) error {
 	return nil
 }
 
-func (c *transferConnection) SendState(state *handover.State) error {
+func (c *transferConnection) SendState(state []byte) error {
 	message := &DataStateTransferMessage{
 		state: state,
 	}
@@ -130,13 +131,21 @@ func (c *transferConnection) SendRequest(connectionID protocol.ConnectionID) err
 }
 
 func (c *transferConnection) ReceiveRequest() (protocol.ConnectionID, error) {
-	message := <-c.receivedRequests
-	return message.connectionID, nil
+	select {
+	case <-c.ctx.Done():
+		return ConnectionID{}, c.closeError
+	case message := <-c.receivedRequests:
+		return message.connectionID, nil
+	}
 }
 
-func (c *transferConnection) ReceiveState() (*handover.State, error) {
-	message := <-c.receivedStates
-	return message.state, nil
+func (c *transferConnection) ReceiveState() ([]byte, error) {
+	select {
+	case <-c.ctx.Done():
+		return nil, c.closeError
+	case message := <-c.receivedStates:
+		return message.state, nil
+	}
 }
 
 func (c *transferConnection) parseMessage(reader *bytes.Reader) (StateTransferMessage, error) {
@@ -155,9 +164,16 @@ func (c *transferConnection) parseMessage(reader *bytes.Reader) (StateTransferMe
 }
 
 func (c *transferConnection) CloseWithError(err ApplicationErrorCode, s string) error {
-	return c.quicConn.CloseWithError(err, s)
+	c.quicConn.CloseWithError(err, s)
+	c.closeError = fmt.Errorf(s)
+	c.ctxCancel()
+	return nil
 }
 
 func (c *transferConnection) RemoteAddr() net.Addr {
 	return c.quicConn.RemoteAddr()
+}
+
+func (c *transferConnection) QuicConn() Connection {
+	return c.quicConn
 }

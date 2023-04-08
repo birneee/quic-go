@@ -27,8 +27,10 @@ type StreamFlowController interface {
 	// Abandon should be called when reading from the stream is aborted early,
 	// and there won't be any further calls to AddBytesRead.
 	Abandon()
-	StoreState(state *handover.BidiStreamState, perspective protocol.Perspective)
-	RestoreState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	StoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
+	RestoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
+	StoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
+	RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 }
 
 // The ConnectionFlowController is the flow controller for the connection.

@@ -13,6 +13,16 @@ type xseStreamI struct {
 	xse.Stream
 }
 
+func (x xseStreamI) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (x xseStreamI) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
+	//TODO implement me
+	panic("implement me")
+}
+
 var _ streamI = &xseStreamI{}
 
 func (x xseStreamI) closeForShutdown(err error) {
@@ -57,22 +67,12 @@ func (x xseStreamI) WriteOffset() ByteCount {
 	panic("implement me")
 }
 
-func (x xseStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (x xseStreamI) storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseStreamI) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (x xseStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (x xseStreamI) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseStreamI) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -80,6 +80,11 @@ func (x xseStreamI) restoreSendState(state *handover.BidiStreamState, perspectiv
 // this compatibility wrapper is required to use a xse.SendStream as a quic.sendStreamI
 type xseSendStreamI struct {
 	xse.SendStream
+}
+
+func (x xseSendStreamI) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+	//TODO implement me
+	panic("implement me")
 }
 
 var _ sendStreamI = &xseSendStreamI{}
@@ -109,12 +114,7 @@ func (x xseSendStreamI) WriteOffset() ByteCount {
 	panic("implement me")
 }
 
-func (x xseSendStreamI) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (x xseSendStreamI) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseSendStreamI) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -142,12 +142,12 @@ func (x xseReceiveStreamI) getWindowUpdate() protocol.ByteCount {
 	return x.ReceiveStream.GetWindowUpdate()
 }
 
-func (x xseReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (x xseReceiveStreamI) storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (x xseReceiveStreamI) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (x xseReceiveStreamI) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
 	//TODO implement me
 	panic("implement me")
 }

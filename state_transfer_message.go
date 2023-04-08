@@ -2,7 +2,6 @@ package quic
 
 import (
 	"bytes"
-	"github.com/lucas-clemente/quic-go/handover"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"io"
 )
@@ -18,17 +17,13 @@ type StateTransferMessage interface {
 }
 
 type DataStateTransferMessage struct {
-	state *handover.State
+	state []byte
 }
 
 func (s DataStateTransferMessage) Serialize() ([]byte, error) {
 	b := make([]byte, 0, 1)
 	b = append(b, TransferMessageTypeState)
-	serializedState, err := s.state.Serialize()
-	if err != nil {
-		return nil, err
-	}
-	b = append(b, serializedState...)
+	b = append(b, s.state...)
 	return b, nil
 }
 
@@ -63,11 +58,7 @@ func parseStateTransferMessage(r *bytes.Reader) (*DataStateTransferMessage, erro
 	if err != nil {
 		return nil, err
 	}
-	state, err := handover.Parse(bytes)
-	if err != nil {
-		return nil, err
-	}
 	return &DataStateTransferMessage{
-		state: state,
+		state: bytes,
 	}, nil
 }

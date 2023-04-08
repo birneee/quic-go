@@ -384,6 +384,20 @@ func (mr *MockEarlyConnectionMockRecorder) SendMessage(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockEarlyConnection)(nil).SendMessage), arg0)
 }
 
+// SendMessageWithoutWaitForDequeue mocks base method.
+func (m *MockEarlyConnection) SendMessageWithoutWaitForDequeue(arg0 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendMessageWithoutWaitForDequeue", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendMessageWithoutWaitForDequeue indicates an expected call of SendMessageWithoutWaitForDequeue.
+func (mr *MockEarlyConnectionMockRecorder) SendMessageWithoutWaitForDequeue(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessageWithoutWaitForDequeue", reflect.TypeOf((*MockEarlyConnection)(nil).SendMessageWithoutWaitForDequeue), arg0)
+}
+
 // UpdateRemoteAddr mocks base method.
 func (m *MockEarlyConnection) UpdateRemoteAddr(arg0 net.UDPAddr, arg1, arg2 bool) error {
 	m.ctrl.T.Helper()

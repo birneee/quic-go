@@ -13,3 +13,8 @@ func (t *qlogWriterMultiplexer) RecordEvent(eventTime time.Time, details QlogEve
 		writer.RecordEvent(eventTime, details)
 	}
 }
+
+func (t *qlogWriterMultiplexer) Close() {
+	//TODO implement me
+	panic("implement me")
+}

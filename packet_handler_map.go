@@ -537,6 +537,8 @@ func unwrapRawConn(conn rawConn) net.PacketConn {
 	switch conn := conn.(type) {
 	case *basicConn:
 		return conn
+	case *oobConn:
+		return conn.OOBCapablePacketConn
 	default:
 		panic("type not supported")
 	}

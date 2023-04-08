@@ -208,14 +208,14 @@ func (m *incomingStreamsMap[T]) GetStream(num protocol.StreamNum) (T, error) {
 	return entry.stream, nil
 }
 
-func (m *incomingStreamsMap[T]) RestoreStream(num protocol.StreamNum, state *handover.BidiStreamState, perspective Perspective) (T, error) {
+func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.StreamNum, state *handover.BidiStreamState, perspective Perspective) (streamI, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return *new(T), fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
 	}
-	m.streams[num] = incomingStreamEntry[T]{stream: m.newStream(num)}
+	m.streams[num] = incomingStreamEntry[streamI]{stream: m.newStream(num)}
 	select {
 	case m.newStreamChan <- struct{}{}:
 	default:
@@ -223,8 +223,26 @@ func (m *incomingStreamsMap[T]) RestoreStream(num protocol.StreamNum, state *han
 	m.nextStreamToOpen = utils.Max(m.nextStreamToOpen, num+1)
 	m.nextStreamToAccept = m.nextStreamToOpen
 	stream := m.streams[num].stream
-	any(stream).(receiveStreamI).restoreReceiveState(state, perspective)
-	any(stream).(sendStreamI).restoreSendState(state, perspective)
+	stream.restoreReceiveState(state, perspective)
+	stream.(sendStreamI).restoreSendState(state, perspective)
 	return stream, nil
+}
 
+func RestoreIncomingUniStream(m *incomingStreamsMap[receiveStreamI], num protocol.StreamNum, state *handover.UniStreamState, perspective protocol.Perspective) (receiveStreamI, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	_, ok := m.streams[num]
+	if ok {
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+	}
+	m.streams[num] = incomingStreamEntry[receiveStreamI]{stream: m.newStream(num)}
+	select {
+	case m.newStreamChan <- struct{}{}:
+	default:
+	}
+	m.nextStreamToOpen = utils.Max(m.nextStreamToOpen, num+1)
+	m.nextStreamToAccept = m.nextStreamToOpen
+	stream := m.streams[num].stream
+	stream.restoreReceiveState(state, perspective)
+	return stream, nil
 }

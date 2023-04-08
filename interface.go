@@ -225,6 +225,7 @@ type Connection interface {
 
 	// SendMessage sends a message as a datagram, as specified in RFC 9221.
 	SendMessage([]byte) error
+	SendMessageWithoutWaitForDequeue([]byte) error
 	// ReceiveMessage gets a message received in a datagram, as specified in RFC 9221.
 	ReceiveMessage() ([]byte, error)
 	// Handover creates H-QUIC state.

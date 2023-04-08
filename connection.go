@@ -58,10 +58,12 @@ type streamManager interface {
 	// TODO set this in constructor
 	SetXseCryptoSetup(xse.CryptoSetup)
 	BidiStreamStates(config *ConnectionStateStoreConf) map[StreamID]handover.BidiStreamState
-	UniStreamStates() map[protocol.StreamID]handover.UniStreamState
+	UniStreamStates(config *ConnectionStateStoreConf) map[protocol.StreamID]handover.UniStreamState
 	RestoreBidiStream(state *handover.BidiStreamState) (Stream, error)
 	// error if not open yet
 	OpenedBidiStream(id StreamID) (Stream, error)
+	RestoreSendStream(state *handover.UniStreamState) (SendStream, error)
+	RestoreReceiveStream(state *handover.UniStreamState) (ReceiveStream, error)
 }
 
 type cryptoStreamHandler interface {
@@ -2278,6 +2280,20 @@ func (s *connection) onStreamCompleted(id protocol.StreamID) {
 	}
 }
 
+func (s *connection) SendMessageWithoutWaitForDequeue(p []byte) error {
+	if !s.supportsDatagrams() {
+		return errors.New("datagram support disabled")
+	}
+
+	f := &wire.DatagramFrame{DataLenPresent: true}
+	if protocol.ByteCount(len(p)) > f.MaxDataLen(s.peerParams.MaxDatagramFrameSize, s.version) {
+		return errors.New("message too large")
+	}
+	f.Data = make([]byte, len(p))
+	copy(f.Data, p)
+	return s.datagramQueue.AddWithoutWaitForDequeue(f)
+}
+
 func (s *connection) SendMessage(p []byte) error {
 	if !s.supportsDatagrams() {
 		return errors.New("datagram support disabled")
@@ -2361,9 +2377,6 @@ func (s *connection) maybeHandleHandoverStateRequests() {
 // if AllowEarlyHandover is set, it can be called after handshake is completed
 func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (handover.State, error) {
 	//TODO validate supported options
-	if s.config.EnableDatagrams {
-		panic("option is currently not supported")
-	}
 	if !s.handshakeComplete {
 		panic("illegal handover state: handshake must be completed")
 	}
@@ -2433,7 +2446,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 		s.tracer.Debug("hquic_handover_state_created", "")
 	}
 
-	state.UniStreams = s.streamsMap.UniStreamStates()
+	state.UniStreams = s.streamsMap.UniStreamStates(config)
 	state.BidiStreams = s.streamsMap.BidiStreamStates(config)
 
 	s.connFlowController.StoreState(&state, s.perspective)
@@ -2728,16 +2741,32 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 
 	s.receivedFirstPacket = true
 
-	bidiStreams := make(map[StreamID]Stream, 0)
+	restoredStreams := &RestoredStreams{
+		BidiStreams:    make(map[StreamID]Stream, 0),
+		ReceiveStreams: make(map[StreamID]ReceiveStream, 0),
+		SendStreams:    make(map[StreamID]SendStream, 0),
+	}
 	for _, streamState := range state.BidiStreams {
 		stream, err := s.streamsMap.RestoreBidiStream(&streamState)
 		if err != nil {
 			return nil, nil, err
 		}
-		bidiStreams[stream.StreamID()] = stream
+		restoredStreams.BidiStreams[stream.StreamID()] = stream
 	}
-	for _ = range state.UniStreams {
-		panic("implement me")
+	for _, streamState := range state.UniStreams {
+		if streamState.ID.InitiatedBy() == s.perspective {
+			stream, err := s.streamsMap.RestoreSendStream(&streamState)
+			if err != nil {
+				return nil, nil, err
+			}
+			restoredStreams.SendStreams[stream.StreamID()] = stream
+		} else {
+			stream, err := s.streamsMap.RestoreReceiveStream(&streamState)
+			if err != nil {
+				return nil, nil, err
+			}
+			restoredStreams.ReceiveStreams[stream.StreamID()] = stream
+		}
 	}
 
 	s.connFlowController.RestoreState(&state, perspective)
@@ -2760,9 +2789,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		s.logger.Debugf("restored handover state: %s", string(b))
 	}
 
-	return s, &RestoredStreams{
-		BidiStreams: bidiStreams,
-	}, nil
+	return s, restoredStreams, nil
 }
 
 // return true if proxy was added early
@@ -2814,7 +2841,12 @@ func (s *connection) AddProxy(config *ProxyConfig) ProxySetupResponse {
 		config.ModifyState(&state)
 	}
 
-	err = hquicConn.SendState(&state)
+	serializedState, err := state.Serialize()
+	if err != nil {
+		return ProxySetupResponse{Error: fmt.Errorf("failed to serialize handover state: %v", err)}
+	}
+
+	err = hquicConn.SendState(serializedState)
 	if err != nil {
 		return ProxySetupResponse{Error: fmt.Errorf("failed to send handover state: %v", err)}
 	}

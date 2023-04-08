@@ -161,7 +161,7 @@ func (mr *MockReceiveStreamIMockRecorder) handleStreamFrame(arg0 interface{}) *g
 }
 
 // restoreReceiveState mocks base method.
-func (m *MockReceiveStreamI) restoreReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (m *MockReceiveStreamI) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "restoreReceiveState", state, perspective)
 }
@@ -173,7 +173,7 @@ func (mr *MockReceiveStreamIMockRecorder) restoreReceiveState(state, perspective
 }
 
 // storeReceiveState mocks base method.
-func (m *MockReceiveStreamI) storeReceiveState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (m *MockReceiveStreamI) storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "storeReceiveState", state, perspective, config)
 }

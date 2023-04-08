@@ -149,8 +149,11 @@ const MaxAckFrameSize ByteCount = 1000
 // The size is chosen such that a DATAGRAM frame fits into a QUIC packet.
 const MaxDatagramFrameSize ByteCount = 1200
 
+// DatagramSendQueueLen is the length of the send queue for DATAGRAM frames (RFC 9221)
+const DatagramSendQueueLen = 256
+
 // DatagramRcvQueueLen is the length of the receive queue for DATAGRAM frames (RFC 9221)
-const DatagramRcvQueueLen = 128
+const DatagramRcvQueueLen = 256
 
 // MaxNumAckRanges is the maximum number of ACK ranges that we send in an ACK frame.
 // It also serves as a limit for the packet history.

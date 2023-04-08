@@ -189,6 +189,7 @@ func populateConfig(config *Config, defaultConnIDLen int) *Config {
 		HyblaWestwoodCongestionControl: config.HyblaWestwoodCongestionControl,
 		AllowEarlyHandover:             config.AllowEarlyHandover,
 		FixedPTO:                       config.FixedPTO,
-		HandleUnknownConnectionPacket:  config.HandleUnknownConnectionPacket,
+		//TODO should be configured on a connHandler level
+		HandleUnknownConnectionPacket: config.HandleUnknownConnectionPacket,
 	}
 }

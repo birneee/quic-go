@@ -100,16 +100,28 @@ func (mr *MockStreamFlowControllerMockRecorder) IsNewlyBlocked() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsNewlyBlocked", reflect.TypeOf((*MockStreamFlowController)(nil).IsNewlyBlocked))
 }
 
-// RestoreState mocks base method.
-func (m *MockStreamFlowController) RestoreState(arg0 *handover.BidiStreamState, arg1 protocol.Perspective) {
+// RestoreReceiveState mocks base method.
+func (m *MockStreamFlowController) RestoreReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RestoreState", arg0, arg1)
+	m.ctrl.Call(m, "RestoreReceiveState", arg0, arg1)
 }
 
-// RestoreState indicates an expected call of RestoreState.
-func (mr *MockStreamFlowControllerMockRecorder) RestoreState(arg0, arg1 interface{}) *gomock.Call {
+// RestoreReceiveState indicates an expected call of RestoreReceiveState.
+func (mr *MockStreamFlowControllerMockRecorder) RestoreReceiveState(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreState), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreReceiveState), arg0, arg1)
+}
+
+// RestoreSendState mocks base method.
+func (m *MockStreamFlowController) RestoreSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RestoreSendState", arg0, arg1)
+}
+
+// RestoreSendState indicates an expected call of RestoreSendState.
+func (mr *MockStreamFlowControllerMockRecorder) RestoreSendState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreSendState), arg0, arg1)
 }
 
 // SendWindowSize mocks base method.
@@ -126,16 +138,28 @@ func (mr *MockStreamFlowControllerMockRecorder) SendWindowSize() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendWindowSize", reflect.TypeOf((*MockStreamFlowController)(nil).SendWindowSize))
 }
 
-// StoreState mocks base method.
-func (m *MockStreamFlowController) StoreState(arg0 *handover.BidiStreamState, arg1 protocol.Perspective) {
+// StoreReceiveState mocks base method.
+func (m *MockStreamFlowController) StoreReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreState", arg0, arg1)
+	m.ctrl.Call(m, "StoreReceiveState", arg0, arg1)
 }
 
-// StoreState indicates an expected call of StoreState.
-func (mr *MockStreamFlowControllerMockRecorder) StoreState(arg0, arg1 interface{}) *gomock.Call {
+// StoreReceiveState indicates an expected call of StoreReceiveState.
+func (mr *MockStreamFlowControllerMockRecorder) StoreReceiveState(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreState), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreReceiveState), arg0, arg1)
+}
+
+// StoreSendState mocks base method.
+func (m *MockStreamFlowController) StoreSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StoreSendState", arg0, arg1)
+}
+
+// StoreSendState indicates an expected call of StoreSendState.
+func (mr *MockStreamFlowControllerMockRecorder) StoreSendState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreSendState), arg0, arg1)
 }
 
 // UpdateHighestReceived mocks base method.

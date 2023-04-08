@@ -23,8 +23,8 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
-	restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective)
+	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	restoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
 }
 
 type sendStream struct {
@@ -553,7 +553,7 @@ func (s *sendStream) pendingSendFrames() map[ByteCount][]byte {
 	return pendingFrames
 }
 
-func (s *sendStream) storeSendState(state *handover.BidiStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (s *sendStream) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
 	pendingFrames := s.pendingSendFrames()
 	writeOffset := s.writeOffset
 	if !config.IncludePendingOutgoingFrames {
@@ -568,11 +568,11 @@ func (s *sendStream) storeSendState(state *handover.BidiStreamState, perspective
 	if config.IncludePendingOutgoingFrames {
 		state.SetPendingOutgoingFrames(perspective, pendingFrames)
 	}
-	s.flowController.StoreState(state, perspective)
+	s.flowController.StoreSendState(state, perspective)
 }
 
 // if fin offset is not known yet set to MaxByteCount
-func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspective protocol.Perspective) {
+func (s *sendStream) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
 	offset := state.OutgoingOffset(perspective)
 	for frameOffset, frameData := range state.PendingSentData(perspective) {
 		frameEnd := frameOffset + ByteCount(len(frameData))
@@ -602,5 +602,5 @@ func (s *sendStream) restoreSendState(state *handover.BidiStreamState, perspecti
 		s.mutex.Unlock()
 		s.queueRetransmission(f)
 	}
-	s.flowController.RestoreState(state, perspective)
+	s.flowController.RestoreSendState(state, perspective)
 }

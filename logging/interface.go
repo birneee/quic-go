@@ -158,4 +158,5 @@ type QlogEventDetails interface {
 
 type QlogWriter interface {
 	RecordEvent(eventTime time.Time, details QlogEventDetails)
+	Close()
 }

@@ -149,15 +149,21 @@ func (c *streamFlowController) GetWindowUpdate() protocol.ByteCount {
 	return offset
 }
 
-func (c *streamFlowController) StoreState(state *handover.BidiStreamState, perspective protocol.Perspective) {
-	state.SetIncomingMaxData(perspective, c.receiveWindow)
+func (c *streamFlowController) StoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
 	state.SetOutgoingMaxData(perspective, c.sendWindow)
 }
 
-func (c *streamFlowController) RestoreState(state *handover.BidiStreamState, perspective protocol.Perspective) {
-	c.receiveWindow = state.IncomingMaxData(perspective)
-	c.bytesRead = state.IncomingOffset(perspective)
+func (c *streamFlowController) RestoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
 	c.sendWindow = state.OutgoingMaxData(perspective)
 	c.bytesSent = state.OutgoingOffset(perspective)
+}
+
+func (c *streamFlowController) StoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
+	state.SetIncomingMaxData(perspective, c.receiveWindow)
+}
+
+func (c *streamFlowController) RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
+	c.receiveWindow = state.IncomingMaxData(perspective)
+	c.bytesRead = state.IncomingOffset(perspective)
 	c.queueWindowUpdate()
 }
