@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"github.com/quic-go/quic-go/internal/xads"
 	"net"
 	"os"
 	"sync"
@@ -83,6 +84,8 @@ type stream struct {
 }
 
 var _ Stream = &stream{}
+var _ streamI = &stream{}
+var _ xads.Stream = &stream{}
 
 // newStream creates a new Stream
 func newStream(streamID protocol.StreamID,
@@ -143,4 +146,16 @@ func (s *stream) checkIfCompleted() {
 	if s.sendStreamCompleted && s.receiveStreamCompleted {
 		s.sender.onStreamCompleted(s.StreamID())
 	}
+}
+
+func (s *stream) ReceiveStream() xads.ReceiveStream {
+	return &s.receiveStream
+}
+
+func (s *stream) SendStream() xads.SendStream {
+	return &s.sendStream
+}
+
+func (s *stream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
 }

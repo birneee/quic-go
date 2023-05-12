@@ -91,4 +91,5 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
+	TlsConn() *qtls.Conn
 }

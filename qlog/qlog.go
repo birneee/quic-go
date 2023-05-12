@@ -490,3 +490,14 @@ func (t *connectionTracer) Debug(name, msg string) {
 	})
 	t.mutex.Unlock()
 }
+
+func (t *connectionTracer) XadsReceiveRecord(streamID logging.StreamID, rawLength int, dataLength int) {
+	//TODO this event is not standardized by https://datatracker.ietf.org/doc/html/draft-marx-qlog-event-definitions-quic-h3
+	t.mutex.Lock()
+	t.recordEvent(time.Now(), &eventXadsRecordReceived{
+		streamID:   streamID,
+		rawLength:  rawLength,
+		dataLength: dataLength,
+	})
+	t.mutex.Unlock()
+}

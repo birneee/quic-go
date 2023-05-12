@@ -57,6 +57,8 @@ const (
 	retrySourceConnectionIDParameterID         transportParameterID = 0x10
 	// RFC 9221
 	maxDatagramFrameSizeParameterID transportParameterID = 0x20
+	// TODO Not IANA Registered! 0x40 is used temporarily (see RFC9000 section 22.3)
+	extraStreamEncryptionParameterID transportParameterID = 0x40
 )
 
 // PreferredAddress is the value encoding in the preferred_address transport parameter
@@ -98,6 +100,9 @@ type TransportParameters struct {
 	ActiveConnectionIDLimit uint64
 
 	MaxDatagramFrameSize protocol.ByteCount
+
+	// Use XADS-QUIC extension
+	ExtraApplicationDataSecurity bool
 }
 
 // Unmarshal the transport parameters
@@ -191,6 +196,11 @@ func (p *TransportParameters) unmarshal(r *bytes.Reader, sentBy protocol.Perspec
 			}
 			connID, _ := protocol.ReadConnectionID(r, int(paramLen))
 			p.RetrySourceConnectionID = &connID
+		case extraStreamEncryptionParameterID:
+			if paramLen != 0 {
+				return fmt.Errorf("wrong length for extra_stream_encryption: %d (expected empty)", paramLen)
+			}
+			p.ExtraApplicationDataSecurity = true
 		default:
 			r.Seek(int64(paramLen), io.SeekCurrent)
 		}
@@ -424,7 +434,12 @@ func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
 			b = append(b, v...)
 		}
 	}
-
+	// extra_stream_encryption
+	// TODO do not give this to a middlebox
+	if p.ExtraApplicationDataSecurity {
+		b = quicvarint.Append(b, uint64(extraStreamEncryptionParameterID))
+		b = quicvarint.Append(b, 0) // length
+	}
 	return b
 }
 
@@ -458,7 +473,11 @@ func (p *TransportParameters) MarshalForSessionTicket(b []byte) []byte {
 	// initial_max_uni_streams
 	b = p.marshalVarintParam(b, initialMaxStreamsUniParameterID, uint64(p.MaxUniStreamNum))
 	// active_connection_id_limit
-	return p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
+	b = p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
+	if p.ExtraApplicationDataSecurity {
+		panic("implement me")
+	}
+	return b
 }
 
 // UnmarshalFromSessionTicket unmarshals transport parameters from a session ticket.

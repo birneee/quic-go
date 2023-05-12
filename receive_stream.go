@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/internal/xads"
 	"io"
 	"sync"
 	"time"
@@ -50,8 +51,9 @@ type receiveStream struct {
 }
 
 var (
-	_ ReceiveStream  = &receiveStream{}
-	_ receiveStreamI = &receiveStream{}
+	_ ReceiveStream      = &receiveStream{}
+	_ receiveStreamI     = &receiveStream{}
+	_ xads.ReceiveStream = &receiveStream{}
 )
 
 func newReceiveStream(
@@ -320,4 +322,20 @@ func (s *receiveStream) signalRead() {
 	case s.readChan <- struct{}{}:
 	default:
 	}
+}
+
+func (s *receiveStream) HandleStreamFrame(frame *wire.StreamFrame) error {
+	return s.handleStreamFrame(frame)
+}
+
+func (s *receiveStream) HandleResetStreamFrame(frame *wire.ResetStreamFrame) error {
+	return s.handleResetStreamFrame(frame)
+}
+
+func (s *receiveStream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
+}
+
+func (s *receiveStream) GetWindowUpdate() protocol.ByteCount {
+	return s.getWindowUpdate()
 }

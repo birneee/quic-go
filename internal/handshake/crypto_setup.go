@@ -841,3 +841,7 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
 }
+
+func (h *cryptoSetup) TlsConn() *qtls.Conn {
+	return h.conn
+}

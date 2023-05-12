@@ -109,6 +109,20 @@ func (mr *MockQUICConnMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockQUICConn)(nil).Context))
 }
 
+// ExtraApplicationDataSecurity mocks base method.
+func (m *MockQUICConn) ExtraApplicationDataSecurity() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraApplicationDataSecurity")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraApplicationDataSecurity indicates an expected call of ExtraApplicationDataSecurity.
+func (mr *MockQUICConnMockRecorder) ExtraApplicationDataSecurity() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraApplicationDataSecurity", reflect.TypeOf((*MockQUICConn)(nil).ExtraApplicationDataSecurity))
+}
+
 // GetVersion mocks base method.
 func (m *MockQUICConn) GetVersion() protocol.VersionNumber {
 	m.ctrl.T.Helper()

@@ -262,3 +262,17 @@ func (mr *MockCryptoSetupMockRecorder) SetLargest1RTTAcked(arg0 interface{}) *go
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLargest1RTTAcked", reflect.TypeOf((*MockCryptoSetup)(nil).SetLargest1RTTAcked), arg0)
 }
+
+// TlsConn mocks base method.
+func (m *MockCryptoSetup) TlsConn() *qtls.Conn {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TlsConn")
+	ret0, _ := ret[0].(*qtls.Conn)
+	return ret0
+}
+
+// TlsConn indicates an expected call of TlsConn.
+func (mr *MockCryptoSetupMockRecorder) TlsConn() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TlsConn", reflect.TypeOf((*MockCryptoSetup)(nil).TlsConn))
+}

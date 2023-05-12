@@ -109,6 +109,20 @@ func (mr *MockEarlyConnectionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockEarlyConnection)(nil).Context))
 }
 
+// ExtraApplicationDataSecurity mocks base method.
+func (m *MockEarlyConnection) ExtraApplicationDataSecurity() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtraApplicationDataSecurity")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ExtraApplicationDataSecurity indicates an expected call of ExtraApplicationDataSecurity.
+func (mr *MockEarlyConnectionMockRecorder) ExtraApplicationDataSecurity() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtraApplicationDataSecurity", reflect.TypeOf((*MockEarlyConnection)(nil).ExtraApplicationDataSecurity))
+}
+
 // HandshakeComplete mocks base method.
 func (m *MockEarlyConnection) HandshakeComplete() <-chan struct{} {
 	m.ctrl.T.Helper()

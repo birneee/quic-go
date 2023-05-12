@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/internal/qtls"
+	"github.com/quic-go/quic-go/internal/xads"
 	"io"
 	"net"
 	"reflect"
@@ -49,6 +51,8 @@ type streamManager interface {
 	CloseWithError(error)
 	ResetFor0RTT()
 	UseResetMaps()
+	// TODO set this in constructor
+	SetXADSCryptoSetup(xads.CryptoSetup)
 }
 
 type cryptoStreamHandler interface {
@@ -59,6 +63,7 @@ type cryptoStreamHandler interface {
 	GetSessionTicket() ([]byte, error)
 	io.Closer
 	ConnectionState() handshake.ConnectionState
+	TlsConn() *qtls.Conn
 }
 
 type packetInfo struct {
@@ -315,6 +320,7 @@ var newConnection = func(
 		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:       srcConnID,
 		RetrySourceConnectionID:         retrySrcConnID,
+		ExtraApplicationDataSecurity:    s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -428,6 +434,7 @@ var newClientConnection = func(
 		DisableActiveMigration:         true,
 		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID:      srcConnID,
+		ExtraApplicationDataSecurity:   s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -1649,6 +1656,10 @@ func (s *connection) restoreTransportParameters(params *wire.TransportParameters
 	s.connStateMutex.Lock()
 	s.connState.SupportsDatagrams = s.supportsDatagrams()
 	s.connStateMutex.Unlock()
+
+	if params.ExtraApplicationDataSecurity {
+		panic("implement me")
+	}
 }
 
 func (s *connection) handleTransportParameters(params *wire.TransportParameters) {
@@ -1685,6 +1696,10 @@ func (s *connection) checkTransportParameters(params *wire.TransportParameters) 
 	// check the initial_source_connection_id
 	if params.InitialSourceConnectionID != s.handshakeDestConnID {
 		return fmt.Errorf("expected initial_source_connection_id to equal %s, is %s", s.handshakeDestConnID, params.InitialSourceConnectionID)
+	}
+
+	if s.config.Experimental.ExtraApplicationDataSecurity == EnforceExtraApplicationDataSecurity && !params.ExtraApplicationDataSecurity {
+		return fmt.Errorf("missing extra_stream_encryption; peer does not support the XADS-QUIC extension")
 	}
 
 	if s.perspective == protocol.PerspectiveServer {
@@ -1725,6 +1740,9 @@ func (s *connection) applyTransportParameters() {
 	if params.PreferredAddress != nil {
 		// Retire the connection ID.
 		s.connIDManager.AddFromPreferredAddress(params.PreferredAddress.ConnectionID, params.PreferredAddress.StatelessResetToken)
+	}
+	if s.config.Experimental.ExtraApplicationDataSecurity.enabled() && params.ExtraApplicationDataSecurity {
+		s.streamsMap.SetXADSCryptoSetup(xads.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
 	}
 }
 
@@ -2196,4 +2214,8 @@ func (s *connection) NextConnection() Connection {
 	<-s.HandshakeComplete()
 	s.streamsMap.UseResetMaps()
 	return s
+}
+
+func (s *connection) ExtraApplicationDataSecurity() bool {
+	return s.config.Experimental.ExtraApplicationDataSecurity.enabled() && s.peerParams.ExtraApplicationDataSecurity
 }

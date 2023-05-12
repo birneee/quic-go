@@ -3,6 +3,7 @@ package quic
 import (
 	"context"
 	"fmt"
+	"github.com/quic-go/quic-go/internal/xads"
 	"sync"
 	"time"
 
@@ -55,8 +56,9 @@ type sendStream struct {
 }
 
 var (
-	_ SendStream  = &sendStream{}
-	_ sendStreamI = &sendStream{}
+	_ SendStream      = &sendStream{}
+	_ sendStreamI     = &sendStream{}
+	_ xads.SendStream = &sendStream{}
 )
 
 func newSendStream(
@@ -486,4 +488,24 @@ func (s *sendStream) signalWrite() {
 	case s.writeChan <- struct{}{}:
 	default:
 	}
+}
+
+func (s *sendStream) HasData() bool {
+	return s.hasData()
+}
+
+func (s *sendStream) HandleStopSendingFrame(frame *wire.StopSendingFrame) {
+	s.handleStopSendingFrame(frame)
+}
+
+func (s *sendStream) PopStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (*ackhandler.Frame, bool) {
+	return s.popStreamFrame(maxBytes, v)
+}
+
+func (s *sendStream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
+}
+
+func (s *sendStream) UpdateSendWindow(count protocol.ByteCount) {
+	s.updateSendWindow(count)
 }

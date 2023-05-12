@@ -56,3 +56,5 @@ func (n NullConnectionTracer) LossTimerExpired(timerType TimerType, level Encryp
 func (n NullConnectionTracer) LossTimerCanceled()                                          {}
 func (n NullConnectionTracer) Close()                                                      {}
 func (n NullConnectionTracer) Debug(name, msg string)                                      {}
+
+func (n NullConnectionTracer) XadsReceiveRecord(streamID StreamID, rawLength int, dataLength int) {}

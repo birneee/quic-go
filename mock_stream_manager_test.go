@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
+	xads "github.com/quic-go/quic-go/internal/xads"
 )
 
 // MockStreamManager is a mock of StreamManager interface.
@@ -204,6 +205,18 @@ func (m *MockStreamManager) ResetFor0RTT() {
 func (mr *MockStreamManagerMockRecorder) ResetFor0RTT() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetFor0RTT", reflect.TypeOf((*MockStreamManager)(nil).ResetFor0RTT))
+}
+
+// SetXADSCryptoSetup mocks base method.
+func (m *MockStreamManager) SetXADSCryptoSetup(arg0 xads.CryptoSetup) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetXADSCryptoSetup", arg0)
+}
+
+// SetXADSCryptoSetup indicates an expected call of SetXADSCryptoSetup.
+func (mr *MockStreamManagerMockRecorder) SetXADSCryptoSetup(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXADSCryptoSetup", reflect.TypeOf((*MockStreamManager)(nil).SetXADSCryptoSetup), arg0)
 }
 
 // UpdateLimits mocks base method.

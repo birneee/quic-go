@@ -26,6 +26,21 @@ const (
 	Version2 = protocol.Version2
 )
 
+type ExtraApplicationDataSecurityMode uint
+
+const (
+	// DisableExtraApplicationDataSecurity disables the use of the XADS-QUIC extension (default)
+	DisableExtraApplicationDataSecurity ExtraApplicationDataSecurityMode = 0
+	// PreferExtraApplicationDataSecurity enables XADS-QUIC only when the peer supports it
+	PreferExtraApplicationDataSecurity ExtraApplicationDataSecurityMode = 1
+	// EnforceExtraApplicationDataSecurity enables XADS-QUIC, but terminates the connection with a TRANSPORT_PARAMETER_ERROR when the peer does not support it
+	EnforceExtraApplicationDataSecurity ExtraApplicationDataSecurityMode = 2
+)
+
+func (a ExtraApplicationDataSecurityMode) enabled() bool {
+	return a != DisableExtraApplicationDataSecurity
+}
+
 // A ClientToken is a token received by the client.
 // It can be used to skip address validation on future connection attempts.
 type ClientToken struct {
@@ -187,6 +202,8 @@ type Connection interface {
 	SendMessage([]byte) error
 	// ReceiveMessage gets a message received in a datagram, as specified in RFC 9221.
 	ReceiveMessage() ([]byte, error)
+	// ExtraApplicationDataSecurity returns true if XADS-QUIC is used
+	ExtraApplicationDataSecurity() bool
 }
 
 // An EarlyConnection is a connection that is handshaking.
@@ -323,6 +340,7 @@ type Config struct {
 	// Enable QUIC datagram support (RFC 9221).
 	EnableDatagrams bool
 	Tracer          func(context.Context, logging.Perspective, ConnectionID) logging.ConnectionTracer
+	Experimental    ExperimentalConfig
 }
 
 type ClientHelloInfo struct {
@@ -334,4 +352,12 @@ type ConnectionState struct {
 	TLS               handshake.ConnectionState
 	SupportsDatagrams bool
 	Version           VersionNumber
+}
+
+type ExperimentalConfig struct {
+	// Use XADS-QUIC extension.
+	// Derive an additional key in the handshake,
+	// to additionally encrypt the stream payload,
+	// before the QUIC Packet is encrypted.
+	ExtraApplicationDataSecurity ExtraApplicationDataSecurityMode
 }

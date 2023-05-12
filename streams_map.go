@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/internal/xads"
 	"net"
 	"sync"
 
@@ -59,6 +60,8 @@ type streamsMap struct {
 	incomingBidiStreams *incomingStreamsMap[streamI]
 	incomingUniStreams  *incomingStreamsMap[receiveStreamI]
 	reset               bool
+	// if nil, XADS-QUIC extension is not used
+	xadsCryptoSetup xads.CryptoSetup
 }
 
 var _ streamManager = &streamsMap{}
@@ -86,7 +89,11 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(id, m.sender, m.newFlowController(id))
+			stream := newStream(id, m.sender, m.newFlowController(id))
+			if m.xadsCryptoSetup != nil {
+				return xadsStreamI{m.xadsCryptoSetup.NewStream(stream)}
+			}
+			return stream
 		},
 		m.sender.queueControlFrame,
 	)
@@ -94,7 +101,11 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id))
+			stream := newStream(id, m.sender, m.newFlowController(id))
+			if m.xadsCryptoSetup != nil {
+				return xadsStreamI{m.xadsCryptoSetup.NewStream(stream)}
+			}
+			return stream
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -103,7 +114,11 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id))
+			stream := newSendStream(id, m.sender, m.newFlowController(id))
+			if m.xadsCryptoSetup != nil {
+				return xadsSendStreamI{m.xadsCryptoSetup.NewSendStream(stream)}
+			}
+			return stream
 		},
 		m.sender.queueControlFrame,
 	)
@@ -111,7 +126,11 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
-			return newReceiveStream(id, m.sender, m.newFlowController(id))
+			stream := newReceiveStream(id, m.sender, m.newFlowController(id))
+			if m.xadsCryptoSetup != nil {
+				return xadsReceiveStreamI{m.xadsCryptoSetup.NewReceiveStream(stream)}
+			}
+			return stream
 		},
 		m.maxIncomingUniStreams,
 		m.sender.queueControlFrame,
@@ -315,4 +334,8 @@ func (m *streamsMap) UseResetMaps() {
 	m.mutex.Lock()
 	m.reset = false
 	m.mutex.Unlock()
+}
+
+func (m *streamsMap) SetXADSCryptoSetup(xadsCryptoSetup xads.CryptoSetup) {
+	m.xadsCryptoSetup = xadsCryptoSetup
 }

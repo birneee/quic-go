@@ -374,3 +374,15 @@ func (mr *MockConnectionTracerMockRecorder) UpdatedPTOCount(arg0 interface{}) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatedPTOCount", reflect.TypeOf((*MockConnectionTracer)(nil).UpdatedPTOCount), arg0)
 }
+
+// XadsReceiveRecord mocks base method.
+func (m *MockConnectionTracer) XadsReceiveRecord(arg0 protocol.StreamID, arg1, arg2 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "XadsReceiveRecord", arg0, arg1, arg2)
+}
+
+// XadsReceiveRecord indicates an expected call of XadsReceiveRecord.
+func (mr *MockConnectionTracerMockRecorder) XadsReceiveRecord(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XadsReceiveRecord", reflect.TypeOf((*MockConnectionTracer)(nil).XadsReceiveRecord), arg0, arg1, arg2)
+}

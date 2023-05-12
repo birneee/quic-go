@@ -224,3 +224,9 @@ func (m *connTracerMultiplexer) Close() {
 		t.Close()
 	}
 }
+
+func (m *connTracerMultiplexer) XadsReceiveRecord(streamID StreamID, rawLength int, dataLength int) {
+	for _, t := range m.tracers {
+		t.XadsReceiveRecord(streamID, rawLength, dataLength)
+	}
+}
