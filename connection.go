@@ -1657,7 +1657,7 @@ func (s *connection) restoreTransportParameters(params *wire.TransportParameters
 	s.connState.SupportsDatagrams = s.supportsDatagrams()
 	s.connStateMutex.Unlock()
 
-	if params.ExtraApplicationDataSecurity {
+	if params.ExtraApplicationDataSecurity || s.config.Experimental.ExtraApplicationDataSecurity.enabled() {
 		panic("implement me")
 	}
 }

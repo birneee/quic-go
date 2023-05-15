@@ -474,9 +474,6 @@ func (p *TransportParameters) MarshalForSessionTicket(b []byte) []byte {
 	b = p.marshalVarintParam(b, initialMaxStreamsUniParameterID, uint64(p.MaxUniStreamNum))
 	// active_connection_id_limit
 	b = p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
-	if p.ExtraApplicationDataSecurity {
-		panic("implement me")
-	}
 	return b
 }
 
