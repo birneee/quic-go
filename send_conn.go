@@ -10,6 +10,7 @@ type sendConn interface {
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	SetCurrentRemoteAddr(addr net.Addr)
 }
 
 type sconn struct {
@@ -50,4 +51,8 @@ func (c *sconn) LocalAddr() net.Addr {
 		}
 	}
 	return addr
+}
+
+func (c *sconn) SetCurrentRemoteAddr(addr net.Addr) {
+	c.remoteAddr = addr
 }

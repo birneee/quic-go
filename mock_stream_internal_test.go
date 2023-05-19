@@ -10,6 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/quic-go/quic-go/handover"
 	ackhandler "github.com/quic-go/quic-go/internal/ackhandler"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	qerr "github.com/quic-go/quic-go/internal/qerr"
@@ -106,6 +107,20 @@ func (mr *MockStreamIMockRecorder) Read(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockStreamI)(nil).Read), arg0)
 }
 
+// ReadOffset mocks base method.
+func (m *MockStreamI) ReadOffset() protocol.ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadOffset")
+	ret0, _ := ret[0].(protocol.ByteCount)
+	return ret0
+}
+
+// ReadOffset indicates an expected call of ReadOffset.
+func (mr *MockStreamIMockRecorder) ReadOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadOffset", reflect.TypeOf((*MockStreamI)(nil).ReadOffset))
+}
+
 // SetDeadline mocks base method.
 func (m *MockStreamI) SetDeadline(arg0 time.Time) error {
 	m.ctrl.T.Helper()
@@ -175,6 +190,20 @@ func (m *MockStreamI) Write(arg0 []byte) (int, error) {
 func (mr *MockStreamIMockRecorder) Write(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockStreamI)(nil).Write), arg0)
+}
+
+// WriteOffset mocks base method.
+func (m *MockStreamI) WriteOffset() protocol.ByteCount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteOffset")
+	ret0, _ := ret[0].(protocol.ByteCount)
+	return ret0
+}
+
+// WriteOffset indicates an expected call of WriteOffset.
+func (mr *MockStreamIMockRecorder) WriteOffset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteOffset", reflect.TypeOf((*MockStreamI)(nil).WriteOffset))
 }
 
 // closeForShutdown mocks base method.
@@ -270,6 +299,54 @@ func (m *MockStreamI) popStreamFrame(arg0 protocol.ByteCount, arg1 protocol.Vers
 func (mr *MockStreamIMockRecorder) popStreamFrame(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "popStreamFrame", reflect.TypeOf((*MockStreamI)(nil).popStreamFrame), arg0, arg1)
+}
+
+// restoreReceiveState mocks base method.
+func (m *MockStreamI) restoreReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "restoreReceiveState", arg0, arg1)
+}
+
+// restoreReceiveState indicates an expected call of restoreReceiveState.
+func (mr *MockStreamIMockRecorder) restoreReceiveState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "restoreReceiveState", reflect.TypeOf((*MockStreamI)(nil).restoreReceiveState), arg0, arg1)
+}
+
+// restoreSendState mocks base method.
+func (m *MockStreamI) restoreSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "restoreSendState", arg0, arg1)
+}
+
+// restoreSendState indicates an expected call of restoreSendState.
+func (mr *MockStreamIMockRecorder) restoreSendState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "restoreSendState", reflect.TypeOf((*MockStreamI)(nil).restoreSendState), arg0, arg1)
+}
+
+// storeReceiveState mocks base method.
+func (m *MockStreamI) storeReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective, arg2 *ConnectionStateStoreConf) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "storeReceiveState", arg0, arg1, arg2)
+}
+
+// storeReceiveState indicates an expected call of storeReceiveState.
+func (mr *MockStreamIMockRecorder) storeReceiveState(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockStreamI)(nil).storeReceiveState), arg0, arg1, arg2)
+}
+
+// storeSendState mocks base method.
+func (m *MockStreamI) storeSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective, arg2 *ConnectionStateStoreConf) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "storeSendState", arg0, arg1, arg2)
+}
+
+// storeSendState indicates an expected call of storeSendState.
+func (mr *MockStreamIMockRecorder) storeSendState(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockStreamI)(nil).storeSendState), arg0, arg1, arg2)
 }
 
 // updateSendWindow mocks base method.

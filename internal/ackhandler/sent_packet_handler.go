@@ -3,6 +3,7 @@ package ackhandler
 import (
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/handover"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/congestion"
@@ -858,4 +859,47 @@ func (h *sentPacketHandler) SetHandshakeConfirmed() {
 	// We don't send PTOs for application data packets before the handshake completes.
 	// Make sure the timer is armed now, if necessary.
 	h.setLossDetectionTimer()
+}
+
+func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	return h.appDataPackets.pns.Peek() - 1
+}
+
+func (h *sentPacketHandler) SetHighest1RTTPacketNumber(pn protocol.PacketNumber) {
+	h.appDataPackets.pns.SetNext(pn + 1)
+	h.appDataPackets.history.highestSent = pn
+	// validate peer address
+	h.ReceivedPacket(protocol.EncryptionHandshake)
+}
+
+func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+	var streamFrames []*wire.StreamFrame
+	if encLevel != protocol.Encryption1RTT {
+		panic("implement me")
+	}
+	for _, packet := range h.appDataPackets.history.packetMap {
+		for _, frame := range packet.Value.Frames {
+			if frame, ok := frame.Frame.(*wire.StreamFrame); ok {
+				if frame.StreamID == streamID {
+					streamFrames = append(streamFrames, frame)
+				}
+			}
+		}
+	}
+	return streamFrames
+}
+
+func (h *sentPacketHandler) StoreState(s *handover.State) {
+	s.RTT = h.rttStats.SmoothedRTT()
+	s.SetCongestionWindow(h.congestion.GetCongestionWindow(), h.perspective)
+}
+
+func (h *sentPacketHandler) RestoreState(s *handover.State) {
+	if s.RTT != 0 {
+		h.rttStats.SetInitialRTT(s.RTT)
+	}
+	if s.CongestionWindow(h.perspective) != 0 {
+		h.congestion.SetCongestionWindow(s.CongestionWindow(h.perspective) / 2)
+		// divide by 2, to apply congestion window carefully
+	}
 }

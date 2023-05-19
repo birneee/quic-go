@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/quic-go/quic-go/handover"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
 )
@@ -64,6 +65,20 @@ func (m *MockStreamManager) AcceptUniStream(arg0 context.Context) (ReceiveStream
 func (mr *MockStreamManagerMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockStreamManager)(nil).AcceptUniStream), arg0)
+}
+
+// BidiStreamStates mocks base method.
+func (m *MockStreamManager) BidiStreamStates(arg0 *ConnectionStateStoreConf) map[protocol.StreamID]handover.BidiStreamState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BidiStreamStates", arg0)
+	ret0, _ := ret[0].(map[protocol.StreamID]handover.BidiStreamState)
+	return ret0
+}
+
+// BidiStreamStates indicates an expected call of BidiStreamStates.
+func (mr *MockStreamManagerMockRecorder) BidiStreamStates(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BidiStreamStates", reflect.TypeOf((*MockStreamManager)(nil).BidiStreamStates), arg0)
 }
 
 // CloseWithError mocks base method.
@@ -194,6 +209,21 @@ func (mr *MockStreamManagerMockRecorder) OpenUniStreamSync(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockStreamManager)(nil).OpenUniStreamSync), arg0)
 }
 
+// OpenedBidiStream mocks base method.
+func (m *MockStreamManager) OpenedBidiStream(arg0 protocol.StreamID) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenedBidiStream", arg0)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OpenedBidiStream indicates an expected call of OpenedBidiStream.
+func (mr *MockStreamManagerMockRecorder) OpenedBidiStream(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedBidiStream", reflect.TypeOf((*MockStreamManager)(nil).OpenedBidiStream), arg0)
+}
+
 // ResetFor0RTT mocks base method.
 func (m *MockStreamManager) ResetFor0RTT() {
 	m.ctrl.T.Helper()
@@ -204,6 +234,65 @@ func (m *MockStreamManager) ResetFor0RTT() {
 func (mr *MockStreamManagerMockRecorder) ResetFor0RTT() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetFor0RTT", reflect.TypeOf((*MockStreamManager)(nil).ResetFor0RTT))
+}
+
+// RestoreBidiStream mocks base method.
+func (m *MockStreamManager) RestoreBidiStream(arg0 *handover.BidiStreamState) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RestoreBidiStream", arg0)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RestoreBidiStream indicates an expected call of RestoreBidiStream.
+func (mr *MockStreamManagerMockRecorder) RestoreBidiStream(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreBidiStream", reflect.TypeOf((*MockStreamManager)(nil).RestoreBidiStream), arg0)
+}
+
+// RestoreReceiveStream mocks base method.
+func (m *MockStreamManager) RestoreReceiveStream(arg0 *handover.UniStreamState) (ReceiveStream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RestoreReceiveStream", arg0)
+	ret0, _ := ret[0].(ReceiveStream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RestoreReceiveStream indicates an expected call of RestoreReceiveStream.
+func (mr *MockStreamManagerMockRecorder) RestoreReceiveStream(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreReceiveStream", reflect.TypeOf((*MockStreamManager)(nil).RestoreReceiveStream), arg0)
+}
+
+// RestoreSendStream mocks base method.
+func (m *MockStreamManager) RestoreSendStream(arg0 *handover.UniStreamState) (SendStream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RestoreSendStream", arg0)
+	ret0, _ := ret[0].(SendStream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RestoreSendStream indicates an expected call of RestoreSendStream.
+func (mr *MockStreamManagerMockRecorder) RestoreSendStream(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreSendStream", reflect.TypeOf((*MockStreamManager)(nil).RestoreSendStream), arg0)
+}
+
+// UniStreamStates mocks base method.
+func (m *MockStreamManager) UniStreamStates(arg0 *ConnectionStateStoreConf) map[protocol.StreamID]handover.UniStreamState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UniStreamStates", arg0)
+	ret0, _ := ret[0].(map[protocol.StreamID]handover.UniStreamState)
+	return ret0
+}
+
+// UniStreamStates indicates an expected call of UniStreamStates.
+func (mr *MockStreamManagerMockRecorder) UniStreamStates(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UniStreamStates", reflect.TypeOf((*MockStreamManager)(nil).UniStreamStates), arg0)
 }
 
 // UpdateLimits mocks base method.

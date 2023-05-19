@@ -165,6 +165,18 @@ func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) OnRetransmissionTimeout(a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnRetransmissionTimeout", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).OnRetransmissionTimeout), arg0)
 }
 
+// SetCongestionWindow mocks base method.
+func (m *MockSendAlgorithmWithDebugInfos) SetCongestionWindow(arg0 protocol.ByteCount) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCongestionWindow", arg0)
+}
+
+// SetCongestionWindow indicates an expected call of SetCongestionWindow.
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetCongestionWindow(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCongestionWindow", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetCongestionWindow), arg0)
+}
+
 // SetMaxDatagramSize mocks base method.
 func (m *MockSendAlgorithmWithDebugInfos) SetMaxDatagramSize(arg0 protocol.ByteCount) {
 	m.ctrl.T.Helper()

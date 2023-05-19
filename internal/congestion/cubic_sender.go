@@ -314,3 +314,13 @@ func (c *cubicSender) SetMaxDatagramSize(s protocol.ByteCount) {
 	}
 	c.pacer.SetMaxDatagramSize(s)
 }
+
+func (c *cubicSender) SetCongestionWindow(window protocol.ByteCount) {
+	c.congestionWindow = window
+	if c.congestionWindow < c.minCongestionWindow() {
+		c.congestionWindow = c.minCongestionWindow()
+	}
+	if c.congestionWindow > c.maxCongestionWindow() {
+		c.congestionWindow = c.maxCongestionWindow()
+	}
+}

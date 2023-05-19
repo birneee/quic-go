@@ -2,6 +2,7 @@ package handshake
 
 import (
 	"errors"
+	"github.com/quic-go/quic-go/handover"
 	"io"
 	"time"
 
@@ -91,4 +92,5 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
+	StoreHandoverState(t *handover.State, p protocol.Perspective)
 }

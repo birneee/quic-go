@@ -74,6 +74,10 @@ type Transport struct {
 	isSingleUse bool // was created for a single server or client, i.e. by calling quic.Listen or quic.Dial
 
 	logger utils.Logger
+
+	// for e.g. H-QUIC
+	handleUnknownConnection func(ConnectionID, UnhandledPacket)
+	restoredHQUIC           bool
 }
 
 // Listen starts listening for incoming QUIC connections.
@@ -102,6 +106,7 @@ func (t *Transport) Listen(tlsConf *tls.Config, conf *Config) (*Listener, error)
 		return nil, err
 	}
 	t.server = s
+	t.handleUnknownConnection = s.config.HandleUnknownConnectionPacket
 	return &Listener{baseServer: s}, nil
 }
 
@@ -131,6 +136,7 @@ func (t *Transport) ListenEarly(tlsConf *tls.Config, conf *Config) (*EarlyListen
 		return nil, err
 	}
 	t.server = s
+	t.handleUnknownConnection = s.config.HandleUnknownConnectionPacket
 	return &EarlyListener{baseServer: s}, nil
 }
 
@@ -340,6 +346,9 @@ func (t *Transport) handlePacket(p *receivedPacket) {
 		return
 	}
 	if !wire.IsLongHeaderPacket(p.data[0]) {
+		if t.handleUnknownConnection != nil {
+			t.handleUnknownConnection(connID, UnhandledPacket{receivedPacket: p})
+		}
 		go t.maybeSendStatelessReset(p, connID)
 		return
 	}
@@ -354,7 +363,7 @@ func (t *Transport) handlePacket(p *receivedPacket) {
 }
 
 func (t *Transport) maybeSendStatelessReset(p *receivedPacket, connID protocol.ConnectionID) {
-	defer p.buffer.Release()
+	defer p.buffer.MaybeRelease()
 	if t.StatelessResetKey == nil {
 		return
 	}

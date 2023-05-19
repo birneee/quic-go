@@ -47,7 +47,7 @@ var _ = Describe("Config", func() {
 			}
 
 			switch fn := typ.Field(i).Name; fn {
-			case "GetConfigForClient", "RequireAddressValidation", "GetLogWriter", "AllowConnectionWindowIncrease", "Tracer":
+			case "GetConfigForClient", "RequireAddressValidation", "GetLogWriter", "AllowConnectionWindowIncrease", "Tracer", "HandleUnknownConnectionPacket":
 				// Can't compare functions.
 			case "Versions":
 				f.Set(reflect.ValueOf([]VersionNumber{1, 2, 3}))
@@ -88,6 +88,12 @@ var _ = Describe("Config", func() {
 			case "DisablePathMTUDiscovery":
 				f.Set(reflect.ValueOf(true))
 			case "Allow0RTT":
+				f.Set(reflect.ValueOf(true))
+			case "IgnoreReceived1RTTPacketsUntilFirstPathMigration":
+				f.Set(reflect.ValueOf(true))
+			case "ProxyConf":
+				f.Set(reflect.ValueOf(&ProxyConfig{}))
+			case "AllowEarlyHandover":
 				f.Set(reflect.ValueOf(true))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))

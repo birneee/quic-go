@@ -1,6 +1,7 @@
 package ackhandler
 
 import (
+	"github.com/quic-go/quic-go/handover"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -34,6 +35,14 @@ type SentPacketHandler interface {
 
 	GetLossDetectionTimeout() time.Time
 	OnLossDetectionTimeout() error
+
+	Highest1RTTPacketNumber() protocol.PacketNumber
+	// SetHighest1RTTPacketNumber is used for connection handover.
+	// Also validates peer address
+	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
+	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
+	StoreState(h *handover.State)
+	RestoreState(h *handover.State)
 }
 
 type sentPacketTracker interface {
@@ -49,4 +58,5 @@ type ReceivedPacketHandler interface {
 
 	GetAlarmTimeout() time.Time
 	GetAckFrame(encLevel protocol.EncryptionLevel, onlyIfQueued bool) *wire.AckFrame
+	Highest1RTTPacketNumber() protocol.PacketNumber
 }

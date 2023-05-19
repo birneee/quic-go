@@ -329,19 +329,25 @@ func (p *TransportParameters) readNumericTransportParameter(
 
 // Marshal the transport parameters
 func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
+	return p.marshal(pers, true)
+}
+
+func (p *TransportParameters) marshal(pers protocol.Perspective, addGreasedValue bool) []byte {
 	// Typical Transport Parameters consume around 110 bytes, depending on the exact values,
 	// especially the lengths of the Connection IDs.
 	// Allocate 256 bytes, so we won't have to grow the slice in any case.
 	b := make([]byte, 0, 256)
 
-	// add a greased value
-	b = quicvarint.Append(b, uint64(27+31*rand.Intn(100)))
-	randomMutex.Lock()
-	length := random.Intn(16)
-	b = quicvarint.Append(b, uint64(length))
-	b = b[:len(b)+length]
-	random.Read(b[len(b)-length:])
-	randomMutex.Unlock()
+	if addGreasedValue {
+		// add a greased value
+		b = quicvarint.Append(b, uint64(27+31*rand.Intn(100)))
+		randomMutex.Lock()
+		length := random.Intn(16)
+		b = quicvarint.Append(b, uint64(length))
+		b = b[:len(b)+length]
+		random.Read(b[len(b)-length:])
+		randomMutex.Unlock()
+	}
 
 	// initial_max_stream_data_bidi_local
 	b = p.marshalVarintParam(b, initialMaxStreamDataBidiLocalParameterID, uint64(p.InitialMaxStreamDataBidiLocal))
@@ -504,4 +510,8 @@ func (p *TransportParameters) String() string {
 	}
 	logString += "}"
 	return fmt.Sprintf(logString, logParams...)
+}
+
+func (p *TransportParameters) MarshalForHandover(pers protocol.Perspective) []byte {
+	return p.marshal(pers, false)
 }

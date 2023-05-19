@@ -128,6 +128,20 @@ func (mr *MockPacketHandlerManagerMockRecorder) GetByResetToken(arg0 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByResetToken", reflect.TypeOf((*MockPacketHandlerManager)(nil).GetByResetToken), arg0)
 }
 
+// GetConnectionByID mocks base method.
+func (m *MockPacketHandlerManager) GetConnectionByID(arg0 protocol.ConnectionID) Connection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConnectionByID", arg0)
+	ret0, _ := ret[0].(Connection)
+	return ret0
+}
+
+// GetConnectionByID indicates an expected call of GetConnectionByID.
+func (mr *MockPacketHandlerManagerMockRecorder) GetConnectionByID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionByID", reflect.TypeOf((*MockPacketHandlerManager)(nil).GetConnectionByID), arg0)
+}
+
 // GetStatelessResetToken mocks base method.
 func (m *MockPacketHandlerManager) GetStatelessResetToken(arg0 protocol.ConnectionID) protocol.StatelessResetToken {
 	m.ctrl.T.Helper()

@@ -25,4 +25,5 @@ type SendAlgorithmWithDebugInfos interface {
 	InSlowStart() bool
 	InRecovery() bool
 	GetCongestionWindow() protocol.ByteCount
+	SetCongestionWindow(window protocol.ByteCount)
 }

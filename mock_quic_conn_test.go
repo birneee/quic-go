@@ -67,6 +67,34 @@ func (mr *MockQUICConnMockRecorder) AcceptUniStream(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptUniStream", reflect.TypeOf((*MockQUICConn)(nil).AcceptUniStream), arg0)
 }
 
+// AddProxy mocks base method.
+func (m *MockQUICConn) AddProxy(arg0 *ProxyConfig) ProxySetupResponse {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddProxy", arg0)
+	ret0, _ := ret[0].(ProxySetupResponse)
+	return ret0
+}
+
+// AddProxy indicates an expected call of AddProxy.
+func (mr *MockQUICConnMockRecorder) AddProxy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProxy", reflect.TypeOf((*MockQUICConn)(nil).AddProxy), arg0)
+}
+
+// AwaitPathUpdate mocks base method.
+func (m *MockQUICConn) AwaitPathUpdate() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AwaitPathUpdate")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// AwaitPathUpdate indicates an expected call of AwaitPathUpdate.
+func (mr *MockQUICConnMockRecorder) AwaitPathUpdate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitPathUpdate", reflect.TypeOf((*MockQUICConn)(nil).AwaitPathUpdate))
+}
+
 // CloseWithError mocks base method.
 func (m *MockQUICConn) CloseWithError(arg0 qerr.ApplicationErrorCode, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -121,6 +149,32 @@ func (m *MockQUICConn) GetVersion() protocol.VersionNumber {
 func (mr *MockQUICConnMockRecorder) GetVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockQUICConn)(nil).GetVersion))
+}
+
+// HandlePacket mocks base method.
+func (m *MockQUICConn) HandlePacket(arg0 UnhandledPacket) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandlePacket", arg0)
+}
+
+// HandlePacket indicates an expected call of HandlePacket.
+func (mr *MockQUICConnMockRecorder) HandlePacket(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePacket", reflect.TypeOf((*MockQUICConn)(nil).HandlePacket), arg0)
+}
+
+// Handover mocks base method.
+func (m *MockQUICConn) Handover(arg0 bool, arg1 *ConnectionStateStoreConf) HandoverStateResponse {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
+	ret0, _ := ret[0].(HandoverStateResponse)
+	return ret0
+}
+
+// Handover indicates an expected call of Handover.
+func (mr *MockQUICConnMockRecorder) Handover(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQUICConn)(nil).Handover), arg0, arg1)
 }
 
 // HandshakeComplete mocks base method.
@@ -225,6 +279,34 @@ func (mr *MockQUICConnMockRecorder) OpenUniStreamSync(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUniStreamSync", reflect.TypeOf((*MockQUICConn)(nil).OpenUniStreamSync), arg0)
 }
 
+// OriginalDestinationConnectionID mocks base method.
+func (m *MockQUICConn) OriginalDestinationConnectionID() protocol.ConnectionID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OriginalDestinationConnectionID")
+	ret0, _ := ret[0].(protocol.ConnectionID)
+	return ret0
+}
+
+// OriginalDestinationConnectionID indicates an expected call of OriginalDestinationConnectionID.
+func (mr *MockQUICConnMockRecorder) OriginalDestinationConnectionID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockQUICConn)(nil).OriginalDestinationConnectionID))
+}
+
+// QueueHandshakeDoneFrame mocks base method.
+func (m *MockQUICConn) QueueHandshakeDoneFrame() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueueHandshakeDoneFrame")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// QueueHandshakeDoneFrame indicates an expected call of QueueHandshakeDoneFrame.
+func (mr *MockQUICConnMockRecorder) QueueHandshakeDoneFrame() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueueHandshakeDoneFrame", reflect.TypeOf((*MockQUICConn)(nil).QueueHandshakeDoneFrame))
+}
+
 // ReceiveMessage mocks base method.
 func (m *MockQUICConn) ReceiveMessage() ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -266,6 +348,20 @@ func (m *MockQUICConn) SendMessage(arg0 []byte) error {
 func (mr *MockQUICConnMockRecorder) SendMessage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockQUICConn)(nil).SendMessage), arg0)
+}
+
+// UpdateRemoteAddr mocks base method.
+func (m *MockQUICConn) UpdateRemoteAddr(arg0 net.UDPAddr, arg1, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRemoteAddr", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRemoteAddr indicates an expected call of UpdateRemoteAddr.
+func (mr *MockQUICConnMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteAddr", reflect.TypeOf((*MockQUICConn)(nil).UpdateRemoteAddr), arg0, arg1, arg2)
 }
 
 // destroy mocks base method.

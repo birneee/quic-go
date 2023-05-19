@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/internal/h_quic"
 	"io"
 	"math"
 	"net"
@@ -840,4 +842,70 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 
 func (h *cryptoSetup) ConnectionState() ConnectionState {
 	return qtls.GetConnectionState(h.conn)
+}
+func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspective) {
+	if !h.conn.ConnectionState().HandshakeComplete {
+		panic("0RTT handover not supported")
+	}
+	if p == logging.PerspectiveClient && !h.clientHelloWritten {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTOpener {
+		panic("illegal handover state")
+	}
+	if !h.has1RTTSealer {
+		panic("illegal handover state")
+	}
+	if h.readEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	if h.writeEncLevel != protocol.Encryption1RTT {
+		panic("illegal handover state")
+	}
+	s.SetOwnTransportParameters(p, h_quic.FilterTransportParameters(*h.ourParams))
+	s.SetPeerTransportParameters(p, h_quic.FilterTransportParameters(*h.peerParams))
+	h.aead.store(s, p)
+}
+
+func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Addr, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, tlsConf *tls.Config) (CryptoSetup, error) {
+	ownParams := state.OwnTransportParameters(perspective)
+	peerParams := state.PeerTransportParameters(perspective)
+
+	cs, _ := newCryptoSetup(
+		nil,
+		nil,
+		protocol.ConnectionID{}, // is not use after migration
+		&ownParams,
+		nil,
+		tlsConf,
+		false,
+		rttStats,
+		tracer,
+		logger,
+		perspective,
+		state.Version,
+	)
+	cs.clientHelloWritten = true
+	cs.has1RTTOpener = true
+	cs.has1RTTSealer = true
+	cs.peerParams = &peerParams
+	cs.aead = restoreUpdatableAEAD(state, perspective, rttStats, tracer, logger)
+	cs.readEncLevel = protocol.Encryption1RTT
+	cs.writeEncLevel = protocol.Encryption1RTT
+	close(cs.handshakeDone)
+
+	remoteAddr := state.RemoteAddress(perspective)
+
+	// creates a new TLS connection without doing a handshake
+	cs.conn = qtls.FromTrafficSecret(
+		newConn(localAddr, remoteAddr),
+		state.CipherSuiteId,
+		nil, // not required
+		nil, // not required
+		cs.tlsConf,
+		cs.extraConf,
+		perspective == protocol.PerspectiveClient,
+	)
+
+	return cs, nil
 }

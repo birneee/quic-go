@@ -9,6 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	handover "github.com/quic-go/quic-go/handover"
 	ackhandler "github.com/quic-go/quic-go/internal/ackhandler"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
@@ -75,6 +76,20 @@ func (m *MockSentPacketHandler) HasPacingBudget() bool {
 func (mr *MockSentPacketHandlerMockRecorder) HasPacingBudget() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasPacingBudget", reflect.TypeOf((*MockSentPacketHandler)(nil).HasPacingBudget))
+}
+
+// Highest1RTTPacketNumber mocks base method.
+func (m *MockSentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Highest1RTTPacketNumber")
+	ret0, _ := ret[0].(protocol.PacketNumber)
+	return ret0
+}
+
+// Highest1RTTPacketNumber indicates an expected call of Highest1RTTPacketNumber.
+func (mr *MockSentPacketHandlerMockRecorder) Highest1RTTPacketNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).Highest1RTTPacketNumber))
 }
 
 // OnLossDetectionTimeout mocks base method.
@@ -175,6 +190,18 @@ func (mr *MockSentPacketHandlerMockRecorder) ResetForRetry() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetForRetry", reflect.TypeOf((*MockSentPacketHandler)(nil).ResetForRetry))
 }
 
+// RestoreState mocks base method.
+func (m *MockSentPacketHandler) RestoreState(arg0 *handover.State) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RestoreState", arg0)
+}
+
+// RestoreState indicates an expected call of RestoreState.
+func (mr *MockSentPacketHandlerMockRecorder) RestoreState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).RestoreState), arg0)
+}
+
 // SendMode mocks base method.
 func (m *MockSentPacketHandler) SendMode() ackhandler.SendMode {
 	m.ctrl.T.Helper()
@@ -213,6 +240,18 @@ func (mr *MockSentPacketHandlerMockRecorder) SetHandshakeConfirmed() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHandshakeConfirmed", reflect.TypeOf((*MockSentPacketHandler)(nil).SetHandshakeConfirmed))
 }
 
+// SetHighest1RTTPacketNumber mocks base method.
+func (m *MockSentPacketHandler) SetHighest1RTTPacketNumber(arg0 protocol.PacketNumber) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetHighest1RTTPacketNumber", arg0)
+}
+
+// SetHighest1RTTPacketNumber indicates an expected call of SetHighest1RTTPacketNumber.
+func (mr *MockSentPacketHandlerMockRecorder) SetHighest1RTTPacketNumber(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHighest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).SetHighest1RTTPacketNumber), arg0)
+}
+
 // SetMaxDatagramSize mocks base method.
 func (m *MockSentPacketHandler) SetMaxDatagramSize(arg0 protocol.ByteCount) {
 	m.ctrl.T.Helper()
@@ -223,6 +262,32 @@ func (m *MockSentPacketHandler) SetMaxDatagramSize(arg0 protocol.ByteCount) {
 func (mr *MockSentPacketHandlerMockRecorder) SetMaxDatagramSize(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxDatagramSize", reflect.TypeOf((*MockSentPacketHandler)(nil).SetMaxDatagramSize), arg0)
+}
+
+// StoreState mocks base method.
+func (m *MockSentPacketHandler) StoreState(arg0 *handover.State) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StoreState", arg0)
+}
+
+// StoreState indicates an expected call of StoreState.
+func (mr *MockSentPacketHandlerMockRecorder) StoreState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).StoreState), arg0)
+}
+
+// StreamFramesInFlight mocks base method.
+func (m *MockSentPacketHandler) StreamFramesInFlight(arg0 protocol.StreamID, arg1 protocol.EncryptionLevel) []*wire.StreamFrame {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StreamFramesInFlight", arg0, arg1)
+	ret0, _ := ret[0].([]*wire.StreamFrame)
+	return ret0
+}
+
+// StreamFramesInFlight indicates an expected call of StreamFramesInFlight.
+func (mr *MockSentPacketHandlerMockRecorder) StreamFramesInFlight(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFramesInFlight", reflect.TypeOf((*MockSentPacketHandler)(nil).StreamFramesInFlight), arg0, arg1)
 }
 
 // TimeUntilSend mocks base method.

@@ -76,6 +76,20 @@ func (mr *MockReceivedPacketHandlerMockRecorder) GetAlarmTimeout() *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAlarmTimeout", reflect.TypeOf((*MockReceivedPacketHandler)(nil).GetAlarmTimeout))
 }
 
+// Highest1RTTPacketNumber mocks base method.
+func (m *MockReceivedPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Highest1RTTPacketNumber")
+	ret0, _ := ret[0].(protocol.PacketNumber)
+	return ret0
+}
+
+// Highest1RTTPacketNumber indicates an expected call of Highest1RTTPacketNumber.
+func (mr *MockReceivedPacketHandlerMockRecorder) Highest1RTTPacketNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockReceivedPacketHandler)(nil).Highest1RTTPacketNumber))
+}
+
 // IsPotentiallyDuplicate mocks base method.
 func (m *MockReceivedPacketHandler) IsPotentiallyDuplicate(arg0 protocol.PacketNumber, arg1 protocol.EncryptionLevel) bool {
 	m.ctrl.T.Helper()

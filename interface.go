@@ -2,7 +2,9 @@ package quic
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"github.com/quic-go/quic-go/handover"
 	"io"
 	"net"
 	"time"
@@ -95,6 +97,7 @@ type ReceiveStream interface {
 	// A zero value for t means Read will not time out.
 
 	SetReadDeadline(t time.Time) error
+	ReadOffset() logging.ByteCount
 }
 
 // A SendStream is a unidirectional Send Stream.
@@ -129,6 +132,7 @@ type SendStream interface {
 	// some data was successfully written.
 	// A zero value for t means Write will not time out.
 	SetWriteDeadline(t time.Time) error
+	WriteOffset() logging.ByteCount
 }
 
 // A Connection is a QUIC connection between two peers.
@@ -187,6 +191,19 @@ type Connection interface {
 	SendMessage([]byte) error
 	// ReceiveMessage gets a message received in a datagram, as specified in RFC 9221.
 	ReceiveMessage() ([]byte, error)
+	// Handover creates H-QUIC state.
+	// Session is silently destroyed when destroy is set.
+	// Session no longer sends and ignores incoming packets from the current path when ignoreCurrentPath is set.
+	Handover(destroy bool, config *ConnectionStateStoreConf) HandoverStateResponse
+	// QueueHandshakeDoneFrame is required by H-QUIC proxy
+	QueueHandshakeDoneFrame() error
+	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.
+	// Remains unchanged over the whole connection time
+	OriginalDestinationConnectionID() ConnectionID
+	AwaitPathUpdate() <-chan struct{}
+	AddProxy(conf *ProxyConfig) ProxySetupResponse
+	UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath bool, ignoreMigrationToCurrentPath bool) error
+	HandlePacket(packet UnhandledPacket)
 }
 
 // An EarlyConnection is a connection that is handshaking.
@@ -323,6 +340,15 @@ type Config struct {
 	// Enable QUIC datagram support (RFC 9221).
 	EnableDatagrams bool
 	Tracer          func(context.Context, logging.Perspective, ConnectionID) logging.ConnectionTracer
+	// The Proxy to use
+	// if nil, no proxy is used
+	ProxyConf *ProxyConfig
+	// Allows H-QUIC state creation when handshake is completed but not yet confirmed.
+	// Only affects client behaviour.
+	// Optimistic approach! Success is not guaranteed due to race conditions.
+	AllowEarlyHandover bool
+	// Handler for short header packets with an unknown connection id
+	HandleUnknownConnectionPacket func(ConnectionID, UnhandledPacket)
 }
 
 type ClientHelloInfo struct {
@@ -335,3 +361,29 @@ type ConnectionState struct {
 	SupportsDatagrams bool
 	Version           VersionNumber
 }
+
+type ProxyConfig struct {
+	// the proxy address to use
+	Addr string
+	// used for proxy control connection
+	Config *Config
+	// used for proxy control connection
+	TlsConf *tls.Config
+	// before sending the handover state to the H-QUIC proxy, this function can be used to modify the state
+	ModifyState func(state *handover.State)
+}
+
+func (c *ProxyConfig) Clone() *ProxyConfig {
+	return &ProxyConfig{
+		Addr:        c.Addr,
+		Config:      c.Config.Clone(),
+		TlsConf:     c.TlsConf.Clone(),
+		ModifyState: c.ModifyState,
+	}
+}
+
+type UnhandledPacket struct {
+	receivedPacket *receivedPacket
+}
+
+type PacketHandlerManager = packetHandlerManager

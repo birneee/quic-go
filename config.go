@@ -124,5 +124,9 @@ func populateConfig(config *Config) *Config {
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Allow0RTT:                        config.Allow0RTT,
 		Tracer:                           config.Tracer,
+		ProxyConf:                        config.ProxyConf,
+		AllowEarlyHandover:               config.AllowEarlyHandover,
+		//TODO should be configured on a connHandler level
+		HandleUnknownConnectionPacket: config.HandleUnknownConnectionPacket,
 	}
 }

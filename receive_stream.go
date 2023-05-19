@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/handover"
 	"io"
 	"sync"
 	"time"
@@ -20,6 +21,8 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
+	storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 }
 
 type receiveStream struct {
@@ -320,4 +323,63 @@ func (s *receiveStream) signalRead() {
 	case s.readChan <- struct{}{}:
 	default:
 	}
+}
+
+func (s *receiveStream) readOffset() protocol.ByteCount {
+	currentFrameRemainingLength := len(s.currentFrame) - s.readPosInFrame
+	return s.frameQueue.readPos - protocol.ByteCount(currentFrameRemainingLength)
+}
+
+func (s *receiveStream) pendingReceivedFrames() map[protocol.ByteCount][]byte {
+	data := make(map[protocol.ByteCount][]byte)
+	s.mutex.Lock()
+	for offset, frame := range s.frameQueue.queue {
+		data[offset] = frame.Data
+	}
+	s.mutex.Unlock()
+	//add remaining part of current frame
+	remainingLength := len(s.currentFrame) - s.readPosInFrame
+	if remainingLength > 0 {
+		buf := make([]byte, remainingLength)
+		data[s.frameQueue.readPos-protocol.ByteCount(s.readPosInFrame)] = buf
+		copy(buf, s.currentFrame[s.readPosInFrame:])
+	}
+	return data
+}
+
+func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+	state.SetIncomingOffset(perspective, s.readOffset())
+	state.SetIncomingFinOffset(perspective, s.finalOffset)
+	if config.IncludePendingIncomingFrames {
+		state.SetPendingIncomingFrames(perspective, s.pendingReceivedFrames())
+	}
+	s.flowController.StoreReceiveState(state, perspective)
+}
+
+func (s *receiveStream) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
+	offset := state.IncomingOffset(perspective)
+	pendingFrames := state.PendingIncomingFrames(perspective)
+	for frameOffset, _ := range pendingFrames {
+		if frameOffset < offset {
+			offset = frameOffset
+		}
+	}
+	finOffset := state.IncomingFinOffset(perspective)
+	s.frameQueue.readPos = offset
+	s.frameQueue.gaps.Front().Value.Start = offset
+	s.finalOffset = finOffset
+	if s.frameQueue.readPos == s.finalOffset {
+		s.finRead = true
+	}
+	for offset, data := range pendingFrames {
+		err := s.frameQueue.Push(data, offset, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+	s.flowController.RestoreReceiveState(state, perspective)
+}
+
+func (s *receiveStream) ReadOffset() protocol.ByteCount {
+	return s.readOffset()
 }

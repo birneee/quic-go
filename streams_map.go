@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/logging"
 	"net"
 	"sync"
 
@@ -53,12 +55,13 @@ type streamsMap struct {
 	sender            streamSender
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController
 
-	mutex               sync.Mutex
-	outgoingBidiStreams *outgoingStreamsMap[streamI]
-	outgoingUniStreams  *outgoingStreamsMap[sendStreamI]
-	incomingBidiStreams *incomingStreamsMap[streamI]
-	incomingUniStreams  *incomingStreamsMap[receiveStreamI]
-	reset               bool
+	mutex                sync.Mutex
+	outgoingBidiStreams  *outgoingStreamsMap[streamI]
+	outgoingUniStreams   *outgoingStreamsMap[sendStreamI]
+	incomingBidiStreams  *incomingStreamsMap[streamI]
+	incomingUniStreams   *incomingStreamsMap[receiveStreamI]
+	reset                bool
+	streamFramesInFlight func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame
 }
 
 var _ streamManager = &streamsMap{}
@@ -69,6 +72,8 @@ func newStreamsMap(
 	maxIncomingBidiStreams uint64,
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
+	// required for stream state serialization
+	streamFramesInFlight func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame,
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -76,6 +81,7 @@ func newStreamsMap(
 		maxIncomingBidiStreams: maxIncomingBidiStreams,
 		maxIncomingUniStreams:  maxIncomingUniStreams,
 		sender:                 sender,
+		streamFramesInFlight:   streamFramesInFlight,
 	}
 	m.initMaps()
 	return m
@@ -86,7 +92,14 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(id, m.sender, m.newFlowController(id))
+			return newStream(
+				id,
+				m.sender,
+				m.newFlowController(id),
+				func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+					return m.streamFramesInFlight(id, encLevel)
+				},
+			)
 		},
 		m.sender.queueControlFrame,
 	)
@@ -94,7 +107,9 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id))
+			return newStream(id, m.sender, m.newFlowController(id), func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+				return m.streamFramesInFlight(id, encLevel)
+			})
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -103,7 +118,9 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id))
+			return newSendStream(id, m.sender, m.newFlowController(id), func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
+				return m.streamFramesInFlight(id, encLevel)
+			})
 		},
 		m.sender.queueControlFrame,
 	)
@@ -315,4 +332,75 @@ func (m *streamsMap) UseResetMaps() {
 	m.mutex.Lock()
 	m.reset = false
 	m.mutex.Unlock()
+}
+
+func (m *streamsMap) RestoreBidiStream(state *handover.BidiStreamState) (Stream, error) {
+	var stream Stream
+	var err error
+	if state.ID.InitiatedBy() == m.perspective {
+		stream, err = RestoreBidiStream(m.outgoingBidiStreams, state.ID.StreamNum(), state, m.perspective)
+	} else {
+		stream, err = RestoreIncomingBidiStream(m.incomingBidiStreams, state.ID.StreamNum(), state, m.perspective)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
+}
+
+func (m *streamsMap) RestoreSendStream(state *handover.UniStreamState) (SendStream, error) {
+	return RestoreOutgoingUniStream(m.outgoingUniStreams, state.ID.StreamNum(), state, m.perspective)
+}
+
+func (m *streamsMap) RestoreReceiveStream(state *handover.UniStreamState) (ReceiveStream, error) {
+	return RestoreIncomingUniStream(m.incomingUniStreams, state.ID.StreamNum(), state, m.perspective)
+}
+
+func streamIToBidiStreamState(s streamI, perspective logging.Perspective, config *ConnectionStateStoreConf) handover.BidiStreamState {
+	ss := handover.BidiStreamState{
+		ID: s.StreamID(),
+	}
+	s.storeReceiveState(&ss, perspective, config)
+	s.storeSendState(&ss, perspective, config)
+	return ss
+}
+
+func (m *streamsMap) BidiStreamStates(config *ConnectionStateStoreConf) map[StreamID]handover.BidiStreamState {
+	states := make(map[protocol.StreamID]handover.BidiStreamState)
+	for _, stream := range m.outgoingBidiStreams.streams {
+		states[stream.StreamID()] = streamIToBidiStreamState(stream, m.perspective, config)
+	}
+	for _, entry := range m.incomingBidiStreams.streams {
+		stream := entry.stream
+		states[stream.StreamID()] = streamIToBidiStreamState(stream, m.perspective, config)
+	}
+	return states
+}
+
+func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
+	if id.InitiatedBy() == m.perspective {
+		return m.outgoingBidiStreams.GetStream(id.StreamNum())
+	} else {
+		return m.incomingBidiStreams.GetStream(id.StreamNum())
+	}
+}
+
+func (m *streamsMap) UniStreamStates(config *ConnectionStateStoreConf) map[protocol.StreamID]handover.UniStreamState {
+	ss := make(map[protocol.StreamID]handover.UniStreamState)
+	for _, stream := range m.outgoingUniStreams.streams {
+		s := handover.UniStreamState{
+			ID: stream.StreamID(),
+		}
+		stream.storeSendState(&s, m.perspective, config)
+		ss[s.ID] = s
+	}
+	for _, entry := range m.incomingUniStreams.streams {
+		stream := entry.stream
+		s := handover.UniStreamState{
+			ID: stream.StreamID(),
+		}
+		stream.storeReceiveState(&s, m.perspective, config)
+		ss[s.ID] = s
+	}
+	return ss
 }

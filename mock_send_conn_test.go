@@ -76,6 +76,18 @@ func (mr *MockSendConnMockRecorder) RemoteAddr() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteAddr", reflect.TypeOf((*MockSendConn)(nil).RemoteAddr))
 }
 
+// SetCurrentRemoteAddr mocks base method.
+func (m *MockSendConn) SetCurrentRemoteAddr(arg0 net.Addr) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCurrentRemoteAddr", arg0)
+}
+
+// SetCurrentRemoteAddr indicates an expected call of SetCurrentRemoteAddr.
+func (mr *MockSendConnMockRecorder) SetCurrentRemoteAddr(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentRemoteAddr", reflect.TypeOf((*MockSendConn)(nil).SetCurrentRemoteAddr), arg0)
+}
+
 // Write mocks base method.
 func (m *MockSendConn) Write(arg0 []byte) error {
 	m.ctrl.T.Helper()

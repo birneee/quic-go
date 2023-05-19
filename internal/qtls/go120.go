@@ -143,3 +143,9 @@ func SetCipherSuite(id uint16) (reset func()) {
 		cipherSuitesModified = false
 	}
 }
+
+// FromTrafficSecret creates a new TLS connection without doing a handshake
+// only accepts TLS 1.3 cipher suites
+func FromTrafficSecret(conn net.Conn, cipherSuiteId uint16, rcvTrafficSecret []byte, sendTrafficSecret []byte, config *Config, extraConfig *ExtraConfig, isClient bool) *Conn {
+	return qtls.FromTrafficSecret(conn, cipherSuiteId, rcvTrafficSecret, sendTrafficSecret, config, extraConfig, isClient)
+}

@@ -37,6 +37,7 @@ type packetHandlerManager interface {
 	Close(error)
 	CloseServer()
 	connRunner
+	GetConnectionByID(id protocol.ConnectionID) Connection
 }
 
 type quicConn interface {
@@ -111,6 +112,10 @@ type baseServer struct {
 	logger utils.Logger
 }
 
+func (s *baseServer) PacketHandlerManager() packetHandlerManager {
+	return s.connHandler
+}
+
 // A Listener listens for incoming QUIC connections.
 // It returns connections once the handshake has completed.
 type Listener struct {
@@ -155,6 +160,14 @@ func (l *EarlyListener) Close() error {
 // Addr returns the local network addr that the server is listening on.
 func (l *EarlyListener) Addr() net.Addr {
 	return l.baseServer.Addr()
+}
+
+func (s *EarlyListener) PacketHandlerManager() PacketHandlerManager {
+	return s.baseServer.connHandler
+}
+
+func (l *EarlyListener) Conn() rawConn {
+	return l.baseServer.conn
 }
 
 // ListenAddr creates a QUIC server listening on a given address.

@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -95,3 +96,22 @@ const InvalidPacketLimitAES = 1 << 52
 
 // InvalidPacketLimitChaCha is the maximum number of packets that we can fail to decrypt when using AEAD_CHACHA20_POLY1305.
 const InvalidPacketLimitChaCha = 1 << 36
+
+// MarshalJSON marshals StatelessResetToken to base64 instead of int array
+func (u *StatelessResetToken) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u[:])
+}
+
+// UnmarshalJSON unmarshals StatelessResetToken from base64 instead of int array
+func (u *StatelessResetToken) UnmarshalJSON(data []byte) error {
+	var tmp []byte
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	if len(tmp) != len(u) {
+		return fmt.Errorf("failed to parse stateless reset token: invalid length")
+	}
+	copy(u[:], tmp)
+	return nil
+}
