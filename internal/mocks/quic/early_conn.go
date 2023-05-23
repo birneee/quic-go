@@ -138,6 +138,18 @@ func (mr *MockEarlyConnectionMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockEarlyConnection)(nil).Context))
 }
 
+// Destroy mocks base method.
+func (m *MockEarlyConnection) Destroy() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Destroy")
+}
+
+// Destroy indicates an expected call of Destroy.
+func (mr *MockEarlyConnectionMockRecorder) Destroy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockEarlyConnection)(nil).Destroy))
+}
+
 // HandlePacket mocks base method.
 func (m *MockEarlyConnection) HandlePacket(arg0 quic.UnhandledPacket) {
 	m.ctrl.T.Helper()

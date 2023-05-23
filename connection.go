@@ -213,6 +213,7 @@ type connection struct {
 	versionNegotiated   bool
 	receivedFirstPacket bool
 
+	// the minimum of the max_idle_timeout values advertised by both endpoints
 	idleTimeout  time.Duration
 	creationTime time.Time
 	// The idle timeout is set based on the max of the time we received the last packet...
@@ -709,7 +710,7 @@ runLoop:
 		} else {
 			idleTimeoutStartTime := s.idleTimeoutStartTime()
 			if (!s.handshakeComplete && now.Sub(idleTimeoutStartTime) >= s.config.HandshakeIdleTimeout) ||
-				(s.handshakeComplete && now.Sub(idleTimeoutStartTime) >= s.idleTimeout) {
+				(s.handshakeComplete && now.After(s.nextIdleTimeoutTime())) {
 				s.destroyImpl(qerr.ErrIdleTimeout)
 				continue
 			}
@@ -767,13 +768,20 @@ func (s *connection) ConnectionState() ConnectionState {
 	return s.connState
 }
 
+// Time when the connection should time out
+func (s *connection) nextIdleTimeoutTime() time.Time {
+	idleTimeout := utils.Max(s.idleTimeout, s.rttStats.PTO(false)*3)
+	return s.idleTimeoutStartTime().Add(idleTimeout)
+}
+
 // Time when the next keep-alive packet should be sent.
 // It returns a zero time if no keep-alive should be sent.
 func (s *connection) nextKeepAliveTime() time.Time {
 	if s.config.KeepAlivePeriod == 0 || s.keepAlivePingSent || !s.firstAckElicitingPacketAfterIdleSentTime.IsZero() {
 		return time.Time{}
 	}
-	return s.lastPacketReceivedTime.Add(s.keepAliveInterval)
+	keepAliveInterval := utils.Max(s.keepAliveInterval, s.rttStats.PTO(false)*3/2)
+	return s.lastPacketReceivedTime.Add(keepAliveInterval)
 }
 
 func (s *connection) maybeResetTimer() {
@@ -787,7 +795,7 @@ func (s *connection) maybeResetTimer() {
 		if keepAliveTime := s.nextKeepAliveTime(); !keepAliveTime.IsZero() {
 			deadline = keepAliveTime
 		} else {
-			deadline = s.idleTimeoutStartTime().Add(s.idleTimeout)
+			deadline = s.nextIdleTimeoutTime()
 		}
 	}
 
@@ -2911,4 +2919,8 @@ func (s *connection) UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFro
 
 func (s *connection) HandlePacket(packet UnhandledPacket) {
 	s.handlePacket(packet.receivedPacket)
+}
+
+func (s *connection) Destroy() {
+	s.destroyImpl(nil)
 }

@@ -204,6 +204,8 @@ type Connection interface {
 	AddProxy(conf *ProxyConfig) ProxySetupResponse
 	UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath bool, ignoreMigrationToCurrentPath bool) error
 	HandlePacket(packet UnhandledPacket)
+	// Destroy connection without sending an error to peer
+	Destroy()
 }
 
 // An EarlyConnection is a connection that is handshaking.

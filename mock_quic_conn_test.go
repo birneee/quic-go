@@ -137,6 +137,18 @@ func (mr *MockQUICConnMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockQUICConn)(nil).Context))
 }
 
+// Destroy mocks base method.
+func (m *MockQUICConn) Destroy() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Destroy")
+}
+
+// Destroy indicates an expected call of Destroy.
+func (mr *MockQUICConnMockRecorder) Destroy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockQUICConn)(nil).Destroy))
+}
+
 // GetVersion mocks base method.
 func (m *MockQUICConn) GetVersion() protocol.VersionNumber {
 	m.ctrl.T.Helper()

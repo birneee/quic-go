@@ -2104,6 +2104,20 @@ var _ = Describe("Connection", func() {
 			// don't EXPECT() any calls to mconn.Write()
 			time.Sleep(50 * time.Millisecond)
 		})
+
+		It("send PING as keep-alive earliest after 1.5 times the PTO", func() {
+			conn.config.KeepAlivePeriod = time.Microsecond
+			pto := conn.rttStats.PTO(false)
+			conn.lastPacketReceivedTime = time.Now()
+			sentPingTimeChan := make(chan time.Time)
+			packer.EXPECT().PackCoalescedPacket(false, conn.version).Do(func(bool, protocol.VersionNumber) (*coalescedPacket, error) {
+				sentPingTimeChan <- time.Now()
+				return nil, nil
+			})
+			runConn()
+			sentPingTime := <-sentPingTimeChan
+			Expect(sentPingTime.Sub(conn.lastPacketReceivedTime)).To(BeNumerically(">", pto*3/2))
+		})
 	})
 
 	Context("timeouts", func() {
@@ -2271,6 +2285,34 @@ var _ = Describe("Connection", func() {
 			tracer.EXPECT().Close()
 			conn.shutdown()
 			Eventually(conn.Context().Done()).Should(BeClosed())
+		})
+
+		It("time out earliest after 3 times the PTO", func() {
+			packer.EXPECT().PackCoalescedPacket(false, conn.version).AnyTimes()
+			connRunner.EXPECT().Retire(clientDestConnID)
+			connRunner.EXPECT().Remove(gomock.Any())
+			cryptoSetup.EXPECT().Close()
+			closeTimeChan := make(chan time.Time)
+			tracer.EXPECT().ClosedConnection(gomock.Any()).Do(func(e error) {
+				Expect(e).To(MatchError(&IdleTimeoutError{}))
+				closeTimeChan <- time.Now()
+			})
+			tracer.EXPECT().Close()
+			conn.idleTimeout = time.Millisecond
+			done := make(chan struct{})
+			pto := conn.rttStats.PTO(false)
+			go func() {
+				defer GinkgoRecover()
+				cryptoSetup.EXPECT().RunHandshake().MaxTimes(1)
+				cryptoSetup.EXPECT().GetSessionTicket().MaxTimes(1)
+				cryptoSetup.EXPECT().SetHandshakeConfirmed().MaxTimes(1)
+				close(conn.handshakeCompleteChan)
+				conn.run()
+				close(done)
+			}()
+			closeTime := <-closeTimeChan
+			Expect(closeTime.Sub(conn.lastPacketReceivedTime)).To(BeNumerically(">", pto*3))
+			Eventually(done).Should(BeClosed())
 		})
 	})
 
