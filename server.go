@@ -237,7 +237,7 @@ func newServer(
 	onClose func(),
 	acceptEarly bool,
 ) (*baseServer, error) {
-	tokenGenerator, err := handshake.NewTokenGenerator(rand.Reader)
+	tokenGenerator, err := handshake.NewTokenGenerator(rand.Reader, config.AddressTokenKey)
 	if err != nil {
 		return nil, err
 	}

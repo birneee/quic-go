@@ -76,7 +76,7 @@ type Transport struct {
 	logger utils.Logger
 
 	// for e.g. H-QUIC
-	handleUnknownConnection func(ConnectionID, UnhandledPacket)
+	handleUnknownConnection func(*Transport, ConnectionID, UnhandledPacket)
 	restoredHQUIC           bool
 }
 
@@ -98,6 +98,7 @@ func (t *Transport) Listen(tlsConf *tls.Config, conf *Config) (*Listener, error)
 		return nil, errListenerAlreadySet
 	}
 	conf = populateServerConfig(conf)
+	t.StatelessResetKey = conf.StatelessResetKey // must be set before init call
 	if err := t.init(true); err != nil {
 		return nil, err
 	}
@@ -128,6 +129,7 @@ func (t *Transport) ListenEarly(tlsConf *tls.Config, conf *Config) (*EarlyListen
 		return nil, errListenerAlreadySet
 	}
 	conf = populateServerConfig(conf)
+	t.StatelessResetKey = conf.StatelessResetKey // must be set before init call
 	if err := t.init(true); err != nil {
 		return nil, err
 	}
@@ -146,6 +148,7 @@ func (t *Transport) Dial(ctx context.Context, addr net.Addr, tlsConf *tls.Config
 		return nil, err
 	}
 	conf = populateConfig(conf)
+	t.StatelessResetKey = conf.StatelessResetKey // must be set before init call
 	if err := t.init(false); err != nil {
 		return nil, err
 	}
@@ -162,6 +165,7 @@ func (t *Transport) DialEarly(ctx context.Context, addr net.Addr, tlsConf *tls.C
 		return nil, err
 	}
 	conf = populateConfig(conf)
+	t.StatelessResetKey = conf.StatelessResetKey // must be set before init call
 	if err := t.init(false); err != nil {
 		return nil, err
 	}
@@ -347,7 +351,8 @@ func (t *Transport) handlePacket(p *receivedPacket) {
 	}
 	if !wire.IsLongHeaderPacket(p.data[0]) {
 		if t.handleUnknownConnection != nil {
-			t.handleUnknownConnection(connID, UnhandledPacket{receivedPacket: p})
+			t.handleUnknownConnection(t, connID, UnhandledPacket{receivedPacket: p})
+			return
 		}
 		go t.maybeSendStatelessReset(p, connID)
 		return
@@ -399,4 +404,10 @@ func (t *Transport) maybeHandleStatelessReset(data []byte) bool {
 		return true
 	}
 	return false
+}
+
+// StatelessResetKey must be set.
+// Does not send stateless resets in response to very small packets.
+func (t *Transport) MaybeSendStatelessReset(p UnhandledPacket, connID protocol.ConnectionID) {
+	t.maybeSendStatelessReset(p.receivedPacket, connID)
 }

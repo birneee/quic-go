@@ -128,5 +128,7 @@ func populateConfig(config *Config) *Config {
 		AllowEarlyHandover:               config.AllowEarlyHandover,
 		//TODO should be configured on a connHandler level
 		HandleUnknownConnectionPacket: config.HandleUnknownConnectionPacket,
+		AddressTokenKey:               config.AddressTokenKey,
+		StatelessResetKey:             config.StatelessResetKey,
 	}
 }

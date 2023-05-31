@@ -2548,9 +2548,12 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 			return nil, nil, err
 		}
 		sendConn = newSendConn(rawConn, remoteAddr, nil)
-		tr := &Transport{Conn: conf.PacketConn, isSingleUse: true, restoredHQUIC: true, ConnectionIDLength: state.ConnIDLen(perspective)}
-		if err := tr.init(false); err != nil {
-			panic(err)
+		tr := &Transport{
+			Conn:               conf.PacketConn,
+			isSingleUse:        true,
+			restoredHQUIC:      true,
+			ConnectionIDLength: state.ConnIDLen(perspective),
+			StatelessResetKey:  conf.QuicConf.StatelessResetKey,
 		}
 		if err := tr.init(false); err != nil {
 			panic(err)
@@ -2571,9 +2574,12 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 			return nil, nil, err
 		}
 		sendConn = newSendConn(rawConn, remoteAddr, nil)
-		tr := &Transport{Conn: pconn, isSingleUse: true, restoredHQUIC: true, ConnectionIDLength: state.ConnIDLen(perspective)}
-		if err := tr.init(false); err != nil {
-			panic(err)
+		tr := &Transport{
+			Conn:               pconn,
+			isSingleUse:        true,
+			restoredHQUIC:      true,
+			ConnectionIDLength: state.ConnIDLen(perspective),
+			StatelessResetKey:  conf.QuicConf.StatelessResetKey,
 		}
 		if err := tr.init(false); err != nil {
 			panic(err)
@@ -2604,7 +2610,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	var tokenGenerator *handshake.TokenGenerator
 	if perspective == protocol.PerspectiveServer {
 		var err error
-		tokenGenerator, err = handshake.NewTokenGenerator(rand.Reader)
+		tokenGenerator, err = handshake.NewTokenGenerator(rand.Reader, conf.QuicConf.AddressTokenKey)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -350,7 +350,13 @@ type Config struct {
 	// Optimistic approach! Success is not guaranteed due to race conditions.
 	AllowEarlyHandover bool
 	// Handler for short header packets with an unknown connection id
-	HandleUnknownConnectionPacket func(ConnectionID, UnhandledPacket)
+	HandleUnknownConnectionPacket func(*Transport, ConnectionID, UnhandledPacket)
+	// Secret used for protect address validation tokens by the server.
+	// If not specified a random key is generated.
+	AddressTokenKey *[32]byte
+	// The StatelessResetKey is used to generate stateless reset tokens.
+	// If no key is configured, sending of stateless resets is disabled.
+	StatelessResetKey *StatelessResetKey
 }
 
 type ClientHelloInfo struct {
@@ -386,6 +392,10 @@ func (c *ProxyConfig) Clone() *ProxyConfig {
 
 type UnhandledPacket struct {
 	receivedPacket *receivedPacket
+}
+
+func (u UnhandledPacket) RemoteAddr() net.Addr {
+	return u.receivedPacket.remoteAddr
 }
 
 type PacketHandlerManager = packetHandlerManager

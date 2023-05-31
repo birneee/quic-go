@@ -29,15 +29,19 @@ type tokenProtectorImpl struct {
 	secret []byte
 }
 
-// newTokenProtector creates a source for source address tokens
-func newTokenProtector(rand io.Reader) (tokenProtector, error) {
-	secret := make([]byte, tokenSecretSize)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, err
+// newTokenProtector creates a source for source address tokens.
+// If secret is nil, a random one is generated.
+// Otherwise, the secret must be tokenSecretSize long.
+func newTokenProtector(rand io.Reader, secret *[tokenSecretSize]byte) (tokenProtector, error) {
+	if secret == nil {
+		secret = &[tokenSecretSize]byte{}
+		if _, err := rand.Read(secret[:]); err != nil {
+			return nil, err
+		}
 	}
 	return &tokenProtectorImpl{
 		rand:   rand,
-		secret: secret,
+		secret: secret[:],
 	}, nil
 }
 
