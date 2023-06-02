@@ -338,9 +338,14 @@ var newConnection = func(
 		DisableActiveMigration:          true,
 		StatelessResetToken:             &statelessResetToken,
 		OriginalDestinationConnectionID: origDestConnID,
-		ActiveConnectionIDLimit:         protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID:       srcConnID,
-		RetrySourceConnectionID:         retrySrcConnID,
+		// For interoperability with quic-go versions before May 2023, this value must be set to a value
+		// different from protocol.DefaultActiveConnectionIDLimit.
+		// If set to the default value, it will be omitted from the transport parameters, which will make
+		// old quic-go versions interpret it as 0, instead of the default value of 2.
+		// See https://github.com/quic-go/quic-go/pull/3806.
+		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID: srcConnID,
+		RetrySourceConnectionID:   retrySrcConnID,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -454,8 +459,13 @@ var newClientConnection = func(
 		MaxAckDelay:                    protocol.MaxAckDelayInclGranularity,
 		AckDelayExponent:               protocol.AckDelayExponent,
 		DisableActiveMigration:         true,
-		ActiveConnectionIDLimit:        protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID:      srcConnID,
+		// For interoperability with quic-go versions before May 2023, this value must be set to a value
+		// different from protocol.DefaultActiveConnectionIDLimit.
+		// If set to the default value, it will be omitted from the transport parameters, which will make
+		// old quic-go versions interpret it as 0, instead of the default value of 2.
+		// See https://github.com/quic-go/quic-go/pull/3806.
+		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID: srcConnID,
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -855,7 +865,7 @@ func (s *connection) handleHandshakeConfirmed() {
 	s.sentPacketHandler.SetHandshakeConfirmed()
 	s.cryptoStreamHandler.SetHandshakeConfirmed()
 
-	if !s.config.DisablePathMTUDiscovery {
+	if !s.config.DisablePathMTUDiscovery && s.conn.capabilities().DF {
 		maxPacketSize := s.peerParams.MaxUDPPayloadSize
 		if maxPacketSize == 0 {
 			maxPacketSize = protocol.MaxByteCount
@@ -1383,7 +1393,11 @@ func (s *connection) handleFrames(
 ) (isAckEliciting bool, _ error) {
 	// Only used for tracing.
 	// If we're not tracing, this slice will always remain empty.
-	var frames []wire.Frame
+	var frames []logging.Frame
+	if log != nil {
+		frames = make([]logging.Frame, 0, 4)
+	}
+	var handleErr error
 	for len(data) > 0 {
 		l, frame, err := s.frameParser.ParseNext(data, encLevel, s.version)
 		if err != nil {
@@ -1396,27 +1410,27 @@ func (s *connection) handleFrames(
 		if ackhandler.IsFrameAckEliciting(frame) {
 			isAckEliciting = true
 		}
-		// Only process frames now if we're not logging.
-		// If we're logging, we need to make sure that the packet_received event is logged first.
-		if log == nil {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+		if log != nil {
+			frames = append(frames, logutils.ConvertFrame(frame))
+		}
+		// An error occurred handling a previous frame.
+		// Don't handle the current frame.
+		if handleErr != nil {
+			continue
+		}
+		if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
+			if log == nil {
 				return false, err
 			}
-		} else {
-			frames = append(frames, frame)
+			// If we're logging, we need to keep parsing (but not handling) all frames.
+			handleErr = err
 		}
 	}
 
 	if log != nil {
-		fs := make([]logging.Frame, len(frames))
-		for i, frame := range frames {
-			fs[i] = logutils.ConvertFrame(frame)
-		}
-		log(fs)
-		for _, frame := range frames {
-			if err := s.handleFrame(frame, encLevel, destConnID); err != nil {
-				return false, err
-			}
+		log(frames)
+		if handleErr != nil {
+			return false, handleErr
 		}
 	}
 	return
@@ -1432,7 +1446,6 @@ func (s *connection) handleFrame(f wire.Frame, encLevel protocol.EncryptionLevel
 		err = s.handleStreamFrame(frame)
 	case *wire.AckFrame:
 		err = s.handleAckFrame(frame, encLevel)
-		wire.PutAckFrame(frame)
 	case *wire.ConnectionCloseFrame:
 		s.handleConnectionCloseFrame(frame)
 	case *wire.ResetStreamFrame:
@@ -1947,7 +1960,7 @@ func (s *connection) maybeSendAckOnlyPacket() error {
 		}
 		return err
 	}
-	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
+	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
 	s.sendPackedShortHeaderPacket(buffer, p.Packet, now)
 	return nil
 }
@@ -2014,13 +2027,13 @@ func (s *connection) sendPacket() (bool, error) {
 		s.sentFirstPacket = true
 		s.sendPackedCoalescedPacket(packet, now)
 		return true, nil
-	} else if !s.config.DisablePathMTUDiscovery && s.mtuDiscoverer.ShouldSendProbe(now) {
+	} else if s.mtuDiscoverer != nil && s.mtuDiscoverer.ShouldSendProbe(now) {
 		ping, size := s.mtuDiscoverer.GetPing()
 		p, buffer, err := s.packer.PackMTUProbePacket(ping, size, now, s.version)
 		if err != nil {
 			return false, err
 		}
-		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
+		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
 		s.sendPackedShortHeaderPacket(buffer, p.Packet, now)
 		return true, nil
 	}
@@ -2031,7 +2044,7 @@ func (s *connection) sendPacket() (bool, error) {
 		}
 		return false, err
 	}
-	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
+	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, buffer.Len(), false)
 	s.sendPackedShortHeaderPacket(buffer, p.Packet, now)
 	return true, nil
 }
@@ -2041,7 +2054,7 @@ func (s *connection) sendPackedShortHeaderPacket(buffer *packetBuffer, p *ackhan
 		s.logger.Debugf("Ignore sending the following packet to this remote address")
 		return
 	}
-	if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && ackhandler.HasAckElicitingFrames(p.Frames) {
+	if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && (len(p.StreamFrames) > 0 || ackhandler.HasAckElicitingFrames(p.Frames)) {
 		s.firstAckElicitingPacketAfterIdleSentTime = now
 	}
 
@@ -2127,7 +2140,8 @@ func (s *connection) logLongHeaderPacket(p *longHeaderPacket) {
 func (s *connection) logShortHeaderPacket(
 	destConnID protocol.ConnectionID,
 	ackFrame *wire.AckFrame,
-	frames []*ackhandler.Frame,
+	frames []ackhandler.Frame,
+	streamFrames []ackhandler.StreamFrame,
 	pn protocol.PacketNumber,
 	pnLen protocol.PacketNumberLen,
 	kp protocol.KeyPhaseBit,
@@ -2143,15 +2157,21 @@ func (s *connection) logShortHeaderPacket(
 		if ackFrame != nil {
 			wire.LogFrame(s.logger, ackFrame, true)
 		}
-		for _, frame := range frames {
-			wire.LogFrame(s.logger, frame.Frame, true)
+		for _, f := range frames {
+			wire.LogFrame(s.logger, f.Frame, true)
+		}
+		for _, f := range streamFrames {
+			wire.LogFrame(s.logger, f.Frame, true)
 		}
 	}
 
 	// tracing
 	if s.tracer != nil {
-		fs := make([]logging.Frame, 0, len(frames))
+		fs := make([]logging.Frame, 0, len(frames)+len(streamFrames))
 		for _, f := range frames {
+			fs = append(fs, logutils.ConvertFrame(f.Frame))
+		}
+		for _, f := range streamFrames {
 			fs = append(fs, logutils.ConvertFrame(f.Frame))
 		}
 		var ack *logging.AckFrame
@@ -2181,6 +2201,7 @@ func (s *connection) logCoalescedPacket(packet *coalescedPacket) {
 				packet.shortHdrPacket.DestConnID,
 				packet.shortHdrPacket.Ack,
 				packet.shortHdrPacket.Frames,
+				packet.shortHdrPacket.StreamFrames,
 				packet.shortHdrPacket.PacketNumber,
 				packet.shortHdrPacket.PacketNumberLen,
 				packet.shortHdrPacket.KeyPhase,
@@ -2199,7 +2220,7 @@ func (s *connection) logCoalescedPacket(packet *coalescedPacket) {
 		s.logLongHeaderPacket(p)
 	}
 	if p := packet.shortHdrPacket; p != nil {
-		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, p.Length, true)
+		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, p.Length, true)
 	}
 }
 

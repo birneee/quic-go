@@ -235,11 +235,31 @@ func (h *sentPacketHandler) SentPacket(p *Packet) {
 	if h.perspective == protocol.PerspectiveClient && p.EncryptionLevel == protocol.EncryptionHandshake && h.initialPackets != nil {
 		h.dropPackets(protocol.EncryptionInitial)
 	}
-	isAckEliciting := h.sentPacketImpl(p)
+
+	pnSpace := h.getPacketNumberSpace(p.EncryptionLevel)
+	if h.logger.Debug() && pnSpace.history.HasOutstandingPackets() {
+		for pn := utils.Max(0, pnSpace.largestSent+1); pn < p.PacketNumber; pn++ {
+			h.logger.Debugf("Skipping packet number %d", pn)
+		}
+	}
+
+	pnSpace.largestSent = p.PacketNumber
+	isAckEliciting := len(p.StreamFrames) > 0 || len(p.Frames) > 0
+
 	if isAckEliciting {
-		h.getPacketNumberSpace(p.EncryptionLevel).history.SentAckElicitingPacket(p)
+		pnSpace.lastAckElicitingPacketTime = p.SendTime
+		p.includedInBytesInFlight = true
+		h.bytesInFlight += p.Length
+		if h.numProbesToSend > 0 {
+			h.numProbesToSend--
+		}
+	}
+	h.congestion.OnPacketSent(p.SendTime, h.bytesInFlight, p.PacketNumber, p.Length, isAckEliciting)
+
+	if isAckEliciting {
+		pnSpace.history.SentAckElicitingPacket(p)
 	} else {
-		h.getPacketNumberSpace(p.EncryptionLevel).history.SentNonAckElicitingPacket(p.PacketNumber, p.EncryptionLevel, p.SendTime)
+		pnSpace.history.SentNonAckElicitingPacket(p.PacketNumber, p.EncryptionLevel, p.SendTime)
 		putPacket(p)
 		p = nil //nolint:ineffassign // This is just to be on the safe side.
 	}
@@ -262,31 +282,6 @@ func (h *sentPacketHandler) getPacketNumberSpace(encLevel protocol.EncryptionLev
 	default:
 		panic("invalid packet number space")
 	}
-}
-
-func (h *sentPacketHandler) sentPacketImpl(packet *Packet) bool /* is ack-eliciting */ {
-	pnSpace := h.getPacketNumberSpace(packet.EncryptionLevel)
-
-	if h.logger.Debug() && pnSpace.history.HasOutstandingPackets() {
-		for p := utils.Max(0, pnSpace.largestSent+1); p < packet.PacketNumber; p++ {
-			h.logger.Debugf("Skipping packet number %d", p)
-		}
-	}
-
-	pnSpace.largestSent = packet.PacketNumber
-	isAckEliciting := len(packet.Frames) > 0
-
-	if isAckEliciting {
-		pnSpace.lastAckElicitingPacketTime = packet.SendTime
-		packet.includedInBytesInFlight = true
-		h.bytesInFlight += packet.Length
-		if h.numProbesToSend > 0 {
-			h.numProbesToSend--
-		}
-	}
-	h.congestion.OnPacketSent(packet.SendTime, h.bytesInFlight, packet.PacketNumber, packet.Length, isAckEliciting)
-
-	return isAckEliciting
 }
 
 func (h *sentPacketHandler) ReceivedAck(ack *wire.AckFrame, encLevel protocol.EncryptionLevel, rcvTime time.Time) (bool /* contained 1-RTT packet */, error) {
@@ -429,6 +424,9 @@ func (h *sentPacketHandler) detectAndRemoveAckedPackets(ack *wire.AckFrame, encL
 			if f.OnAcked != nil {
 				f.OnAcked(f.Frame)
 			}
+		}
+		for _, f := range p.StreamFrames {
+			f.Handler.OnAcked(f.Frame)
 		}
 		if err := pnSpace.history.Remove(p.PacketNumber); err != nil {
 			return nil, err
@@ -796,12 +794,16 @@ func (h *sentPacketHandler) QueueProbePacket(encLevel protocol.EncryptionLevel) 
 }
 
 func (h *sentPacketHandler) queueFramesForRetransmission(p *Packet) {
-	if len(p.Frames) == 0 {
+	if len(p.Frames) == 0 && len(p.StreamFrames) == 0 {
 		panic("no frames")
 	}
 	for _, f := range p.Frames {
 		f.OnLost(f.Frame)
 	}
+	for _, f := range p.StreamFrames {
+		f.Handler.OnLost(f.Frame)
+	}
+	p.StreamFrames = nil
 	p.Frames = nil
 }
 

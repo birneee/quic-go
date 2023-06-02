@@ -10,6 +10,8 @@ type sendConn interface {
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+
+	capabilities() connCapabilities
 	SetCurrentRemoteAddr(addr net.Addr)
 }
 

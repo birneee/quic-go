@@ -9,12 +9,13 @@ import (
 
 // A Packet is a packet
 type Packet struct {
+	SendTime        time.Time
 	PacketNumber    protocol.PacketNumber
-	Frames          []*Frame
+	StreamFrames    []StreamFrame
+	Frames          []Frame
 	LargestAcked    protocol.PacketNumber // InvalidPacketNumber if the packet doesn't contain an ACK
 	Length          protocol.ByteCount
 	EncryptionLevel protocol.EncryptionLevel
-	SendTime        time.Time
 
 	IsPathMTUProbePacket bool // We don't report the loss of Path MTU probe packets to the congestion controller.
 
@@ -32,6 +33,7 @@ var packetPool = sync.Pool{New: func() any { return &Packet{} }}
 func GetPacket() *Packet {
 	p := packetPool.Get().(*Packet)
 	p.PacketNumber = 0
+	p.StreamFrames = nil
 	p.Frames = nil
 	p.LargestAcked = 0
 	p.Length = 0
@@ -47,9 +49,7 @@ func GetPacket() *Packet {
 // We currently only return Packets back into the pool when they're acknowledged (not when they're lost).
 // This simplifies the code, and gives the vast majority of the performance benefit we can gain from using the pool.
 func putPacket(p *Packet) {
-	for _, f := range p.Frames {
-		putFrame(f)
-	}
 	p.Frames = nil
+	p.StreamFrames = nil
 	packetPool.Put(p)
 }

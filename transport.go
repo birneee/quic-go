@@ -20,6 +20,12 @@ import (
 	"github.com/quic-go/quic-go/logging"
 )
 
+// The Transport is the central point to manage incoming and outgoing QUIC connections.
+// QUIC demultiplexes connections based on their QUIC Connection IDs, not based on the 4-tuple.
+// This means that a single UDP socket can be used for listening for incoming connections, as well as
+// for dialing an arbitrary number of outgoing connections.
+// A Transport handles a single net.PacketConn, and offers a range of configuration options
+// compared to the simple helper functions like Listen and Dial that this package provides.
 type Transport struct {
 	// A single net.PacketConn can only be handled by one Transport.
 	// Bad things will happen if passed to multiple Transports.
@@ -44,6 +50,9 @@ type Transport struct {
 
 	// The StatelessResetKey is used to generate stateless reset tokens.
 	// If no key is configured, sending of stateless resets is disabled.
+	// It is highly recommended to configure a stateless reset key, as stateless resets
+	// allow the peer to quickly recover from crashes and reboots of this node.
+	// See section 10.3 of RFC 9000 for details.
 	StatelessResetKey *StatelessResetKey
 
 	// A Tracer traces events that don't belong to a single QUIC connection.
@@ -66,7 +75,8 @@ type Transport struct {
 
 	conn rawConn
 
-	closeQueue chan closePacket
+	closeQueue          chan closePacket
+	statelessResetQueue chan *receivedPacket
 
 	listening   chan struct{} // is closed when listen returns
 	closed      bool
@@ -192,6 +202,7 @@ func (t *Transport) init(isServer bool) error {
 		t.listening = make(chan struct{})
 
 		t.closeQueue = make(chan closePacket, 4)
+		t.statelessResetQueue = make(chan *receivedPacket, 4)
 
 		if t.ConnectionIDGenerator != nil {
 			t.connIDGenerator = t.ConnectionIDGenerator
@@ -206,7 +217,7 @@ func (t *Transport) init(isServer bool) error {
 		}
 
 		go t.listen(conn)
-		go t.runCloseQueue()
+		go t.runSendQueue()
 	})
 	return t.initErr
 }
@@ -220,13 +231,15 @@ func (t *Transport) enqueueClosePacket(p closePacket) {
 	}
 }
 
-func (t *Transport) runCloseQueue() {
+func (t *Transport) runSendQueue() {
 	for {
 		select {
 		case <-t.listening:
 			return
 		case p := <-t.closeQueue:
 			t.conn.WritePacket(p.payload, p.addr, p.info.OOB())
+		case p := <-t.statelessResetQueue:
+			t.sendStatelessReset(p)
 		}
 	}
 }
@@ -354,7 +367,7 @@ func (t *Transport) handlePacket(p *receivedPacket) {
 			t.handleUnknownConnection(t, connID, UnhandledPacket{receivedPacket: p})
 			return
 		}
-		go t.maybeSendStatelessReset(p, connID)
+		t.maybeSendStatelessReset(p)
 		return
 	}
 
@@ -367,14 +380,33 @@ func (t *Transport) handlePacket(p *receivedPacket) {
 	t.server.handlePacket(p)
 }
 
-func (t *Transport) maybeSendStatelessReset(p *receivedPacket, connID protocol.ConnectionID) {
-	defer p.buffer.MaybeRelease()
+func (t *Transport) maybeSendStatelessReset(p *receivedPacket) {
 	if t.StatelessResetKey == nil {
+		p.buffer.Release()
 		return
 	}
+
 	// Don't send a stateless reset in response to very small packets.
 	// This includes packets that could be stateless resets.
 	if len(p.data) <= protocol.MinStatelessResetSize {
+		p.buffer.Release()
+		return
+	}
+
+	select {
+	case t.statelessResetQueue <- p:
+	default:
+		// it's fine to not send a stateless reset when we're busy
+		p.buffer.Release()
+	}
+}
+
+func (t *Transport) sendStatelessReset(p *receivedPacket) {
+	defer p.buffer.Release()
+
+	connID, err := wire.ParseConnectionID(p.data, t.connIDLen)
+	if err != nil {
+		t.logger.Errorf("error parsing connection ID on packet from %s: %s", p.remoteAddr, err)
 		return
 	}
 	token := t.handlerMap.GetStatelessResetToken(connID)
@@ -384,7 +416,7 @@ func (t *Transport) maybeSendStatelessReset(p *receivedPacket, connID protocol.C
 	data[0] = (data[0] & 0x7f) | 0x40
 	data = append(data, token[:]...)
 	if _, err := t.conn.WritePacket(data, p.remoteAddr, p.info.OOB()); err != nil {
-		t.logger.Debugf("Error sending Stateless Reset: %s", err)
+		t.logger.Debugf("Error sending Stateless Reset to %s: %s", p.remoteAddr, err)
 	}
 }
 
@@ -408,6 +440,7 @@ func (t *Transport) maybeHandleStatelessReset(data []byte) bool {
 
 // StatelessResetKey must be set.
 // Does not send stateless resets in response to very small packets.
+// Do not use p after calling this method, because it is freeing the packet buffer.
 func (t *Transport) MaybeSendStatelessReset(p UnhandledPacket, connID protocol.ConnectionID) {
-	t.maybeSendStatelessReset(p.receivedPacket, connID)
+	t.maybeSendStatelessReset(p.receivedPacket)
 }
