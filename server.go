@@ -24,7 +24,7 @@ var ErrServerClosed = errors.New("quic: server closed")
 
 // packetHandler handles packets
 type packetHandler interface {
-	handlePacket(*receivedPacket)
+	handlePacket(receivedPacket)
 	shutdown()
 	destroy(error)
 	getPerspective() protocol.Perspective
@@ -43,7 +43,7 @@ type packetHandlerManager interface {
 type quicConn interface {
 	EarlyConnection
 	earlyConnReady() <-chan struct{}
-	handlePacket(*receivedPacket)
+	handlePacket(receivedPacket)
 	GetVersion() protocol.VersionNumber
 	getPerspective() protocol.Perspective
 	run() error
@@ -52,7 +52,7 @@ type quicConn interface {
 }
 
 type zeroRTTQueue struct {
-	packets    []*receivedPacket
+	packets    []receivedPacket
 	expiration time.Time
 }
 
@@ -73,7 +73,7 @@ type baseServer struct {
 	connHandler     packetHandlerManager
 	onClose         func()
 
-	receivedPackets chan *receivedPacket
+	receivedPackets chan receivedPacket
 
 	nextZeroRTTCleanup time.Time
 	zeroRTTQueues      map[protocol.ConnectionID]*zeroRTTQueue // only initialized if acceptEarlyConns == true
@@ -103,8 +103,8 @@ type baseServer struct {
 	errorChan               chan struct{}
 	closed                  bool
 	running                 chan struct{} // closed as soon as run() returns
-	versionNegotiationQueue chan *receivedPacket
-	invalidTokenQueue       chan *receivedPacket
+	versionNegotiationQueue chan receivedPacket
+	invalidTokenQueue       chan receivedPacket
 
 	connQueue    chan quicConn
 	connQueueLen int32 // to be used as an atomic
@@ -261,9 +261,9 @@ func newServer(
 		connQueue:               make(chan quicConn),
 		errorChan:               make(chan struct{}),
 		running:                 make(chan struct{}),
-		receivedPackets:         make(chan *receivedPacket, protocol.MaxServerUnprocessedPackets),
-		versionNegotiationQueue: make(chan *receivedPacket, 4),
-		invalidTokenQueue:       make(chan *receivedPacket, 4),
+		receivedPackets:         make(chan receivedPacket, protocol.MaxServerUnprocessedPackets),
+		versionNegotiationQueue: make(chan receivedPacket, 4),
+		invalidTokenQueue:       make(chan receivedPacket, 4),
 		newConn:                 newConnection,
 		tracer:                  tracer,
 		logger:                  utils.DefaultLogger.WithPrefix("server"),
@@ -364,7 +364,7 @@ func (s *baseServer) Addr() net.Addr {
 	return s.conn.LocalAddr()
 }
 
-func (s *baseServer) handlePacket(p *receivedPacket) {
+func (s *baseServer) handlePacket(p receivedPacket) {
 	select {
 	case s.receivedPackets <- p:
 	default:
@@ -375,7 +375,7 @@ func (s *baseServer) handlePacket(p *receivedPacket) {
 	}
 }
 
-func (s *baseServer) handlePacketImpl(p *receivedPacket) bool /* is the buffer still in use? */ {
+func (s *baseServer) handlePacketImpl(p receivedPacket) bool /* is the buffer still in use? */ {
 	if !s.nextZeroRTTCleanup.IsZero() && p.rcvTime.After(s.nextZeroRTTCleanup) {
 		defer s.cleanupZeroRTTQueues(p.rcvTime)
 	}
@@ -465,7 +465,7 @@ func (s *baseServer) handlePacketImpl(p *receivedPacket) bool /* is the buffer s
 	return true
 }
 
-func (s *baseServer) handle0RTTPacket(p *receivedPacket) bool {
+func (s *baseServer) handle0RTTPacket(p receivedPacket) bool {
 	connID, err := wire.ParseConnectionID(p.data, 0)
 	if err != nil {
 		if s.tracer != nil {
@@ -497,7 +497,7 @@ func (s *baseServer) handle0RTTPacket(p *receivedPacket) bool {
 		}
 		return false
 	}
-	queue := &zeroRTTQueue{packets: make([]*receivedPacket, 1, 8)}
+	queue := &zeroRTTQueue{packets: make([]receivedPacket, 1, 8)}
 	queue.packets[0] = p
 	expiration := p.rcvTime.Add(protocol.Max0RTTQueueingDuration)
 	queue.expiration = expiration
@@ -553,7 +553,7 @@ func (s *baseServer) validateToken(token *handshake.Token, addr net.Addr) bool {
 	return true
 }
 
-func (s *baseServer) handleInitialImpl(p *receivedPacket, hdr *wire.Header) error {
+func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error {
 	if len(hdr.Token) == 0 && hdr.DestConnectionID.Len() < protocol.MinConnectionIDLenInitial {
 		p.buffer.Release()
 		if s.tracer != nil {
@@ -651,7 +651,7 @@ func (s *baseServer) handleInitialImpl(p *receivedPacket, hdr *wire.Header) erro
 			tracer = config.Tracer(context.WithValue(context.Background(), ConnectionTracingKey, tracingID), protocol.PerspectiveServer, connID)
 		}
 		conn = s.newConn(
-			newSendConn(s.conn, p.remoteAddr, p.info),
+			newSendConnWithPacketInfo(s.conn, p.remoteAddr, p.info),
 			s.connHandler,
 			origDestConnID,
 			retrySrcConnID,
@@ -725,7 +725,7 @@ func (s *baseServer) handleNewConn(conn quicConn) {
 	}
 }
 
-func (s *baseServer) sendRetry(remoteAddr net.Addr, hdr *wire.Header, info *packetInfo) error {
+func (s *baseServer) sendRetry(remoteAddr net.Addr, hdr *wire.Header, info packetInfo) error {
 	// Log the Initial packet now.
 	// If no Retry is sent, the packet will be logged by the connection.
 	(&wire.ExtendedHeader{Header: *hdr}).Log(s.logger)
@@ -761,11 +761,11 @@ func (s *baseServer) sendRetry(remoteAddr net.Addr, hdr *wire.Header, info *pack
 	if s.tracer != nil {
 		s.tracer.SentPacket(remoteAddr, &replyHdr.Header, protocol.ByteCount(len(buf.Data)), nil)
 	}
-	_, err = s.conn.WritePacket(buf.Data, remoteAddr, info.OOB())
+	_, err = s.conn.WritePacket(buf.Data, uint16(len(buf.Data)), remoteAddr, info.OOB())
 	return err
 }
 
-func (s *baseServer) enqueueInvalidToken(p *receivedPacket) {
+func (s *baseServer) enqueueInvalidToken(p receivedPacket) {
 	select {
 	case s.invalidTokenQueue <- p:
 	default:
@@ -774,7 +774,7 @@ func (s *baseServer) enqueueInvalidToken(p *receivedPacket) {
 	}
 }
 
-func (s *baseServer) maybeSendInvalidToken(p *receivedPacket) {
+func (s *baseServer) maybeSendInvalidToken(p receivedPacket) {
 	defer p.buffer.Release()
 
 	hdr, _, _, err := wire.ParsePacket(p.data)
@@ -791,6 +791,8 @@ func (s *baseServer) maybeSendInvalidToken(p *receivedPacket) {
 	sealer, opener := handshake.NewInitialAEAD(hdr.DestConnectionID, protocol.PerspectiveServer, hdr.Version)
 	data := p.data[:hdr.ParsedLen()+hdr.Length]
 	extHdr, err := unpackLongHeader(opener, hdr, data, hdr.Version)
+	// Only send INVALID_TOKEN if we can unprotect the packet.
+	// This makes sure that we won't send it for packets that were corrupted.
 	if err != nil {
 		if s.tracer != nil {
 			s.tracer.DroppedPacket(p.remoteAddr, logging.PacketTypeInitial, p.Size(), logging.PacketDropHeaderParseError)
@@ -812,13 +814,13 @@ func (s *baseServer) maybeSendInvalidToken(p *receivedPacket) {
 	}
 }
 
-func (s *baseServer) sendConnectionRefused(remoteAddr net.Addr, hdr *wire.Header, info *packetInfo) error {
+func (s *baseServer) sendConnectionRefused(remoteAddr net.Addr, hdr *wire.Header, info packetInfo) error {
 	sealer, _ := handshake.NewInitialAEAD(hdr.DestConnectionID, protocol.PerspectiveServer, hdr.Version)
 	return s.sendError(remoteAddr, hdr, sealer, qerr.ConnectionRefused, info)
 }
 
 // sendError sends the error as a response to the packet received with header hdr
-func (s *baseServer) sendError(remoteAddr net.Addr, hdr *wire.Header, sealer handshake.LongHeaderSealer, errorCode qerr.TransportErrorCode, info *packetInfo) error {
+func (s *baseServer) sendError(remoteAddr net.Addr, hdr *wire.Header, sealer handshake.LongHeaderSealer, errorCode qerr.TransportErrorCode, info packetInfo) error {
 	b := getPacketBuffer()
 	defer b.Release()
 
@@ -858,11 +860,11 @@ func (s *baseServer) sendError(remoteAddr net.Addr, hdr *wire.Header, sealer han
 	if s.tracer != nil {
 		s.tracer.SentPacket(remoteAddr, &replyHdr.Header, protocol.ByteCount(len(b.Data)), []logging.Frame{ccf})
 	}
-	_, err = s.conn.WritePacket(b.Data, remoteAddr, info.OOB())
+	_, err = s.conn.WritePacket(b.Data, uint16(len(b.Data)), remoteAddr, info.OOB())
 	return err
 }
 
-func (s *baseServer) enqueueVersionNegotiationPacket(p *receivedPacket) (bufferInUse bool) {
+func (s *baseServer) enqueueVersionNegotiationPacket(p receivedPacket) (bufferInUse bool) {
 	select {
 	case s.versionNegotiationQueue <- p:
 		return true
@@ -872,7 +874,7 @@ func (s *baseServer) enqueueVersionNegotiationPacket(p *receivedPacket) (bufferI
 	return false
 }
 
-func (s *baseServer) maybeSendVersionNegotiationPacket(p *receivedPacket) {
+func (s *baseServer) maybeSendVersionNegotiationPacket(p receivedPacket) {
 	defer p.buffer.Release()
 
 	v, err := wire.ParseVersion(p.data)
@@ -896,7 +898,7 @@ func (s *baseServer) maybeSendVersionNegotiationPacket(p *receivedPacket) {
 	if s.tracer != nil {
 		s.tracer.SentVersionNegotiationPacket(p.remoteAddr, src, dest, s.config.Versions)
 	}
-	if _, err := s.conn.WritePacket(data, p.remoteAddr, p.info.OOB()); err != nil {
+	if _, err := s.conn.WritePacket(data, uint16(len(data)), p.remoteAddr, p.info.OOB()); err != nil {
 		s.logger.Debugf("Error sending Version Negotiation: %s", err)
 	}
 }

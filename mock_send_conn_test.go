@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	protocol "github.com/quic-go/quic-go/internal/protocol"
 )
 
 // MockSendConn is a mock of SendConn interface.
@@ -89,17 +90,17 @@ func (mr *MockSendConnMockRecorder) SetCurrentRemoteAddr(arg0 interface{}) *gomo
 }
 
 // Write mocks base method.
-func (m *MockSendConn) Write(arg0 []byte) error {
+func (m *MockSendConn) Write(arg0 []byte, arg1 protocol.ByteCount) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Write", arg0)
+	ret := m.ctrl.Call(m, "Write", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Write indicates an expected call of Write.
-func (mr *MockSendConnMockRecorder) Write(arg0 interface{}) *gomock.Call {
+func (mr *MockSendConnMockRecorder) Write(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockSendConn)(nil).Write), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockSendConn)(nil).Write), arg0, arg1)
 }
 
 // capabilities mocks base method.

@@ -21,12 +21,10 @@ type SentPacketHandler interface {
 	SetHandshakeConfirmed()
 
 	// The SendMode determines if and what kind of packets can be sent.
-	SendMode() SendMode
+	SendMode(now time.Time) SendMode
 	// TimeUntilSend is the time when the next packet should be sent.
 	// It is used for pacing packets.
 	TimeUntilSend() time.Time
-	// HasPacingBudget says if the pacer allows sending of a (full size) packet at this moment.
-	HasPacingBudget() bool
 	SetMaxDatagramSize(count protocol.ByteCount)
 
 	// only to be called once the handshake is complete
