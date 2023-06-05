@@ -98,7 +98,7 @@ var _ = Describe("Connection", func() {
 		mconn = NewMockSendConn(mockCtrl)
 		mconn.EXPECT().RemoteAddr().Return(remoteAddr).AnyTimes()
 		mconn.EXPECT().LocalAddr().Return(localAddr).AnyTimes()
-		tokenGenerator, err := handshake.NewTokenGenerator(rand.Reader)
+		tokenGenerator, err := handshake.NewTokenGenerator(rand.Reader, nil)
 		Expect(err).ToNot(HaveOccurred())
 		tracer = mocklogging.NewMockConnectionTracer(mockCtrl)
 		tracer.EXPECT().NegotiatedVersion(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1)

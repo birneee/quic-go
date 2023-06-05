@@ -376,7 +376,10 @@ func (s *receiveStream) restoreReceiveState(state handover.ReceiveStreamState, p
 		s.finRead = true
 	}
 	for offset, data := range pendingFrames {
-		err := s.frameQueue.Push(data, offset, nil)
+		sf := wire.GetStreamFrame()
+		sf.Data = sf.Data[:len(data)]
+		copy(sf.Data, data)
+		err := s.frameQueue.Push(sf.Data, offset, nil)
 		if err != nil {
 			panic(err)
 		}

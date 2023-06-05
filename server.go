@@ -179,10 +179,12 @@ func ListenAddr(addr string, tlsConf *tls.Config, config *Config) (*Listener, er
 	if err != nil {
 		return nil, err
 	}
+	config = populateServerConfig(config)
 	return (&Transport{
-		Conn:        conn,
-		createdConn: true,
-		isSingleUse: true,
+		Conn:              conn,
+		createdConn:       true,
+		isSingleUse:       true,
+		StatelessResetKey: config.StatelessResetKey,
 	}).Listen(tlsConf, config)
 }
 
@@ -192,10 +194,12 @@ func ListenAddrEarly(addr string, tlsConf *tls.Config, config *Config) (*EarlyLi
 	if err != nil {
 		return nil, err
 	}
+	config = populateServerConfig(config)
 	return (&Transport{
-		Conn:        conn,
-		createdConn: true,
-		isSingleUse: true,
+		Conn:              conn,
+		createdConn:       true,
+		isSingleUse:       true,
+		StatelessResetKey: config.StatelessResetKey,
 	}).ListenEarly(tlsConf, config)
 }
 
@@ -221,13 +225,15 @@ func listenUDP(addr string) (*net.UDPConn, error) {
 // which offers configuration options for a more fine-grained control of the connection establishment,
 // including reusing the underlying UDP socket for outgoing QUIC connections.
 func Listen(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*Listener, error) {
-	tr := &Transport{Conn: conn, isSingleUse: true}
+	config = populateServerConfig(config)
+	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey}
 	return tr.Listen(tlsConf, config)
 }
 
 // ListenEarly works like Listen, but it returns connections before the handshake completes.
 func ListenEarly(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*EarlyListener, error) {
-	tr := &Transport{Conn: conn, isSingleUse: true}
+	config = populateServerConfig(config)
+	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey}
 	return tr.ListenEarly(tlsConf, config)
 }
 

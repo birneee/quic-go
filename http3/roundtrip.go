@@ -285,6 +285,9 @@ func (r *RoundTripper) makeDialer() func(ctx context.Context, addr string, tlsCf
 		if err != nil {
 			return nil, err
 		}
+		if cfg.StatelessResetKey != nil {
+			panic("stateless reset key cannot applied here")
+		}
 		return r.transport.DialEarly(ctx, udpAddr, tlsCfg, cfg)
 	}
 }

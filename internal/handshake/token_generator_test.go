@@ -17,7 +17,7 @@ var _ = Describe("Token Generator", func() {
 
 	BeforeEach(func() {
 		var err error
-		tokenGen, err = NewTokenGenerator(rand.Reader)
+		tokenGen, err = NewTokenGenerator(rand.Reader, nil)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

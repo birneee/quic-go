@@ -474,7 +474,9 @@ func (p *TransportParameters) MarshalForSessionTicket(b []byte) []byte {
 	// active_connection_id_limit
 	b = p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
 	// max_datagram_frame_size
-	b = p.marshalVarintParam(b, maxDatagramFrameSizeParameterID, uint64(p.MaxDatagramFrameSize))
+	if p.MaxDatagramFrameSize != protocol.InvalidByteCount {
+		b = p.marshalVarintParam(b, maxDatagramFrameSizeParameterID, uint64(p.MaxDatagramFrameSize))
+	}
 	return b
 }
 

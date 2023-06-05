@@ -16,7 +16,7 @@ func Fuzz(data []byte) int {
 	}
 	seed := binary.BigEndian.Uint64(data[:8])
 	data = data[8:]
-	tg, err := handshake.NewTokenGenerator(rand.New(rand.NewSource(int64(seed))))
+	tg, err := handshake.NewTokenGenerator(rand.New(rand.NewSource(int64(seed))), nil)
 	if err != nil {
 		panic(err)
 	}

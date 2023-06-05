@@ -565,7 +565,7 @@ func (s *sendStream) restoreSendState(state handover.SendStreamState, perspectiv
 		f.Fin = offset+logging.ByteCount(len(frame)) == finOffset
 		s.numOutstandingFrames++
 		s.mutex.Unlock()
-		s.queueRetransmission(f)
+		s.OnLost(f) // queue for retransmission
 	}
 	s.flowController.RestoreSendState(state, perspective)
 }
