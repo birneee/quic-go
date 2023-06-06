@@ -873,7 +873,7 @@ func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
 
 func (h *sentPacketHandler) SetHighest1RTTPacketNumber(pn protocol.PacketNumber) {
 	h.appDataPackets.pns.SetNext(pn + 1)
-	h.appDataPackets.history.highestSent = pn
+	h.appDataPackets.history.highestPacketNumber = pn
 	// validate peer address
 	h.ReceivedPacket(protocol.EncryptionHandshake)
 }
@@ -883,15 +883,16 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 	if encLevel != protocol.Encryption1RTT {
 		panic("implement me")
 	}
-	for _, packet := range h.appDataPackets.history.packetMap {
-		for _, frame := range packet.Value.Frames {
+	h.appDataPackets.history.Iterate(func(packet *Packet) (cont bool, err error) {
+		for _, frame := range packet.Frames {
 			if frame, ok := frame.Frame.(*wire.StreamFrame); ok {
 				if frame.StreamID == streamID {
 					streamFrames = append(streamFrames, frame)
 				}
 			}
 		}
-	}
+		return true, nil
+	})
 	return streamFrames
 }
 

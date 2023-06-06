@@ -396,7 +396,7 @@ func (c *ProxyConfig) Clone() *ProxyConfig {
 }
 
 type UnhandledPacket struct {
-	receivedPacket *receivedPacket
+	receivedPacket receivedPacket
 }
 
 func (u UnhandledPacket) RemoteAddr() net.Addr {

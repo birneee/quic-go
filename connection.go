@@ -969,7 +969,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 	return processed
 }
 
-func (s *connection) handleIgnoredAddressPacket(rp *receivedPacket) {
+func (s *connection) handleIgnoredAddressPacket(rp receivedPacket) {
 	if s.tracer != nil {
 		s.tracer.DroppedPacket(logging.PacketTypeNotDetermined, rp.Size(), logging.PacketDropHquicIgnoreRemoteAddress)
 	}
@@ -2658,13 +2658,13 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 
 	if conf.Listener != nil && conf.PacketConn == nil {
 		packetHandlerManager = conf.Listener.PacketHandlerManager()
-		sendConn = newSendConn(conf.Listener.Conn(), remoteAddr, nil)
+		sendConn = newSendConn(conf.Listener.Conn(), remoteAddr)
 	} else if conf.PacketConn != nil && conf.Listener == nil {
 		rawConn, err := wrapConn(conf.PacketConn)
 		if err != nil {
 			return nil, nil, err
 		}
-		sendConn = newSendConn(rawConn, remoteAddr, nil)
+		sendConn = newSendConn(rawConn, remoteAddr)
 		tr := &Transport{
 			Conn:               conf.PacketConn,
 			isSingleUse:        true,
@@ -2690,7 +2690,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		if err != nil {
 			return nil, nil, err
 		}
-		sendConn = newSendConn(rawConn, remoteAddr, nil)
+		sendConn = newSendConn(rawConn, remoteAddr)
 		tr := &Transport{
 			Conn:               pconn,
 			isSingleUse:        true,
@@ -2791,6 +2791,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		s.tracer,
 		s.logger,
 	)
+	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 
 	// skip some packets for two reasons:
 	//  - this number might be an estimate from the opposite perspective
@@ -2823,7 +2824,6 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		handshakeStream,
 		s.sentPacketHandler,
 		s.retransmissionQueue,
-		s.RemoteAddr(),
 		cs,
 		s.framer,
 		s.receivedPacketHandler,
@@ -2927,7 +2927,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	s.sentPacketHandler.RestoreState(&state)
 
 	//TODO send PATH_CHALLENGE instead of PING
-	err = s.sendProbePacket(protocol.Encryption1RTT)
+	err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
 	if err != nil {
 		return nil, nil, err
 	}
