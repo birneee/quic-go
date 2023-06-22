@@ -29,14 +29,57 @@ func BenchmarkHandshake(b *testing.B) {
 		}
 	}()
 
-	conn, err := net.ListenUDP("udp", nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c, err := quic.DialAddr(context.Background(), ln.Addr().String(), tlsClientConfig, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		<-connChan
+		c.CloseWithError(0, "")
+	}
+}
+
+func BenchmarkFirstSentByte(b *testing.B) {
+	b.ReportAllocs()
+
+	ln, err := quic.ListenAddr("localhost:0", tlsConfig, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer ln.Close()
+
+	connChan := make(chan quic.Connection, 1)
+	go func() {
+		for {
+			conn, err := ln.Accept(context.Background())
+			if err != nil {
+				return
+			}
+			stream, err := conn.AcceptStream(context.Background())
+			if err != nil {
+				return
+			}
+			var b [1]byte
+			_, err = stream.Read(b[:])
+			if err != nil {
+				return
+			}
+			connChan <- conn
+		}
+	}()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		c, err := quic.Dial(context.Background(), conn, ln.Addr(), tlsClientConfig, nil)
+		c, err := quic.DialAddr(context.Background(), ln.Addr().String(), tlsClientConfig, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		s, err := c.OpenStream()
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = s.Write([]byte{'a'})
 		if err != nil {
 			b.Fatal(err)
 		}
