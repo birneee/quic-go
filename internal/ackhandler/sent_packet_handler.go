@@ -907,7 +907,7 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 	if encLevel != protocol.Encryption1RTT {
 		panic("implement me")
 	}
-	h.appDataPackets.history.Iterate(func(packet *Packet) (cont bool, err error) {
+	h.appDataPackets.history.Iterate(func(packet *packet) (cont bool, err error) {
 		for _, frame := range packet.Frames {
 			if frame, ok := frame.Frame.(*wire.StreamFrame); ok {
 				if frame.StreamID == streamID {
