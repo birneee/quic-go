@@ -31,7 +31,8 @@ type Transport struct {
 	// Bad things will happen if passed to multiple Transports.
 	//
 	// If not done by the user, the connection is passed through OptimizeConn to enable a number of optimizations.
-	// After passing the connection to the Transport, its invalid to call ReadFrom and WriteTo.
+	// After passing the connection to the Transport, it's invalid to call ReadFrom on the connection.
+	// Calling WriteTo is only valid on the connection returned by OptimizeConn.
 	Conn net.PacketConn
 
 	// The length of the connection ID in bytes.
@@ -250,14 +251,16 @@ func (t *Transport) runSendQueue() {
 func (t *Transport) Close() error {
 	t.close(errors.New("closing"))
 	if t.createdConn {
-		if err := t.conn.Close(); err != nil {
+		if err := t.Conn.Close(); err != nil {
 			return err
 		}
-	} else {
+	} else if t.conn != nil {
 		t.conn.SetReadDeadline(time.Now())
 		defer func() { t.conn.SetReadDeadline(time.Time{}) }()
 	}
-	<-t.listening // wait until listening returns
+	if t.listening != nil {
+		<-t.listening // wait until listening returns
+	}
 	return nil
 }
 
@@ -286,7 +289,9 @@ func (t *Transport) close(e error) {
 		return
 	}
 
-	t.handlerMap.Close(e)
+	if t.handlerMap != nil {
+		t.handlerMap.Close(e)
+	}
 	if t.server != nil {
 		t.server.setCloseError(e)
 	}

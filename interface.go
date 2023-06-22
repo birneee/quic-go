@@ -21,10 +21,9 @@ type StreamID = protocol.StreamID
 type VersionNumber = protocol.VersionNumber
 
 const (
-	// VersionDraft29 is IETF QUIC draft-29
-	VersionDraft29 = protocol.VersionDraft29
 	// Version1 is RFC 9000
 	Version1 = protocol.Version1
+	// Version2 is RFC 9369
 	Version2 = protocol.Version2
 )
 
@@ -370,9 +369,15 @@ type ClientHelloInfo struct {
 
 // ConnectionState records basic details about a QUIC connection
 type ConnectionState struct {
-	TLS               handshake.ConnectionState
+	// TLS contains information about the TLS connection state, incl. the tls.ConnectionState.
+	TLS handshake.ConnectionState
+	// SupportsDatagrams says if support for QUIC datagrams (RFC 9221) was negotiated.
+	// This requires both nodes to support and enable the datagram extensions (via Config.EnableDatagrams).
+	// If datagram support was negotiated, datagrams can be sent and received using the
+	// SendMessage and ReceiveMessage methods on the Connection.
 	SupportsDatagrams bool
-	Version           VersionNumber
+	// Version is the QUIC version of the QUIC connection.
+	Version VersionNumber
 }
 
 type ProxyConfig struct {
