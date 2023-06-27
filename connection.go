@@ -687,14 +687,14 @@ runLoop:
 				s.handleHandshakeComplete()
 			case req := <-s.handoverStateRequests:
 				s.handoverStateRequests <- req
+				s.maybeHandleHandoverStateRequests()
+				select {
+				case e := <-s.closeChan:
+					s.closeChan <- e
+					continue runLoop // do not continue loop if handover destroyed connection
+				default:
+				}
 			}
-		}
-		s.maybeHandleHandoverStateRequests()
-		select {
-		case e := <-s.closeChan:
-			s.closeChan <- e
-			continue // do not continue loop if handover destroyed connection
-		default:
 		}
 
 		now := time.Now()

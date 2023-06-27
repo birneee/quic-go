@@ -5,64 +5,58 @@ import (
 	"sync"
 )
 
-type PathKey = string
-
 type pathManager struct {
 	mutex         sync.RWMutex
-	ignoreReceive map[PathKey]interface{}
-	ignoreMigrate map[PathKey]interface{}
-	ignoreSend    map[PathKey]interface{}
+	ignoreReceive AddressMap[interface{}]
+	ignoreMigrate AddressMap[interface{}]
+	ignoreSend    AddressMap[interface{}]
 }
 
 var _ PathManager = &pathManager{}
 
 func NewPathManager() PathManager {
 	return &pathManager{
-		ignoreReceive: map[PathKey]interface{}{},
-		ignoreMigrate: map[PathKey]interface{}{},
-		ignoreSend:    map[PathKey]interface{}{},
+		ignoreReceive: newAddressMap[interface{}](),
+		ignoreMigrate: newAddressMap[interface{}](),
+		ignoreSend:    newAddressMap[interface{}](),
 	}
-}
-
-func getPathKey(addr net.Addr) PathKey {
-	return addr.Network() + " " + addr.String()
 }
 
 func (p *pathManager) IgnoreReceiveFrom(addr net.Addr) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.ignoreReceive[getPathKey(addr)] = nil
+	p.ignoreReceive.Put(addr, nil)
 }
 
 func (p *pathManager) IgnoreMigrateTo(addr net.Addr) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.ignoreMigrate[getPathKey(addr)] = nil
+	p.ignoreMigrate.Put(addr, nil)
 }
 
 func (p *pathManager) IgnoreSendTo(addr net.Addr) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.ignoreSend[getPathKey(addr)] = nil
+	p.ignoreSend.Put(addr, nil)
 }
 
 func (p *pathManager) IsIgnoreReceiveFrom(addr net.Addr) bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	_, ok := p.ignoreReceive[getPathKey(addr)]
+	_, ok := p.ignoreReceive.Get(addr)
 	return ok
 }
 
 func (p *pathManager) IsIgnoreMigrateTo(addr net.Addr) bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	_, ok := p.ignoreMigrate[getPathKey(addr)]
+	_, ok := p.ignoreMigrate.Get(addr)
 	return ok
 }
 
 func (p *pathManager) IsIgnoreSendTo(addr net.Addr) bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	_, ok := p.ignoreSend[getPathKey(addr)]
+	_, ok := p.ignoreSend.Get(addr)
 	return ok
 }
