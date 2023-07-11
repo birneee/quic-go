@@ -231,18 +231,17 @@ func (m *outgoingStreamsMap[T]) CloseWithError(err error) {
 	m.mutex.Unlock()
 }
 
-func RestoreBidiStream(m *outgoingStreamsMap[streamI], num protocol.StreamNum, state *handover.BidiStreamState, perspective protocol.Perspective) (streamI, error) {
+func RestoreOutgoingBidiStream(m *outgoingStreamsMap[streamI], num protocol.StreamNum, state *handover.BidiStreamState, perspective protocol.Perspective) (streamI, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeBidi, perspective))
 	}
 	stream := m.newStream(num)
 	stream.restoreReceiveState(state, perspective)
 	stream.restoreSendState(state, perspective)
 	m.streams[num] = stream
-	m.nextStream = num + 1
 	return stream, nil
 }
 
@@ -251,11 +250,10 @@ func RestoreOutgoingUniStream(m *outgoingStreamsMap[sendStreamI], num protocol.S
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeUni, perspective))
 	}
 	stream := m.newStream(num)
 	stream.restoreSendState(state, perspective)
 	m.streams[num] = stream
-	m.nextStream = num + 1
 	return stream, nil
 }

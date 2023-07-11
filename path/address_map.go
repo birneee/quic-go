@@ -1,6 +1,8 @@
 package path
 
-import "net"
+import (
+	"net"
+)
 
 type AddressMap[T any] interface {
 	Put(key net.Addr, value T)
@@ -52,7 +54,7 @@ func (a addressMap[T]) Put(key net.Addr, value T) {
 func (a addressMap[T]) Get(key net.Addr) (T, bool) {
 	addr, ok := key.(*net.UDPAddr)
 	if !ok {
-		panic("implement me")
+		return *new(T), false
 	}
 	if len(addr.IP) == 4 {
 		ipKey := *(*[4]byte)(addr.IP)
@@ -72,7 +74,7 @@ func (a addressMap[T]) Get(key net.Addr) (T, bool) {
 		value, ok := portMap[addr.Port]
 		return value, ok
 	}
-	panic("unexpected state")
+	return *new(T), false
 }
 
 func (a addressMap[T]) Delete(key net.Addr) {

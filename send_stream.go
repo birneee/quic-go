@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/logging"
+	"reflect"
 	"sync"
 	"time"
 
@@ -544,6 +545,9 @@ func (s *sendStream) storeSendState(state handover.SendStreamState, perspective 
 
 // if fin offset is not known yet set to MaxByteCount
 func (s *sendStream) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
+	if reflect.ValueOf(state).IsNil() { // state == nil https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here
+		return
+	}
 	offset := state.OutgoingOffset(perspective)
 	for frameOffset, frameData := range state.PendingSentData(perspective) {
 		frameEnd := frameOffset + logging.ByteCount(len(frameData))

@@ -104,6 +104,20 @@ func (mr *MockStreamMockRecorder) Read(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockStream)(nil).Read), arg0)
 }
 
+// ReadFin mocks base method.
+func (m *MockStream) ReadFin() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadFin")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ReadFin indicates an expected call of ReadFin.
+func (mr *MockStreamMockRecorder) ReadFin() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFin", reflect.TypeOf((*MockStream)(nil).ReadFin))
+}
+
 // ReadOffset mocks base method.
 func (m *MockStream) ReadOffset() protocol.ByteCount {
 	m.ctrl.T.Helper()

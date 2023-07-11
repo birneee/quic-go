@@ -12,9 +12,10 @@ import (
 	"time"
 )
 
-type ActiveConnectionID struct {
-	SequenceNumber uint64
-	ConnectionID   []byte
+type ConnectionIDSequenceNumber uint64
+
+type ConnectionIDWithResetToken struct {
+	ConnectionID []byte
 	// 16 bytes
 	StatelessResetToken []byte
 }
@@ -22,9 +23,9 @@ type ActiveConnectionID struct {
 // State is used to handover QUIC connection
 type State struct {
 	// active client connection IDs
-	ClientConnectionIDs []ActiveConnectionID
+	ClientConnectionIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken
 	// active server connection IDs
-	ServerConnectionIDs []ActiveConnectionID
+	ServerConnectionIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken
 	Version             protocol.VersionNumber
 	KeyPhase            protocol.KeyPhase
 	// id of the used TLS 1.3 cipher suites.
@@ -48,8 +49,12 @@ type State struct {
 	ClientHighestSentPacketNumber protocol.PacketNumber
 	// might be an estimate from the opposite perspective
 	ServerHighestSentPacketNumber protocol.PacketNumber
-	UniStreams                    map[protocol.StreamID]UniStreamState
-	BidiStreams                   map[protocol.StreamID]BidiStreamState
+	UniStreams                    map[protocol.StreamID]*UniStreamState
+	BidiStreams                   map[protocol.StreamID]*BidiStreamState
+	ClientNextUniStream           protocol.StreamID
+	ServerNextUniStream           protocol.StreamID
+	ClientNextBidiStream          protocol.StreamID
+	ServerNextBidiStream          protocol.StreamID
 	ClientDirectionMaxData        protocol.ByteCount
 	ServerDirectionMaxData        protocol.ByteCount
 	ServerDirectionBytes          protocol.ByteCount
@@ -182,7 +187,7 @@ func (s *State) SetReceiveHeaderProtectionKey(perspective protocol.Perspective, 
 	}
 }
 
-func (s *State) ActiveSrcConnectionIDs(perspective protocol.Perspective) []ActiveConnectionID {
+func (s *State) ActiveSrcConnectionIDs(perspective protocol.Perspective) map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken {
 	if perspective == protocol.PerspectiveClient {
 		return s.ClientConnectionIDs
 	} else {
@@ -191,30 +196,30 @@ func (s *State) ActiveSrcConnectionIDs(perspective protocol.Perspective) []Activ
 }
 
 func (s *State) MinActiveSrcConnectionID(perspective protocol.Perspective) protocol.ConnectionID {
-	var minSN uint64 = math.MaxUint64
+	minSN := ConnectionIDSequenceNumber(math.MaxUint64)
 	var minID protocol.ConnectionID
-	for _, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
-		if activeConnID.SequenceNumber <= minSN {
-			minSN = activeConnID.SequenceNumber
+	for sequenceNumber, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
+		if sequenceNumber <= minSN {
+			minSN = sequenceNumber
 			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return minID
 }
 
-func (s *State) MaxActiveSrcConnectionID(perspective protocol.Perspective) (uint64, protocol.ConnectionID) {
-	var minSN uint64 = 0
+func (s *State) MaxActiveSrcConnectionID(perspective protocol.Perspective) (ConnectionIDSequenceNumber, protocol.ConnectionID) {
+	minSN := ConnectionIDSequenceNumber(0)
 	var minID protocol.ConnectionID
-	for _, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
-		if activeConnID.SequenceNumber >= minSN {
-			minSN = activeConnID.SequenceNumber
+	for sequenceNumber, activeConnID := range s.ActiveSrcConnectionIDs(perspective) {
+		if sequenceNumber >= minSN {
+			minSN = sequenceNumber
 			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return minSN, minID
 }
 
-func (s *State) SetActiveSrcConnectionIDs(perspective protocol.Perspective, connIDs []ActiveConnectionID) {
+func (s *State) SetActiveSrcConnectionIDs(perspective protocol.Perspective, connIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken) {
 	if perspective == protocol.PerspectiveClient {
 		s.ClientConnectionIDs = connIDs
 	} else {
@@ -222,7 +227,7 @@ func (s *State) SetActiveSrcConnectionIDs(perspective protocol.Perspective, conn
 	}
 }
 
-func (s *State) ActiveDestConnectionIDs(perspective protocol.Perspective) []ActiveConnectionID {
+func (s *State) ActiveDestConnectionIDs(perspective protocol.Perspective) map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken {
 	if perspective == protocol.PerspectiveClient {
 		return s.ServerConnectionIDs
 	} else {
@@ -231,18 +236,18 @@ func (s *State) ActiveDestConnectionIDs(perspective protocol.Perspective) []Acti
 }
 
 func (s *State) MinActiveDestConnectionID(perspective protocol.Perspective) *protocol.ConnectionID {
-	var minSN uint64 = math.MaxUint64
+	minSN := ConnectionIDSequenceNumber(math.MaxUint64)
 	var minID protocol.ConnectionID
-	for _, activeConnID := range s.ActiveDestConnectionIDs(perspective) {
-		if activeConnID.SequenceNumber <= minSN {
-			minSN = activeConnID.SequenceNumber
+	for sequenceNumber, activeConnID := range s.ActiveDestConnectionIDs(perspective) {
+		if sequenceNumber <= minSN {
+			minSN = sequenceNumber
 			minID = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 	}
 	return &minID
 }
 
-func (s *State) SetActiveDestConnectionIDs(perspective protocol.Perspective, connIDs []ActiveConnectionID) {
+func (s *State) SetActiveDestConnectionIDs(perspective protocol.Perspective, connIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken) {
 	if perspective == protocol.PerspectiveClient {
 		s.ServerConnectionIDs = connIDs
 	} else {
@@ -373,8 +378,20 @@ func (s *State) SetCongestionWindow(window protocol.ByteCount, perspective proto
 
 func (s *State) ConnIDLen(p logging.Perspective) int {
 	if p == logging.PerspectiveClient {
-		return len(s.ClientConnectionIDs[0].ConnectionID)
+		for _, value := range s.ClientConnectionIDs {
+			return len(value.ConnectionID)
+		}
 	} else {
-		return len(s.ServerConnectionIDs[0].ConnectionID)
+		for _, value := range s.ServerConnectionIDs {
+			return len(value.ConnectionID)
+		}
+	}
+	panic("unexpected empty set")
+}
+
+func (s *State) FromPerspective(perspective protocol.Perspective) *StateFromPerspective {
+	return &StateFromPerspective{
+		state:       s,
+		perspective: perspective,
 	}
 }

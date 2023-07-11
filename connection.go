@@ -54,13 +54,10 @@ type streamManager interface {
 	CloseWithError(error)
 	ResetFor0RTT()
 	UseResetMaps()
-	BidiStreamStates(config *ConnectionStateStoreConf) map[StreamID]handover.BidiStreamState
-	UniStreamStates(config *ConnectionStateStoreConf) map[protocol.StreamID]handover.UniStreamState
-	RestoreBidiStream(state *handover.BidiStreamState) (Stream, error)
 	// error if not open yet
 	OpenedBidiStream(id StreamID) (Stream, error)
-	RestoreSendStream(state *handover.UniStreamState) (SendStream, error)
-	RestoreReceiveStream(state *handover.UniStreamState) (ReceiveStream, error)
+	StoreState(state *handover.State, config *ConnectionStateStoreConf)
+	Restore(state *handover.State) (*RestoredStreams, error)
 }
 
 type cryptoStreamHandler interface {
@@ -2539,14 +2536,13 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
 	s.cryptoStreamHandler.StoreHandoverState(&state, s.perspective)
 
-	activeSrcConnIDs := make([]handover.ActiveConnectionID, 0)
+	activeSrcConnIDs := make(map[handover.ConnectionIDSequenceNumber]*handover.ConnectionIDWithResetToken, 0)
 	for sn, connID := range s.connIDGenerator.activeSrcConnIDs {
 		statelessResetToken := s.connIDGenerator.getStatelessResetToken(connID) //TODO maybe store history
-		activeSrcConnIDs = append(activeSrcConnIDs, handover.ActiveConnectionID{
-			SequenceNumber:      sn,
+		activeSrcConnIDs[handover.ConnectionIDSequenceNumber(sn)] = &handover.ConnectionIDWithResetToken{
 			ConnectionID:        connID.Bytes(),
 			StatelessResetToken: statelessResetToken[:],
-		})
+		}
 	}
 	state.SetActiveSrcConnectionIDs(s.perspective, activeSrcConnIDs)
 
@@ -2555,18 +2551,16 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 	if s.connIDManager.activeStatelessResetToken != nil {
 		activeDestStatelessResetToken = s.connIDManager.activeStatelessResetToken[:]
 	}
-	activeDestConnIDs := make([]handover.ActiveConnectionID, 0)
-	activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
-		SequenceNumber:      s.connIDManager.activeSequenceNumber,
+	activeDestConnIDs := make(map[handover.ConnectionIDSequenceNumber]*handover.ConnectionIDWithResetToken, 0)
+	activeDestConnIDs[handover.ConnectionIDSequenceNumber(s.connIDManager.activeSequenceNumber)] = &handover.ConnectionIDWithResetToken{
 		ConnectionID:        s.connIDManager.activeConnectionID.Bytes(),
 		StatelessResetToken: activeDestStatelessResetToken,
-	})
+	}
 	for destConnID := s.connIDManager.queue.Front(); destConnID != nil; destConnID = destConnID.Next() {
-		activeDestConnIDs = append(activeDestConnIDs, handover.ActiveConnectionID{
-			SequenceNumber:      destConnID.Value.SequenceNumber,
+		activeDestConnIDs[handover.ConnectionIDSequenceNumber(destConnID.Value.SequenceNumber)] = &handover.ConnectionIDWithResetToken{
 			ConnectionID:        destConnID.Value.ConnectionID.Bytes(),
 			StatelessResetToken: destConnID.Value.StatelessResetToken[:],
-		})
+		}
 	}
 	state.SetActiveDestConnectionIDs(s.perspective, activeDestConnIDs)
 
@@ -2581,8 +2575,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 		s.tracer.Debug("hquic_handover_state_created", "")
 	}
 
-	state.UniStreams = s.streamsMap.UniStreamStates(config)
-	state.BidiStreams = s.streamsMap.BidiStreamStates(config)
+	s.streamsMap.StoreState(&state, config)
 
 	s.connFlowController.StoreState(&state, s.perspective)
 
@@ -2781,11 +2774,11 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	{
 		maxSN, _ := state.MaxActiveSrcConnectionID(perspective)
 		activeScrConnIDMap := make(map[uint64]protocol.ConnectionID, 0)
-		for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
-			activeScrConnIDMap[activeConnID.SequenceNumber] = protocol.ParseConnectionID(activeConnID.ConnectionID)
+		for sequenceNumber, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
+			activeScrConnIDMap[uint64(sequenceNumber)] = protocol.ParseConnectionID(activeConnID.ConnectionID)
 		}
 		s.connIDGenerator.activeSrcConnIDs = activeScrConnIDMap
-		s.connIDGenerator.highestSeq = maxSN
+		s.connIDGenerator.highestSeq = uint64(maxSN)
 	}
 
 	s.preSetup()
@@ -2862,9 +2855,9 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		s.tracer.RestoredTransportParameters(&peerParams)
 	}
 
-	for _, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
+	for sequenceNumber, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
 		if protocol.ParseConnectionID(activeConnID.ConnectionID) == s.connIDManager.activeConnectionID {
-			s.connIDManager.activeSequenceNumber = activeConnID.SequenceNumber
+			s.connIDManager.activeSequenceNumber = uint64(sequenceNumber)
 			s.connIDManager.activeStatelessResetToken = new(protocol.StatelessResetToken)
 			if activeConnID.StatelessResetToken != nil {
 				s.connIDManager.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(s.connIDManager.rand.Int31n(protocol.PacketsPerConnectionID))
@@ -2875,7 +2868,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		var resetToken [16]byte
 		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
 		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
-			SequenceNumber:      activeConnID.SequenceNumber,
+			SequenceNumber:      uint64(sequenceNumber),
 			ConnectionID:        protocol.ParseConnectionID(activeConnID.ConnectionID),
 			StatelessResetToken: resetToken,
 		})
@@ -2902,32 +2895,9 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 
 	s.receivedFirstPacket = true
 
-	restoredStreams := &RestoredStreams{
-		BidiStreams:    make(map[StreamID]Stream, 0),
-		ReceiveStreams: make(map[StreamID]ReceiveStream, 0),
-		SendStreams:    make(map[StreamID]SendStream, 0),
-	}
-	for _, streamState := range state.BidiStreams {
-		stream, err := s.streamsMap.RestoreBidiStream(&streamState)
-		if err != nil {
-			return nil, nil, err
-		}
-		restoredStreams.BidiStreams[stream.StreamID()] = stream
-	}
-	for _, streamState := range state.UniStreams {
-		if streamState.ID.InitiatedBy() == s.perspective {
-			stream, err := s.streamsMap.RestoreSendStream(&streamState)
-			if err != nil {
-				return nil, nil, err
-			}
-			restoredStreams.SendStreams[stream.StreamID()] = stream
-		} else {
-			stream, err := s.streamsMap.RestoreReceiveStream(&streamState)
-			if err != nil {
-				return nil, nil, err
-			}
-			restoredStreams.ReceiveStreams[stream.StreamID()] = stream
-		}
+	restoredStreams, err := s.streamsMap.Restore(&state)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	s.connFlowController.RestoreState(&state, perspective)

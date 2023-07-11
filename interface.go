@@ -97,6 +97,7 @@ type ReceiveStream interface {
 
 	SetReadDeadline(t time.Time) error
 	ReadOffset() logging.ByteCount
+	ReadFin() bool
 }
 
 // A SendStream is a unidirectional Send Stream.

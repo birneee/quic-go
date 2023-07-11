@@ -214,7 +214,7 @@ func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.Stre
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeBidi, perspective))
 	}
 	m.streams[num] = incomingStreamEntry[streamI]{stream: m.newStream(num)}
 	select {
@@ -234,15 +234,13 @@ func RestoreIncomingUniStream(m *incomingStreamsMap[receiveStreamI], num protoco
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.ID)
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeUni, perspective))
 	}
 	m.streams[num] = incomingStreamEntry[receiveStreamI]{stream: m.newStream(num)}
 	select {
 	case m.newStreamChan <- struct{}{}:
 	default:
 	}
-	m.nextStreamToOpen = utils.Max(m.nextStreamToOpen, num+1)
-	m.nextStreamToAccept = m.nextStreamToOpen
 	stream := m.streams[num].stream
 	stream.restoreReceiveState(state, perspective)
 	return stream, nil
