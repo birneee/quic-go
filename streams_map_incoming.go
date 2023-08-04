@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
 	"sync"
 
@@ -216,14 +215,12 @@ func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.Stre
 	if ok {
 		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeBidi, perspective))
 	}
-	m.streams[num] = incomingStreamEntry[streamI]{stream: m.newStream(num)}
+	var stream = m.newStream(num)
+	m.streams[num] = incomingStreamEntry[streamI]{stream: stream}
 	select {
 	case m.newStreamChan <- struct{}{}:
 	default:
 	}
-	m.nextStreamToOpen = utils.Max(m.nextStreamToOpen, num+1)
-	m.nextStreamToAccept = m.nextStreamToOpen
-	stream := m.streams[num].stream
 	stream.restoreReceiveState(state, perspective)
 	stream.(sendStreamI).restoreSendState(state, perspective)
 	return stream, nil

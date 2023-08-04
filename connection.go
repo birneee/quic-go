@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
@@ -2584,7 +2583,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 	}
 
 	if s.logger.Debug() {
-		b, err := json.Marshal(state)
+		b, err := state.Serialize()
 		if err != nil {
 			panic(err)
 		}
@@ -2918,7 +2917,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	}()
 
 	if s.logger.Debug() {
-		b, err := json.Marshal(state)
+		b, err := state.Serialize()
 		if err != nil {
 			panic(err)
 		}

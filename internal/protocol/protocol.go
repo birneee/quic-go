@@ -1,3 +1,4 @@
+//go:generate msgp
 package protocol
 
 import (

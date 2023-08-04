@@ -1,3 +1,4 @@
+//go:generate msgp
 package protocol
 
 // StreamType encodes if this is a unidirectional or bidirectional stream

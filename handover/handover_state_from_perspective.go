@@ -81,3 +81,11 @@ func (s *StateFromPerspective) PutBack(streamID protocol.StreamID, offset protoc
 		panic("implement me")
 	}
 }
+
+func (s *StateFromPerspective) Version() protocol.VersionNumber {
+	return s.state.Version
+}
+
+func (s *StateFromPerspective) SetVersion(version protocol.VersionNumber) {
+	s.state.Version = version
+}

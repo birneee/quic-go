@@ -6,18 +6,24 @@ import (
 )
 
 type BidiStreamState struct {
-	// offset until stream data is acknowledged or read by application layer
+	// highest sent or received offset
 	ClientDirectionOffset protocol.ByteCount
-	// offset until stream data is acknowledged or read by application layer
+	// highest sent or received offset
 	ServerDirectionOffset protocol.ByteCount
+	// offset until stream data is acknowledged or read by application layer
+	ServerDirectionAcknowledgedOffset protocol.ByteCount
+	// offset until stream data is acknowledged or read by application layer
+	ClientDirectionAcknowledgedOffset protocol.ByteCount
 	// MaxByteCount if not known yet
 	ClientDirectionFinOffset protocol.ByteCount
 	// MaxByteCount if not known yet
 	ServerDirectionFinOffset     protocol.ByteCount
 	ClientDirectionPendingFrames map[protocol.ByteCount][]byte
 	ServerDirectionPendingFrames map[protocol.ByteCount][]byte
-	ClientDirectionMaxData       protocol.ByteCount
-	ServerDirectionMaxData       protocol.ByteCount
+	// also required for sending RESET_STREAM frames
+	ClientDirectionMaxData protocol.ByteCount
+	// also required for sending RESET_STREAM frames
+	ServerDirectionMaxData protocol.ByteCount
 }
 
 var _ SendStreamState = &BidiStreamState{}
@@ -126,4 +132,8 @@ func (s *BidiStreamState) FromPerspective(perspective protocol.Perspective) *Bid
 		state:       s,
 		perspective: perspective,
 	}
+}
+
+func (s *BidiStreamState) SendStreamFromPerspective(perspective protocol.Perspective) SendStreamStateFromPerspective {
+	return s.FromPerspective(perspective)
 }

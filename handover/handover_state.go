@@ -1,8 +1,11 @@
+//go:generate msgp
 package handover
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"errors"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/logging"
@@ -357,7 +360,58 @@ func (s *State) SetBytesSent(perspective protocol.Perspective, sent protocol.Byt
 }
 
 func (s *State) Serialize() ([]byte, error) {
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	return json.Marshal(s)
+}
+
+func (s *State) Parse(buf []byte) (*State, error) {
+	if s == nil {
+		s = &State{}
+	}
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+	err := json.Unmarshal(buf, s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *State) SerializeGob() ([]byte, error) {
+	buf := bytes.NewBuffer(make([]byte, 0, 10000))
+	encoder := gob.NewEncoder(buf)
+	err := encoder.Encode(s)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (s *State) ParseGob(buf []byte) (*State, error) {
+	if s == nil {
+		s = &State{}
+	}
+	reader := bytes.NewReader(buf)
+	decoder := gob.NewDecoder(reader)
+	err := decoder.Decode(s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *State) SerializeMsgp() ([]byte, error) {
+	return s.MarshalMsg(nil)
+}
+
+func (s *State) ParseMsgp(buf []byte) (*State, error) {
+	if s == nil {
+		s = &State{}
+	}
+	_, err := s.UnmarshalMsg(buf)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *State) CongestionWindow(perspective protocol.Perspective) protocol.ByteCount {

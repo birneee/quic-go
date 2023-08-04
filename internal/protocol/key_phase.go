@@ -1,3 +1,4 @@
+//go:generate msgp
 package protocol
 
 // KeyPhase is the key phase

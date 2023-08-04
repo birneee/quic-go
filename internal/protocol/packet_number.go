@@ -1,3 +1,4 @@
+//go:generate msgp
 package protocol
 
 // A PacketNumber in QUIC

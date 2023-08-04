@@ -707,6 +707,7 @@ var _ = Describe("Send Stream", func() {
 					mockSender.EXPECT().onStreamCompleted(streamID),
 				)
 				str.writeOffset = 1234
+				str.flowControllerBytesSent = 1234
 				str.CancelWrite(9876)
 			})
 

@@ -57,6 +57,8 @@ type sendStream struct {
 	deadline  time.Time
 
 	flowController flowcontrol.StreamFlowController
+	// copy of flow controller state
+	flowControllerBytesSent protocol.ByteCount
 	// required for stream state serialization
 	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame
 }
@@ -270,7 +272,7 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	f, hasMoreData := s.popNewStreamFrame(maxBytes, sendWindow, v)
 	if dataLen := f.DataLen(); dataLen > 0 {
 		s.writeOffset += f.DataLen()
-		s.flowController.AddBytesSent(f.DataLen())
+		s.increaseFlowBytesSent(s.writeOffset)
 	}
 	f.Fin = s.finishedWriting && s.dataForWriting == nil && s.nextFrame == nil && !s.finSent
 	if f.Fin {
@@ -405,7 +407,7 @@ func (s *sendStream) cancelWriteImpl(errorCode qerr.StreamErrorCode, remote bool
 	s.signalWrite()
 	s.sender.queueControlFrame(&wire.ResetStreamFrame{
 		StreamID:  s.streamID,
-		FinalSize: s.writeOffset,
+		FinalSize: s.flowControllerBytesSent,
 		ErrorCode: errorCode,
 	})
 	if newlyCompleted {
@@ -526,29 +528,33 @@ func (s *sendStream) pendingSendFrames() map[protocol.ByteCount][]byte {
 }
 
 func (s *sendStream) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+	sfp := state.SendStreamFromPerspective(perspective)
+
 	pendingFrames := s.pendingSendFrames()
-	writeOffset := s.writeOffset
+	acknowledgedWriteOffset := s.writeOffset
 	if !config.IncludePendingOutgoingFrames {
 		for offset, _ := range pendingFrames {
-			if offset < writeOffset {
-				writeOffset = offset
+			if offset < acknowledgedWriteOffset {
+				acknowledgedWriteOffset = offset
 			}
 		}
 	}
-	state.SetOutgoingOffset(perspective, writeOffset)
-	state.SetOutgoingFinOffset(perspective, s.writeFinOffset())
+	sfp.SetOutgoingAcknowledgedOffset(acknowledgedWriteOffset)
+	sfp.SetOutgoingOffset(s.writeOffset)
+	sfp.SetOutgoingFinOffset(s.writeFinOffset())
 	if config.IncludePendingOutgoingFrames {
-		state.SetPendingOutgoingFrames(perspective, pendingFrames)
+		sfp.SetPendingOutgoingFrames(pendingFrames)
 	}
 	s.flowController.StoreSendState(state, perspective)
 }
 
 // if fin offset is not known yet set to MaxByteCount
 func (s *sendStream) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
+	sfp := state.SendStreamFromPerspective(perspective)
 	if reflect.ValueOf(state).IsNil() { // state == nil https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here
 		return
 	}
-	offset := state.OutgoingOffset(perspective)
+	offset := sfp.OutgoingAcknowledgedOffset()
 	for frameOffset, frameData := range state.PendingSentData(perspective) {
 		frameEnd := frameOffset + logging.ByteCount(len(frameData))
 		if frameEnd > offset {
@@ -578,8 +584,17 @@ func (s *sendStream) restoreSendState(state handover.SendStreamState, perspectiv
 		(*sendStreamAckHandler)(s).OnLost(f) // queue for retransmission
 	}
 	s.flowController.RestoreSendState(state, perspective)
+	s.flowControllerBytesSent = sfp.OutgoingOffset()
 }
 
 func (s *sendStream) WriteOffset() logging.ByteCount {
 	return s.writeOffset
+}
+
+func (s *sendStream) increaseFlowBytesSent(offset protocol.ByteCount) {
+	n := offset - s.flowControllerBytesSent
+	if n > 0 {
+		s.flowController.AddBytesSent(n)
+		s.flowControllerBytesSent += n
+	}
 }
