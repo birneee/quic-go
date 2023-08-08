@@ -8,8 +8,22 @@ import (
 	"testing"
 )
 
+func nonDefaultState() State {
+	s := State{
+		ClientConnectionIDs: map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken{
+			0: {
+				ConnectionID:        []byte{1, 2, 3},
+				StatelessResetToken: []byte{4, 5, 6},
+			},
+		},
+		Version:                   1,
+		ServerHeaderProtectionKey: []byte{1, 2, 3},
+	}
+	return s
+}
+
 func benchmarkBaseSerialize(b *testing.B, serialize func(State) ([]byte, error)) {
-	s := State{}
+	s := nonDefaultState()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := serialize(s)
@@ -20,7 +34,7 @@ func benchmarkBaseSerialize(b *testing.B, serialize func(State) ([]byte, error))
 }
 
 func benchmarkBaseParse(b *testing.B, serialize func(State) ([]byte, error), parse func([]byte) (State, error)) {
-	s := State{}
+	s := nonDefaultState()
 	serialized, err := serialize(s)
 	if err != nil {
 		b.Error(err)

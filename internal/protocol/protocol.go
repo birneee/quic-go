@@ -4,6 +4,9 @@ package protocol
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/quic-go/quic-go/internal/indi_utils"
+	"github.com/tinylib/msgp/msgp"
+	"strconv"
 	"time"
 )
 
@@ -47,6 +50,23 @@ const (
 
 // A ByteCount in QUIC
 type ByteCount int64
+
+func (z *ByteCount) MsgpStrMapKey() string {
+	return strconv.FormatInt(int64(*z), 10)
+}
+
+func (z *ByteCount) MsgpFromStrMapKey(s string) msgp.NonStrMapKey {
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	*z = ByteCount(i)
+	return z
+}
+
+func (z *ByteCount) MsgpStrMapKeySize() int {
+	return indi_utils.Base10Digits(*z)
+}
 
 // MaxByteCount is the maximum value of a ByteCount
 const MaxByteCount = ByteCount(1<<62 - 1)

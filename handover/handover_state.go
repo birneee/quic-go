@@ -6,9 +6,11 @@ import (
 	"encoding/gob"
 	"errors"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/quic-go/quic-go/internal/indi_utils"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/tinylib/msgp/msgp"
 	"math"
 	"net"
 	"strconv"
@@ -16,6 +18,23 @@ import (
 )
 
 type ConnectionIDSequenceNumber uint64
+
+func (n *ConnectionIDSequenceNumber) MsgpStrMapKey() string {
+	return strconv.FormatInt(int64(*n), 10)
+}
+
+func (n *ConnectionIDSequenceNumber) MsgpFromStrMapKey(str string) msgp.NonStrMapKey {
+	i, err := strconv.ParseUint(str, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	*n = ConnectionIDSequenceNumber(i)
+	return n
+}
+
+func (n *ConnectionIDSequenceNumber) MsgpStrMapKeySize() int {
+	return indi_utils.Base10Digits(*n)
+}
 
 type ConnectionIDWithResetToken struct {
 	ConnectionID []byte
