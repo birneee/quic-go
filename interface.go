@@ -362,6 +362,8 @@ type Config struct {
 	// The StatelessResetKey is used to generate stateless reset tokens.
 	// If no key is configured, sending of stateless resets is disabled.
 	StatelessResetKey *StatelessResetKey
+	// The InitialCongestionWindow to use, in number of packets
+	InitialCongestionWindow uint32
 }
 
 type ClientHelloInfo struct {

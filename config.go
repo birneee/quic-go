@@ -108,6 +108,10 @@ func populateConfig(config *Config) *Config {
 	} else if maxIncomingUniStreams < 0 {
 		maxIncomingUniStreams = 0
 	}
+	initialCongestionWindow := config.InitialCongestionWindow
+	if initialCongestionWindow == 0 {
+		initialCongestionWindow = protocol.DefaultInitialCongestionWindow
+	}
 
 	return &Config{
 		GetConfigForClient:               config.GetConfigForClient,
@@ -137,5 +141,6 @@ func populateConfig(config *Config) *Config {
 		HandleUnknownConnectionPacket: config.HandleUnknownConnectionPacket,
 		AddressTokenKey:               config.AddressTokenKey,
 		StatelessResetKey:             config.StatelessResetKey,
+		InitialCongestionWindow:       initialCongestionWindow,
 	}
 }

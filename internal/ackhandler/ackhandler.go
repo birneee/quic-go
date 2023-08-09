@@ -12,12 +12,13 @@ import (
 func NewAckHandler(
 	initialPacketNumber protocol.PacketNumber,
 	initialMaxDatagramSize protocol.ByteCount,
+	initialCongestionWindow uint32, // number of packets
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
 	pers protocol.Perspective,
 	tracer logging.ConnectionTracer,
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, rttStats, clientAddressValidated, pers, tracer, logger)
+	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, rttStats, clientAddressValidated, pers, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger)
 }

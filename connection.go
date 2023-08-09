@@ -308,6 +308,7 @@ var newConnection = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		s.config.InitialCongestionWindow,
 		s.rttStats,
 		clientAddressValidated,
 		s.perspective,
@@ -432,6 +433,7 @@ var newClientConnection = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		initialPacketNumber,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		s.config.InitialCongestionWindow,
 		s.rttStats,
 		false, /* has no effect */
 		s.perspective,
@@ -2785,6 +2787,7 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
+		s.config.InitialCongestionWindow,
 		s.rttStats,
 		true, // TODO path challenge
 		s.perspective,

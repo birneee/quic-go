@@ -116,6 +116,8 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(true))
 			case "AddressTokenKey":
 				f.Set(reflect.ValueOf(&[32]byte{1, 2, 3, 4}))
+			case "InitialCongestionWindow":
+				f.Set(reflect.ValueOf(uint32(100)))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}

@@ -41,6 +41,8 @@ func getMaxPacketSize(addr net.Addr) protocol.ByteCount {
 	return maxSize
 }
 
+var GetMaxPacketSize = getMaxPacketSize
+
 type mtuFinder struct {
 	lastProbeTime time.Time
 	mtuIncreased  func(protocol.ByteCount)

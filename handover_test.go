@@ -69,7 +69,6 @@ var _ = Describe("Handover", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// state handover
 			res := conn.Handover(true, &ConnectionStateStoreConf{
-				IncludeStreamState:           true,
 				IncludePendingOutgoingFrames: true,
 				IncludePendingIncomingFrames: true,
 			})

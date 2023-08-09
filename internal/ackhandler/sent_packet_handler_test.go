@@ -45,7 +45,7 @@ var _ = Describe("SentPacketHandler", func() {
 	JustBeforeEach(func() {
 		lostPackets = nil
 		rttStats := utils.NewRTTStats()
-		handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, rttStats, false, perspective, nil, utils.DefaultLogger)
+		handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, protocol.DefaultInitialCongestionWindow, rttStats, false, perspective, nil, utils.DefaultLogger)
 		streamFrame = wire.StreamFrame{
 			StreamID: 5,
 			Data:     []byte{0x13, 0x37},
@@ -978,7 +978,7 @@ var _ = Describe("SentPacketHandler", func() {
 	Context("amplification limit, for the server, with validated address", func() {
 		JustBeforeEach(func() {
 			rttStats := utils.NewRTTStats()
-			handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, rttStats, true, perspective, nil, utils.DefaultLogger)
+			handler = newSentPacketHandler(42, protocol.InitialPacketSizeIPv4, protocol.DefaultInitialCongestionWindow, rttStats, true, perspective, nil, utils.DefaultLogger)
 		})
 
 		It("do not limits the window", func() {

@@ -16,7 +16,6 @@ const (
 	maxBurstPackets            = 3
 	renoBeta                   = 0.7 // Reno backoff factor.
 	minCongestionWindowPackets = 2
-	initialCongestionWindow    = 32
 )
 
 type cubicSender struct {
@@ -69,6 +68,7 @@ func NewCubicSender(
 	clock Clock,
 	rttStats *utils.RTTStats,
 	initialMaxDatagramSize protocol.ByteCount,
+	initialCongestionWindow uint32, // number of packets
 	reno bool,
 	tracer logging.ConnectionTracer,
 ) *cubicSender {
@@ -77,7 +77,7 @@ func NewCubicSender(
 		rttStats,
 		reno,
 		initialMaxDatagramSize,
-		initialCongestionWindow*initialMaxDatagramSize,
+		protocol.ByteCount(initialCongestionWindow)*initialMaxDatagramSize,
 		protocol.MaxCongestionWindowPackets*initialMaxDatagramSize,
 		tracer,
 	)
