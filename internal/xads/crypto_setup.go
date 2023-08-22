@@ -2,6 +2,7 @@ package xads
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/qtls"
@@ -52,7 +53,7 @@ func NewCryptoSetup(suite *qtls.CipherSuiteTLS13, masterSecret []byte, perspecti
 	return c
 }
 
-func NewCryptoSetupFromConn(quicTls *qtls.Conn, perspective protocol.Perspective, tracer logging.ConnectionTracer) CryptoSetup {
+func NewCryptoSetupFromConn(quicTls *qtls.QUICConn, perspective protocol.Perspective, tracer logging.ConnectionTracer, handshakeCompleteCtx context.Context) CryptoSetup {
 	c := &cryptoSetup{
 		perspective: perspective,
 		tracer:      tracer,
@@ -61,13 +62,11 @@ func NewCryptoSetupFromConn(quicTls *qtls.Conn, perspective protocol.Perspective
 	go func() {
 		// TODO allow 0-RTT XADS-QUIC streams
 		// await handshake completion
-		err := quicTls.HandshakeContext(context.Background())
-		if err != nil {
-			panic(fmt.Errorf("failed to export xads_master_secret: %w", err))
-		}
+		<-handshakeCompleteCtx.Done()
 		cs := quicTls.ConnectionState()
 		c.suite = qtls.CipherSuiteTLS13ByID(cs.CipherSuite)
-		c.masterSecret, err = (&cs).ExportKeyingMaterial(xadsMasterSecretLabel, nil, c.suite.Hash.Size())
+		var err error
+		c.masterSecret, err = (&cs).ExportKeyingMaterial(xadsMasterSecretLabel, nil, c.suite.Hash().Size())
 		if err != nil {
 			panic(fmt.Errorf("failed to export xads_master_secret: %w", err))
 		}
@@ -79,10 +78,10 @@ func NewCryptoSetupFromConn(quicTls *qtls.Conn, perspective protocol.Perspective
 func (c *cryptoSetup) NewStream(baseStream Stream) Stream {
 	<-c.secretReadyCtx.Done()
 
-	rcvTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
-	sendTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
+	rcvTrafficSecret := c.suite.DeriveSecret(c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
+	sendTrafficSecret := c.suite.DeriveSecret(c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
 
-	tlsConn := qtls.FromTrafficSecret(&streamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, sendTrafficSecret, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
+	tlsConn := qtls.FromTrafficSecret(&streamConnAdapter{baseStream}, c.suite.ID(), rcvTrafficSecret, sendTrafficSecret, &tls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	receiveStream := &receiveStream{
 		ReceiveStream: baseStream.ReceiveStream(),
@@ -103,9 +102,9 @@ func (c *cryptoSetup) NewStream(baseStream Stream) Stream {
 func (c *cryptoSetup) NewReceiveStream(baseStream ReceiveStream) ReceiveStream {
 	<-c.secretReadyCtx.Done()
 
-	rcvTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
+	rcvTrafficSecret := c.suite.DeriveSecret(c.masterSecret, trafficSecretLabel(c.perspective.Opposite(), baseStream.StreamID()), nil)
 
-	tlsConn := qtls.FromTrafficSecret(&receiveStreamConnAdapter{baseStream}, c.suite.ID, rcvTrafficSecret, nil, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
+	tlsConn := qtls.FromTrafficSecret(&receiveStreamConnAdapter{baseStream}, c.suite.ID(), rcvTrafficSecret, nil, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	return &receiveStream{
 		ReceiveStream: baseStream,
@@ -116,9 +115,9 @@ func (c *cryptoSetup) NewReceiveStream(baseStream ReceiveStream) ReceiveStream {
 func (c *cryptoSetup) NewSendStream(baseStream SendStream) SendStream {
 	<-c.secretReadyCtx.Done()
 
-	sendTrafficSecret := qtls.DeriveSecret(c.suite, c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
+	sendTrafficSecret := c.suite.DeriveSecret(c.masterSecret, trafficSecretLabel(c.perspective, baseStream.StreamID()), nil)
 
-	tlsConn := qtls.FromTrafficSecret(&sendStreamConnAdapter{baseStream}, c.suite.ID, nil, sendTrafficSecret, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
+	tlsConn := qtls.FromTrafficSecret(&sendStreamConnAdapter{baseStream}, c.suite.ID(), nil, sendTrafficSecret, &qtls.Config{}, c.extraConfigForStream(baseStream.StreamID()), c.perspective == protocol.PerspectiveClient)
 
 	return &sendStream{
 		SendStream: baseStream,

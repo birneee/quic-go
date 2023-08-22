@@ -671,6 +671,6 @@ func wrapError(err error) error {
 	return &qerr.TransportError{ErrorCode: qerr.InternalError, ErrorMessage: err.Error()}
 }
 
-func (h *cryptoSetup) TlsConn() *qtls.Conn {
+func (h *cryptoSetup) TlsConn() *qtls.QUICConn {
 	return h.conn
 }

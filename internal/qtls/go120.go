@@ -5,6 +5,7 @@ package qtls
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"unsafe"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -13,12 +14,16 @@ import (
 )
 
 type (
+	Conn                = qtls.Conn
 	QUICConn            = qtls.QUICConn
 	QUICConfig          = qtls.QUICConfig
+	Config              = qtls.Config
+	ExtraConfig         = qtls.ExtraConfig
 	QUICEvent           = qtls.QUICEvent
 	QUICEventKind       = qtls.QUICEventKind
 	QUICEncryptionLevel = qtls.QUICEncryptionLevel
 	AlertError          = qtls.AlertError
+	CipherSuiteTLS13    = qtls.CipherSuiteTLS13
 )
 
 const (
@@ -144,8 +149,12 @@ func SendSessionTicket(c *QUICConn, allow0RTT bool) error {
 	return c.SendSessionTicket(allow0RTT)
 }
 
+func CipherSuiteTLS13ByID(id uint16) *qtls.CipherSuiteTLS13 {
+	return qtls.CipherSuiteTLS13ByID(id)
+}
+
 // FromTrafficSecret creates a new TLS connection without doing a handshake
 // only accepts TLS 1.3 cipher suites
-func FromTrafficSecret(conn net.Conn, cipherSuiteId uint16, rcvTrafficSecret []byte, sendTrafficSecret []byte, config *Config, extraConfig *ExtraConfig, isClient bool) *Conn {
+func FromTrafficSecret(conn net.Conn, cipherSuiteId uint16, rcvTrafficSecret []byte, sendTrafficSecret []byte, config *qtls.Config, extraConfig *qtls.ExtraConfig, isClient bool) *qtls.Conn {
 	return qtls.FromTrafficSecret(conn, cipherSuiteId, rcvTrafficSecret, sendTrafficSecret, config, extraConfig, isClient)
 }

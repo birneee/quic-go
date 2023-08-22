@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	handshake "github.com/quic-go/quic-go/internal/handshake"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
+	qtls "github.com/quic-go/quic-go/internal/qtls"
 )
 
 // MockCryptoSetup is a mock of CryptoSetup interface.
@@ -288,4 +289,18 @@ func (m *MockCryptoSetup) StartHandshake() error {
 func (mr *MockCryptoSetupMockRecorder) StartHandshake() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartHandshake", reflect.TypeOf((*MockCryptoSetup)(nil).StartHandshake))
+}
+
+// TlsConn mocks base method.
+func (m *MockCryptoSetup) TlsConn() *qtls.QUICConn {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TlsConn")
+	ret0, _ := ret[0].(*qtls.QUICConn)
+	return ret0
+}
+
+// TlsConn indicates an expected call of TlsConn.
+func (mr *MockCryptoSetupMockRecorder) TlsConn() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TlsConn", reflect.TypeOf((*MockCryptoSetup)(nil).TlsConn))
 }

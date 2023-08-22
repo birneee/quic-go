@@ -38,7 +38,7 @@ func (x xadsStreamI) handleStopSendingFrame(frame *wire.StopSendingFrame) {
 	x.Stream.HandleStopSendingFrame(frame)
 }
 
-func (x xadsStreamI) popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (*ackhandler.Frame, bool) {
+func (x xadsStreamI) popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (ackhandler.StreamFrame, bool, bool) {
 	return x.Stream.PopStreamFrame(maxBytes, v)
 }
 
@@ -61,7 +61,7 @@ func (x xadsSendStreamI) hasData() bool {
 	return x.SendStream.HasData()
 }
 
-func (x xadsSendStreamI) popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (*ackhandler.Frame, bool) {
+func (x xadsSendStreamI) popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (ackhandler.StreamFrame, bool, bool) {
 	return x.SendStream.PopStreamFrame(maxBytes, v)
 }
 
@@ -94,4 +94,59 @@ func (x xadsReceiveStreamI) closeForShutdown(err error) {
 
 func (x xadsReceiveStreamI) getWindowUpdate() protocol.ByteCount {
 	return x.ReceiveStream.GetWindowUpdate()
+}
+
+var _ xads.SendStream = &sendStream{}
+
+func (s *sendStream) HasData() bool {
+	return s.hasData()
+}
+
+func (s *sendStream) HandleStopSendingFrame(frame *wire.StopSendingFrame) {
+	s.handleStopSendingFrame(frame)
+}
+
+func (s *sendStream) PopStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (ackhandler.StreamFrame, bool, bool) {
+	return s.popStreamFrame(maxBytes, v)
+}
+
+func (s *sendStream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
+}
+
+func (s *sendStream) UpdateSendWindow(count protocol.ByteCount) {
+	s.updateSendWindow(count)
+}
+
+var _ xads.ReceiveStream = &receiveStream{}
+
+func (s *receiveStream) HandleStreamFrame(frame *wire.StreamFrame) error {
+	return s.handleStreamFrame(frame)
+}
+
+func (s *receiveStream) HandleResetStreamFrame(frame *wire.ResetStreamFrame) error {
+	return s.handleResetStreamFrame(frame)
+}
+
+func (s *receiveStream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
+}
+
+func (s *receiveStream) GetWindowUpdate() protocol.ByteCount {
+	return s.getWindowUpdate()
+}
+
+var _ streamI = &stream{}
+var _ xads.Stream = &stream{}
+
+func (s *stream) ReceiveStream() xads.ReceiveStream {
+	return &s.receiveStream
+}
+
+func (s *stream) SendStream() xads.SendStream {
+	return &s.sendStream
+}
+
+func (s *stream) CloseForShutdown(err error) {
+	s.closeForShutdown(err)
 }

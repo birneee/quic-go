@@ -2,9 +2,7 @@ module github.com/quic-go/quic-go
 
 go 1.20
 
-replace (
-	github.com/quic-go/qtls-go1-20 => github.com/birneee/qtls-go1-20 v0.0.0-20230511155527-73dba42104f5
-)
+replace github.com/quic-go/qtls-go1-20 => github.com/birneee/qtls-go1-20 v0.0.0-20230822163111-cfa94cb80061
 
 require (
 	github.com/francoispqt/gojay v1.2.13

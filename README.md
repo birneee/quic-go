@@ -11,7 +11,7 @@ Due to lack of security measures, this implementation is intended for research p
 - XADS-QUIC extension: additional TLS encryption of QUIC stream content
 
 ## Requirements
-- Go 1.20
+- Go 1.20 (1.21 not yet supported)
 
 ## Guides
 

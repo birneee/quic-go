@@ -65,7 +65,7 @@ type cryptoStreamHandler interface {
 	DiscardInitialKeys()
 	io.Closer
 	ConnectionState() handshake.ConnectionState
-	TlsConn() *qtls.Conn
+	TlsConn() *qtls.QUICConn
 }
 
 type receivedPacket struct {
@@ -306,10 +306,10 @@ var newConnection = func(
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
 		// See https://github.com/quic-go/quic-go/pull/3806.
-		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID: srcConnID,
-		RetrySourceConnectionID:   retrySrcConnID,
-		ExtraApplicationDataSecurity:    s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
+		ActiveConnectionIDLimit:      protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID:    srcConnID,
+		RetrySourceConnectionID:      retrySrcConnID,
+		ExtraApplicationDataSecurity: s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -414,9 +414,9 @@ var newClientConnection = func(
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
 		// See https://github.com/quic-go/quic-go/pull/3806.
-		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
-		InitialSourceConnectionID: srcConnID,
-		ExtraApplicationDataSecurity:   s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
+		ActiveConnectionIDLimit:      protocol.MaxActiveConnectionIDs,
+		InitialSourceConnectionID:    srcConnID,
+		ExtraApplicationDataSecurity: s.config.Experimental.ExtraApplicationDataSecurity.enabled(),
 	}
 	if s.config.EnableDatagrams {
 		params.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
@@ -1775,7 +1775,7 @@ func (s *connection) applyTransportParameters() {
 		s.connIDManager.AddFromPreferredAddress(params.PreferredAddress.ConnectionID, params.PreferredAddress.StatelessResetToken)
 	}
 	if s.config.Experimental.ExtraApplicationDataSecurity.enabled() && params.ExtraApplicationDataSecurity {
-		s.streamsMap.SetXADSCryptoSetup(xads.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer))
+		s.streamsMap.SetXADSCryptoSetup(xads.NewCryptoSetupFromConn(s.cryptoStreamHandler.TlsConn(), s.perspective, s.tracer, s.handshakeCtx))
 	}
 }
 

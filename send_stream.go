@@ -3,7 +3,6 @@ package quic
 import (
 	"context"
 	"fmt"
-	"github.com/quic-go/quic-go/internal/xads"
 	"sync"
 	"time"
 
@@ -56,9 +55,8 @@ type sendStream struct {
 }
 
 var (
-	_ SendStream      = &sendStream{}
-	_ sendStreamI     = &sendStream{}
-	_ xads.SendStream = &sendStream{}
+	_ SendStream  = &sendStream{}
+	_ sendStreamI = &sendStream{}
 )
 
 func newSendStream(

@@ -35,7 +35,7 @@ type SendStream interface {
 	SetWriteDeadline(t time.Time) error
 	HasData() bool
 	HandleStopSendingFrame(*wire.StopSendingFrame)
-	PopStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (*ackhandler.Frame, bool)
+	PopStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (ackhandler.StreamFrame, bool, bool)
 	CloseForShutdown(error)
 	UpdateSendWindow(protocol.ByteCount)
 }
