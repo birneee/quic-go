@@ -426,6 +426,12 @@ func (t *Transport) sendStatelessReset(p receivedPacket) {
 	}
 }
 
+func (t *Transport) Send(data []byte, remoteAddr net.Addr, oob []byte) {
+	if _, err := t.conn.WritePacket(data, uint16(len(data)), remoteAddr, oob); err != nil {
+		t.logger.Debugf("Error sending Stateless Reset to %s: %s", remoteAddr, err)
+	}
+}
+
 func (t *Transport) maybeHandleStatelessReset(data []byte) bool {
 	// stateless resets are always short header packets
 	if wire.IsLongHeaderPacket(data[0]) {

@@ -142,5 +142,6 @@ func populateConfig(config *Config) *Config {
 		AddressTokenKey:               config.AddressTokenKey,
 		StatelessResetKey:             config.StatelessResetKey,
 		InitialCongestionWindow:       initialCongestionWindow,
+		ConnectionIDGenerator:         config.ConnectionIDGenerator,
 	}
 }

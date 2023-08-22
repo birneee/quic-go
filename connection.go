@@ -852,6 +852,10 @@ func (s *connection) handleHandshakeComplete() {
 	}
 	s.queueControlFrame(&wire.NewTokenFrame{Token: token})
 	s.queueControlFrame(&wire.HandshakeDoneFrame{})
+
+	if s.tracer != nil {
+		s.tracer.ChoseAlpn(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
+	}
 }
 
 func (s *connection) handleHandshakeConfirmed() {

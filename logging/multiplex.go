@@ -224,3 +224,9 @@ func (m *connTracerMultiplexer) Close() {
 		t.Close()
 	}
 }
+
+func (m *connTracerMultiplexer) ChoseAlpn(negotiatedProtocol string) {
+	for _, t := range m.tracers {
+		t.ChoseAlpn(negotiatedProtocol)
+	}
+}

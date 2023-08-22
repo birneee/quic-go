@@ -364,6 +364,7 @@ type Config struct {
 	StatelessResetKey *StatelessResetKey
 	// The InitialCongestionWindow to use, in number of packets
 	InitialCongestionWindow uint32
+	ConnectionIDGenerator   ConnectionIDGenerator
 }
 
 type ClientHelloInfo struct {
@@ -409,6 +410,14 @@ type UnhandledPacket struct {
 
 func (u UnhandledPacket) RemoteAddr() net.Addr {
 	return u.receivedPacket.remoteAddr
+}
+
+func (u UnhandledPacket) Data() []byte {
+	return u.receivedPacket.data
+}
+
+func (u UnhandledPacket) OOB() []byte {
+	return u.receivedPacket.info.OOB()
 }
 
 type PacketHandlerManager = packetHandlerManager

@@ -181,10 +181,11 @@ func ListenAddr(addr string, tlsConf *tls.Config, config *Config) (*Listener, er
 	}
 	config = populateServerConfig(config)
 	return (&Transport{
-		Conn:              conn,
-		createdConn:       true,
-		isSingleUse:       true,
-		StatelessResetKey: config.StatelessResetKey,
+		Conn:                  conn,
+		createdConn:           true,
+		isSingleUse:           true,
+		StatelessResetKey:     config.StatelessResetKey,
+		ConnectionIDGenerator: config.ConnectionIDGenerator,
 	}).Listen(tlsConf, config)
 }
 
@@ -196,10 +197,11 @@ func ListenAddrEarly(addr string, tlsConf *tls.Config, config *Config) (*EarlyLi
 	}
 	config = populateServerConfig(config)
 	return (&Transport{
-		Conn:              conn,
-		createdConn:       true,
-		isSingleUse:       true,
-		StatelessResetKey: config.StatelessResetKey,
+		Conn:                  conn,
+		createdConn:           true,
+		isSingleUse:           true,
+		StatelessResetKey:     config.StatelessResetKey,
+		ConnectionIDGenerator: config.ConnectionIDGenerator,
 	}).ListenEarly(tlsConf, config)
 }
 
@@ -226,14 +228,14 @@ func listenUDP(addr string) (*net.UDPConn, error) {
 // including reusing the underlying UDP socket for outgoing QUIC connections.
 func Listen(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*Listener, error) {
 	config = populateServerConfig(config)
-	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey}
+	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey, ConnectionIDGenerator: config.ConnectionIDGenerator}
 	return tr.Listen(tlsConf, config)
 }
 
 // ListenEarly works like Listen, but it returns connections before the handshake completes.
 func ListenEarly(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*EarlyListener, error) {
 	config = populateServerConfig(config)
-	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey}
+	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey, ConnectionIDGenerator: config.ConnectionIDGenerator}
 	return tr.ListenEarly(tlsConf, config)
 }
 
