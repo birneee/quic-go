@@ -119,11 +119,8 @@ var _ = Describe("Datagram test", func() {
 		var counter int
 		for {
 			// Close the connection if no message is received for 100 ms.
-			timer := time.AfterFunc(scaleDuration(100*time.Millisecond), func() {
-				fmt.Println("closing conn")
-				conn.CloseWithError(0, "")
-			})
-			if _, err := conn.ReceiveMessage(); err != nil {
+			timer := time.AfterFunc(scaleDuration(100*time.Millisecond), func() { conn.CloseWithError(0, "") })
+			if _, err := conn.ReceiveMessage(context.Background()); err != nil {
 				break
 			}
 			timer.Stop()

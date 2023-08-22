@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	mrand "math/rand"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -90,10 +89,11 @@ var (
 	qlogTracer func(context.Context, logging.Perspective, quic.ConnectionID) logging.ConnectionTracer
 	enableQlog bool
 
-	version            quic.VersionNumber
-	tlsConfig          *tls.Config
-	tlsConfigLongChain *tls.Config
-	tlsClientConfig    *tls.Config
+	version                          quic.VersionNumber
+	tlsConfig                        *tls.Config
+	tlsConfigLongChain               *tls.Config
+	tlsClientConfig                  *tls.Config
+	tlsClientConfigWithoutServerName *tls.Config
 )
 
 // read the logfile command line flag
@@ -131,11 +131,13 @@ func init() {
 		RootCAs:    root,
 		NextProtos: []string{alpn},
 	}
+	tlsClientConfigWithoutServerName = &tls.Config{
+		RootCAs:    root,
+		NextProtos: []string{alpn},
+	}
 }
 
 var _ = BeforeSuite(func() {
-	mrand.Seed(GinkgoRandomSeed())
-
 	if enableQlog {
 		qlogTracer = tools.NewQlogger(GinkgoWriter)
 	}
@@ -144,8 +146,6 @@ var _ = BeforeSuite(func() {
 		version = quic.Version1
 	case "2":
 		version = quic.Version2
-	case "draft29":
-		version = quic.VersionDraft29
 	default:
 		Fail(fmt.Sprintf("unknown QUIC version: %s", versionParam))
 	}
@@ -163,6 +163,10 @@ func getTLSConfigWithLongCertChain() *tls.Config {
 
 func getTLSClientConfig() *tls.Config {
 	return tlsClientConfig.Clone()
+}
+
+func getTLSClientConfigWithoutServerName() *tls.Config {
+	return tlsClientConfigWithoutServerName.Clone()
 }
 
 func getQuicConfig(conf *quic.Config) *quic.Config {

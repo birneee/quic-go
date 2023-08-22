@@ -18,7 +18,6 @@ import (
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/quic-go/internal/protocol"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,9 +39,10 @@ var _ = Describe("HTTP tests", func() {
 	var (
 		mux            *http.ServeMux
 		client         *http.Client
+		rt             *http3.RoundTripper
 		server         *http3.Server
 		stoppedServing chan struct{}
-		port           string
+		port           int
 	)
 
 	BeforeEach(func() {
@@ -77,6 +77,12 @@ var _ = Describe("HTTP tests", func() {
 			w.Write(body) // don't check the error here. Stream may be reset.
 		})
 
+		mux.HandleFunc("/remoteAddr", func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			w.Header().Set("X-RemoteAddr", r.RemoteAddr)
+			w.WriteHeader(http.StatusOK)
+		})
+
 		server = &http3.Server{
 			Handler:    mux,
 			TLSConfig:  getTLSConfig(),
@@ -87,7 +93,7 @@ var _ = Describe("HTTP tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 		conn, err := net.ListenUDP("udp", addr)
 		Expect(err).NotTo(HaveOccurred())
-		port = strconv.Itoa(conn.LocalAddr().(*net.UDPAddr).Port)
+		port = conn.LocalAddr().(*net.UDPAddr).Port
 
 		stoppedServing = make(chan struct{})
 
@@ -99,22 +105,22 @@ var _ = Describe("HTTP tests", func() {
 	})
 
 	AfterEach(func() {
+		Expect(rt.Close()).NotTo(HaveOccurred())
 		Expect(server.Close()).NotTo(HaveOccurred())
 		Eventually(stoppedServing).Should(BeClosed())
 	})
 
 	BeforeEach(func() {
-		client = &http.Client{
-			Transport: &http3.RoundTripper{
-				TLSClientConfig:    getTLSClientConfig(),
-				DisableCompression: true,
-				QuicConfig:         getQuicConfig(&quic.Config{MaxIdleTimeout: 10 * time.Second}),
-			},
+		rt = &http3.RoundTripper{
+			TLSClientConfig:    getTLSClientConfigWithoutServerName(),
+			DisableCompression: true,
+			QuicConfig:         getQuicConfig(&quic.Config{MaxIdleTimeout: 10 * time.Second}),
 		}
+		client = &http.Client{Transport: rt}
 	})
 
 	It("downloads a hello", func() {
-		resp, err := client.Get("https://localhost:" + port + "/hello")
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/hello", port))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(200))
 		body, err := io.ReadAll(gbytes.TimeoutReader(resp.Body, 3*time.Second))
@@ -122,11 +128,37 @@ var _ = Describe("HTTP tests", func() {
 		Expect(string(body)).To(Equal("Hello, World!\n"))
 	})
 
+	It("sets content-length for small response", func() {
+		mux.HandleFunc("/small", func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			w.Write([]byte("foobar"))
+		})
+
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/small", port))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(200))
+		Expect(resp.Header.Get("Content-Length")).To(Equal(strconv.Itoa(len("foobar"))))
+	})
+
+	It("requests to different servers with the same udpconn", func() {
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/remoteAddr", port))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(200))
+		addr1 := resp.Header.Get("X-RemoteAddr")
+		Expect(addr1).ToNot(Equal(""))
+		resp, err = client.Get(fmt.Sprintf("https://127.0.0.1:%d/remoteAddr", port))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(200))
+		addr2 := resp.Header.Get("X-RemoteAddr")
+		Expect(addr2).ToNot(Equal(""))
+		Expect(addr1).To(Equal(addr2))
+	})
+
 	It("downloads concurrently", func() {
 		group, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < 2; i++ {
 			group.Go(func() error {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost:"+port+"/hello", nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://localhost:%d/hello", port), nil)
 				Expect(err).ToNot(HaveOccurred())
 				resp, err := client.Do(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -152,7 +184,7 @@ var _ = Describe("HTTP tests", func() {
 			close(handlerCalled)
 		})
 
-		req, err := http.NewRequest(http.MethodGet, "https://localhost:"+port+"/headers/request", nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/headers/request", port), nil)
 		Expect(err).ToNot(HaveOccurred())
 		req.Header.Set("foo", "bar")
 		req.Header.Set("lorem", "ipsum")
@@ -169,7 +201,7 @@ var _ = Describe("HTTP tests", func() {
 			w.Header().Set("lorem", "ipsum")
 		})
 
-		resp, err := client.Get("https://localhost:" + port + "/headers/response")
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/headers/response", port))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(200))
 		Expect(resp.Header.Get("foo")).To(Equal("bar"))
@@ -177,7 +209,7 @@ var _ = Describe("HTTP tests", func() {
 	})
 
 	It("downloads a small file", func() {
-		resp, err := client.Get("https://localhost:" + port + "/prdata")
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/prdata", port))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(200))
 		body, err := io.ReadAll(gbytes.TimeoutReader(resp.Body, 5*time.Second))
@@ -186,7 +218,7 @@ var _ = Describe("HTTP tests", func() {
 	})
 
 	It("downloads a large file", func() {
-		resp, err := client.Get("https://localhost:" + port + "/prdatalong")
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/prdatalong", port))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(200))
 		body, err := io.ReadAll(gbytes.TimeoutReader(resp.Body, 20*time.Second))
@@ -198,7 +230,7 @@ var _ = Describe("HTTP tests", func() {
 		const num = 150
 
 		for i := 0; i < num; i++ {
-			resp, err := client.Get("https://localhost:" + port + "/hello")
+			resp, err := client.Get(fmt.Sprintf("https://localhost:%d/hello", port))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			body, err := io.ReadAll(gbytes.TimeoutReader(resp.Body, 3*time.Second))
@@ -211,7 +243,7 @@ var _ = Describe("HTTP tests", func() {
 		const num = 150
 
 		for i := 0; i < num; i++ {
-			resp, err := client.Get("https://localhost:" + port + "/prdata")
+			resp, err := client.Get(fmt.Sprintf("https://localhost:%d/prdata", port))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			Expect(resp.Body.Close()).To(Succeed())
@@ -220,7 +252,7 @@ var _ = Describe("HTTP tests", func() {
 
 	It("posts a small message", func() {
 		resp, err := client.Post(
-			"https://localhost:"+port+"/echo",
+			fmt.Sprintf("https://localhost:%d/echo", port),
 			"text/plain",
 			bytes.NewReader([]byte("Hello, world!")),
 		)
@@ -233,7 +265,7 @@ var _ = Describe("HTTP tests", func() {
 
 	It("uploads a file", func() {
 		resp, err := client.Post(
-			"https://localhost:"+port+"/echo",
+			fmt.Sprintf("https://localhost:%d/echo", port),
 			"text/plain",
 			bytes.NewReader(PRData),
 		)
@@ -257,7 +289,7 @@ var _ = Describe("HTTP tests", func() {
 		})
 
 		client.Transport.(*http3.RoundTripper).DisableCompression = false
-		resp, err := client.Get("https://localhost:" + port + "/gzipped/hello")
+		resp, err := client.Get(fmt.Sprintf("https://localhost:%d/gzipped/hello", port))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(200))
 		Expect(resp.Uncompressed).To(BeTrue())
@@ -283,7 +315,7 @@ var _ = Describe("HTTP tests", func() {
 			}
 		})
 
-		req, err := http.NewRequest(http.MethodGet, "https://localhost:"+port+"/cancel", nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/cancel", port), nil)
 		Expect(err).ToNot(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
 		req = req.WithContext(ctx)
@@ -316,7 +348,7 @@ var _ = Describe("HTTP tests", func() {
 		})
 
 		r, w := io.Pipe()
-		req, err := http.NewRequest("PUT", "https://localhost:"+port+"/echoline", r)
+		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("https://localhost:%d/echoline", port), r)
 		Expect(err).ToNot(HaveOccurred())
 		rsp, err := client.Do(req)
 		Expect(err).ToNot(HaveOccurred())
@@ -353,7 +385,7 @@ var _ = Describe("HTTP tests", func() {
 			}()
 		})
 
-		req, err := http.NewRequest(http.MethodGet, "https://localhost:"+port+"/httpstreamer", nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/httpstreamer", port), nil)
 		Expect(err).ToNot(HaveOccurred())
 		rsp, err := client.Transport.(*http3.RoundTripper).RoundTripOpt(req, http3.RoundTripOpt{DontCloseRequestStream: true})
 		Expect(err).ToNot(HaveOccurred())
@@ -375,11 +407,8 @@ var _ = Describe("HTTP tests", func() {
 	})
 
 	It("serves other QUIC connections", func() {
-		if version == protocol.VersionDraft29 {
-			Skip("This test only works on RFC versions")
-		}
 		tlsConf := getTLSConfig()
-		tlsConf.NextProtos = []string{"h3"}
+		tlsConf.NextProtos = []string{http3.NextProtoH3}
 		ln, err := quic.ListenAddr("localhost:0", tlsConf, nil)
 		Expect(err).ToNot(HaveOccurred())
 		defer ln.Close()
@@ -414,7 +443,11 @@ var _ = Describe("HTTP tests", func() {
 			})
 
 			expectedEnd := time.Now().Add(deadlineDelay)
-			resp, err := client.Post("https://localhost:"+port+"/read-deadline", "text/plain", neverEnding('a'))
+			resp, err := client.Post(
+				fmt.Sprintf("https://localhost:%d/read-deadline", port),
+				"text/plain",
+				neverEnding('a'),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 
@@ -436,7 +469,7 @@ var _ = Describe("HTTP tests", func() {
 
 			expectedEnd := time.Now().Add(deadlineDelay)
 
-			resp, err := client.Get("https://localhost:" + port + "/write-deadline")
+			resp, err := client.Get(fmt.Sprintf("https://localhost:%d/write-deadline", port))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 

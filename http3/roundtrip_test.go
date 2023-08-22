@@ -6,12 +6,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
-	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
-	mockquic "github.com/quic-go/quic-go/internal/mocks/quic"
 	"github.com/quic-go/quic-go/internal/qerr"
 
 	"github.com/golang/mock/gomock"
@@ -304,10 +303,10 @@ var _ = Describe("RoundTripper", func() {
 
 	Context("closing", func() {
 		It("closes", func() {
-			rt.clients = make(map[string]roundTripCloser)
+			rt.clients = make(map[string]*roundTripCloserWithCount)
 			cl := NewMockRoundTripCloser(mockCtrl)
 			cl.EXPECT().Close()
-			rt.clients["foo.bar"] = cl
+			rt.clients["foo.bar"] = &roundTripCloserWithCount{cl, atomic.Int64{}}
 			err := rt.Close()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(rt.clients)).To(BeZero())
@@ -319,67 +318,52 @@ var _ = Describe("RoundTripper", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(rt.clients)).To(BeZero())
 		})
-	})
 
-	Context("reusing udpconn", func() {
-		var originalDialer func(ctx context.Context, pconn net.PacketConn, remoteAddr net.Addr, tlsConf *tls.Config, config *quic.Config) (quic.EarlyConnection, error)
-		var req1, req2 *http.Request
-
-		BeforeEach(func() {
-			var err error
-			originalDialer = quicDialer
-			req1, err = http.NewRequest("GET", "https://site1.com", nil)
+		It("closes idle connections", func() {
+			Expect(len(rt.clients)).To(Equal(0))
+			req1, err := http.NewRequest("GET", "https://site1.com", nil)
 			Expect(err).ToNot(HaveOccurred())
-			req2, err = http.NewRequest("GET", "https://site2.com", nil)
+			req2, err := http.NewRequest("GET", "https://site2.com", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(req1.Host).ToNot(Equal(req2.Host))
-		})
-
-		AfterEach(func() {
-			quicDialer = originalDialer
-			err := rt.Close()
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("creates udpconn at first request", func() {
-			Expect(rt.udpConn).To(BeNil())
+			ctx1, cancel1 := context.WithCancel(context.Background())
+			ctx2, cancel2 := context.WithCancel(context.Background())
+			req1 = req1.WithContext(ctx1)
+			req2 = req2.WithContext(ctx2)
+			roundTripCalled := make(chan struct{})
+			reqFinished := make(chan struct{})
 			rt.newClient = func(hostname string, tlsConf *tls.Config, opts *roundTripperOpts, conf *quic.Config, dialer dialFunc) (roundTripCloser, error) {
 				cl := NewMockRoundTripCloser(mockCtrl)
-				cl.EXPECT().RoundTripOpt(gomock.Any(), gomock.Any())
 				cl.EXPECT().Close()
-				return cl, nil
-			}
-			_, err := rt.RoundTrip(req1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rt.udpConn).ToNot(BeNil())
-		})
-
-		It("reuses udpconn in different hosts", func() {
-			Expect(rt.udpConn).To(BeNil())
-			quicDialer = func(_ context.Context, pconn net.PacketConn, _ net.Addr, _ *tls.Config, _ *quic.Config) (quic.EarlyConnection, error) {
-				conn := mockquic.NewMockEarlyConnection(mockCtrl)
-				conn.EXPECT().LocalAddr().Return(pconn.LocalAddr())
-				return conn, nil
-			}
-			rt.newClient = func(hostname string, tlsConf *tls.Config, _ *roundTripperOpts, conf *quic.Config, dialer dialFunc) (roundTripCloser, error) {
-				cl := NewMockRoundTripCloser(mockCtrl)
-				cl.EXPECT().RoundTripOpt(gomock.Any(), gomock.Any()).DoAndReturn(func(_ *http.Request, _ RoundTripOpt) (*http.Response, error) {
-					header := make(http.Header)
-					quicConn, err := dialer(context.Background(), hostname, tlsConf, conf)
-					Expect(err).ToNot(HaveOccurred())
-					header.Set("udpconn", quicConn.LocalAddr().String())
-					return &http.Response{Header: header}, nil
+				cl.EXPECT().RoundTripOpt(gomock.Any(), gomock.Any()).DoAndReturn(func(r *http.Request, _ RoundTripOpt) (*http.Response, error) {
+					roundTripCalled <- struct{}{}
+					<-r.Context().Done()
+					return nil, nil
 				})
-				cl.EXPECT().Close()
 				return cl, nil
 			}
-			rsp1, err := rt.RoundTrip(req1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rsp1.Header.Get("udpconn")).ToNot(Equal(""))
-			rsp2, err := rt.RoundTrip(req2)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rsp2.Header.Get("udpconn")).ToNot(Equal(""))
-			Expect(rsp1.Header.Get("udpconn")).To(Equal(rsp2.Header.Get("udpconn")))
+			go func() {
+				rt.RoundTrip(req1)
+				reqFinished <- struct{}{}
+			}()
+			go func() {
+				rt.RoundTrip(req2)
+				reqFinished <- struct{}{}
+			}()
+			<-roundTripCalled
+			<-roundTripCalled
+			// Both two requests are started.
+			Expect(len(rt.clients)).To(Equal(2))
+			cancel1()
+			<-reqFinished
+			// req1 is finished
+			rt.CloseIdleConnections()
+			Expect(len(rt.clients)).To(Equal(1))
+			cancel2()
+			<-reqFinished
+			// all requests are finished
+			rt.CloseIdleConnections()
+			Expect(len(rt.clients)).To(Equal(0))
 		})
 	})
 })
