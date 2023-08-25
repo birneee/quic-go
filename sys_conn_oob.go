@@ -5,9 +5,10 @@ package quic
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
+	"log"
 	"net"
 	"net/netip"
+	"sync"
 	"syscall"
 	"time"
 
@@ -126,10 +127,6 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		bc = ipv4.NewPacketConn(c)
 	}
 
-	// Try enabling GSO.
-	// This will only succeed on Linux, and only for kernels > 4.18.
-	supportsGSO := maybeSetGSO(rawConn)
-
 	msgs := make([]ipv4.Message, batchSize)
 	for i := range msgs {
 		// preallocate the [][]byte
@@ -140,14 +137,18 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		batchConn:            bc,
 		messages:             msgs,
 		readPos:              batchSize,
+		cap: connCapabilities{
+			DF:  supportsDF,
+			GSO: isGSOSupported(rawConn),
+		},
 	}
-	oobConn.cap.DF = supportsDF
-	oobConn.cap.GSO = supportsGSO
 	for i := 0; i < batchSize; i++ {
 		oobConn.messages[i].OOB = make([]byte, oobBufferSize)
 	}
 	return oobConn, nil
 }
+
+var invalidCmsgOnceV4, invalidCmsgOnceV6 sync.Once
 
 func (c *oobConn) ReadPacket() (receivedPacket, error) {
 	if len(c.messages) == int(c.readPos) { // all messages read. Read the next batch of messages.
@@ -189,21 +190,16 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 			case msgTypeIPTOS:
 				p.ecn = protocol.ECN(body[0] & ecnMask)
 			case ipv4PKTINFO:
-				// struct in_pktinfo {
-				// 	unsigned int   ipi_ifindex;  /* Interface index */
-				// 	struct in_addr ipi_spec_dst; /* Local address */
-				// 	struct in_addr ipi_addr;     /* Header Destination
-				// 									address */
-				// };
-				var ip [4]byte
-				if len(body) == 12 {
-					copy(ip[:], body[8:12])
-					p.info.ifIndex = binary.LittleEndian.Uint32(body)
-				} else if len(body) == 4 {
-					// FreeBSD
-					copy(ip[:], body)
+				ip, ifIndex, ok := parseIPv4PktInfo(body)
+				if ok {
+					p.info.addr = ip
+					p.info.ifIndex = ifIndex
+				} else {
+					invalidCmsgOnceV4.Do(func() {
+						log.Printf("Received invalid IPv4 packet info control message: %+x. "+
+							"This should never occur, please open a new issue and include details about the architecture.", body)
+					})
 				}
-				p.info.addr = netip.AddrFrom4(ip)
 			}
 		}
 		if hdr.Level == unix.IPPROTO_IPV6 {
@@ -216,10 +212,13 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 				// 	unsigned int    ipi6_ifindex; /* send/recv interface index */
 				// };
 				if len(body) == 20 {
-					var ip [16]byte
-					copy(ip[:], body[:16])
-					p.info.addr = netip.AddrFrom16(ip)
+					p.info.addr = netip.AddrFrom16(*(*[16]byte)(body[:16]))
 					p.info.ifIndex = binary.LittleEndian.Uint32(body[16:])
+				} else {
+					invalidCmsgOnceV6.Do(func() {
+						log.Printf("Received invalid IPv6 packet info control message: %+x. "+
+							"This should never occur, please open a new issue and include details about the architecture.", body)
+					})
 				}
 			}
 		}
@@ -228,25 +227,10 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 	return p, nil
 }
 
-// WriteTo (re)implements the net.PacketConn method.
-// This is needed for users who call OptimizeConn to be able to send (non-QUIC) packets on the underlying connection.
-// With GSO enabled, this would otherwise not be needed, as the kernel requires the UDP_SEGMENT message to be set.
-func (c *oobConn) WriteTo(p []byte, addr net.Addr) (int, error) {
-	return c.WritePacket(p, uint16(len(p)), addr, nil)
-}
-
 // WritePacket writes a new packet.
-// If the connection supports GSO (and we activated GSO support before),
-// it appends the UDP_SEGMENT size message to oob.
-// Callers are advised to make sure that oob has a sufficient capacity,
-// such that appending the UDP_SEGMENT size message doesn't cause an allocation.
-func (c *oobConn) WritePacket(b []byte, packetSize uint16, addr net.Addr, oob []byte) (n int, err error) {
-	if c.cap.GSO {
-		oob = appendUDPSegmentSizeMsg(oob, packetSize)
-	} else if uint16(len(b)) != packetSize {
-		panic(fmt.Sprintf("inconsistent length. got: %d. expected %d", packetSize, len(b)))
-	}
-	n, _, err = c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
+// If the connection supports GSO, it's the caller's responsibility to append the right control mesage.
+func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) {
+	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
 	return n, err
 }
 

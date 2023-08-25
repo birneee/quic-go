@@ -62,6 +62,18 @@ func (mr *MockConnectionTracerMockRecorder) BufferedPacket(arg0, arg1 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BufferedPacket", reflect.TypeOf((*MockConnectionTracer)(nil).BufferedPacket), arg0, arg1)
 }
 
+// ChoseAlpn mocks base method.
+func (m *MockConnectionTracer) ChoseAlpn(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ChoseAlpn", arg0)
+}
+
+// ChoseAlpn indicates an expected call of ChoseAlpn.
+func (mr *MockConnectionTracerMockRecorder) ChoseAlpn(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChoseAlpn", reflect.TypeOf((*MockConnectionTracer)(nil).ChoseAlpn), arg0)
+}
+
 // Close mocks base method.
 func (m *MockConnectionTracer) Close() {
 	m.ctrl.T.Helper()

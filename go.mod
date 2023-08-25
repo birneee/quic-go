@@ -3,8 +3,7 @@ module github.com/quic-go/quic-go
 go 1.20
 
 replace (
-	github.com/quic-go/qtls-go1-19 => github.com/birneee/qtls-go1-19 v0.0.0-20230419083934-984a4fef1aa1
-	github.com/quic-go/qtls-go1-20 => github.com/birneee/qtls-go1-20 v0.0.0-20230511155527-73dba42104f5
+	github.com/quic-go/qtls-go1-20 => github.com/birneee/qtls-go1-20 v0.0.0-20230822163111-cfa94cb80061
 	github.com/tinylib/msgp => github.com/birneee/msgp v0.0.0-20230807002656-18d07944fa3d
 )
 
@@ -15,8 +14,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.6
 	github.com/quic-go/qpack v0.4.0
-	github.com/quic-go/qtls-go1-19 v0.3.2
-	github.com/quic-go/qtls-go1-20 v0.2.2
+	github.com/quic-go/qtls-go1-20 v0.3.2
 	github.com/stretchr/testify v1.6.1
 	github.com/tinylib/msgp v1.1.8
 	golang.org/x/crypto v0.4.0

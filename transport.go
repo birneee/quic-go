@@ -5,18 +5,14 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"errors"
-	"log"
 	"net"
-	"os"
-	"strconv"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"github.com/quic-go/quic-go/internal/wire"
 
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/logging"
 )
 
@@ -30,9 +26,16 @@ type Transport struct {
 	// A single net.PacketConn can only be handled by one Transport.
 	// Bad things will happen if passed to multiple Transports.
 	//
-	// If not done by the user, the connection is passed through OptimizeConn to enable a number of optimizations.
-	// After passing the connection to the Transport, it's invalid to call ReadFrom on the connection.
-	// Calling WriteTo is only valid on the connection returned by OptimizeConn.
+	// A number of optimizations will be enabled if the connections implements the OOBCapablePacketConn interface,
+	// as a *net.UDPConn does.
+	// 1. It enables the Don't Fragment (DF) bit on the IP header.
+	//    This is required to run DPLPMTUD (Path MTU Discovery, RFC 8899).
+	// 2. It enables reading of the ECN bits from the IP header.
+	//    This allows the remote node to speed up its loss detection and recovery.
+	// 3. It uses batched syscalls (recvmmsg) to more efficiently receive packets from the socket.
+	// 4. It uses Generic Segmentation Offload (GSO) to efficiently send batches of packets (on Linux).
+	//
+	// After passing the connection to the Transport, it's invalid to call ReadFrom or WriteTo on the connection.
 	Conn net.PacketConn
 
 	// The length of the connection ID in bytes.
@@ -82,6 +85,9 @@ type Transport struct {
 	createdConn bool
 	isSingleUse bool // was created for a single server or client, i.e. by calling quic.Listen or quic.Dial
 
+	readingNonQUICPackets atomic.Bool
+	nonQUICPackets        chan receivedPacket
+
 	logger utils.Logger
 
 	// for e.g. H-QUIC
@@ -107,7 +113,7 @@ func (t *Transport) Listen(tlsConf *tls.Config, conf *Config) (*Listener, error)
 		return nil, errListenerAlreadySet
 	}
 	conf = populateServerConfig(conf)
-	if err := t.init(true); err != nil {
+	if err := t.init(false); err != nil {
 		return nil, err
 	}
 	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, false)
@@ -137,7 +143,7 @@ func (t *Transport) ListenEarly(tlsConf *tls.Config, conf *Config) (*EarlyListen
 		return nil, errListenerAlreadySet
 	}
 	conf = populateServerConfig(conf)
-	if err := t.init(true); err != nil {
+	if err := t.init(false); err != nil {
 		return nil, err
 	}
 	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, true)
@@ -151,40 +157,42 @@ func (t *Transport) ListenEarly(tlsConf *tls.Config, conf *Config) (*EarlyListen
 
 // Dial dials a new connection to a remote host (not using 0-RTT).
 func (t *Transport) Dial(ctx context.Context, addr net.Addr, tlsConf *tls.Config, conf *Config) (Connection, error) {
-	if err := validateConfig(conf); err != nil {
-		return nil, err
-	}
-	conf = populateConfig(conf)
-	if err := t.init(false); err != nil {
-		return nil, err
-	}
-	var onClose func()
-	if t.isSingleUse {
-		onClose = func() { t.Close() }
-	}
-	return dial(ctx, newSendConn(t.conn, addr), t.connIDGenerator, t.handlerMap, tlsConf, conf, onClose, false)
+	return t.dial(ctx, addr, "", tlsConf, conf, false)
 }
 
 // DialEarly dials a new connection, attempting to use 0-RTT if possible.
 func (t *Transport) DialEarly(ctx context.Context, addr net.Addr, tlsConf *tls.Config, conf *Config) (EarlyConnection, error) {
+	return t.dial(ctx, addr, "", tlsConf, conf, true)
+}
+
+func (t *Transport) dial(ctx context.Context, addr net.Addr, hostname string, tlsConf *tls.Config, conf *Config, use0RTT bool) (EarlyConnection, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
 	conf = populateConfig(conf)
-	if err := t.init(false); err != nil {
+	if err := t.init(t.isSingleUse); err != nil {
 		return nil, err
 	}
 	var onClose func()
 	if t.isSingleUse {
 		onClose = func() { t.Close() }
 	}
-	return dial(ctx, newSendConn(t.conn, addr), t.connIDGenerator, t.handlerMap, tlsConf, conf, onClose, true)
+	tlsConf = tlsConf.Clone()
+	tlsConf.MinVersion = tls.VersionTLS13
+	// If no ServerName is set, infer the ServerName from the hostname we're connecting to.
+	if tlsConf.ServerName == "" {
+		if hostname == "" {
+			if udpAddr, ok := addr.(*net.UDPAddr); ok {
+				hostname = udpAddr.IP.String()
+			}
+		}
+		tlsConf.ServerName = hostname
+	}
+	return dial(ctx, newSendConn(t.conn, addr, packetInfo{}, utils.DefaultLogger), t.connIDGenerator, t.handlerMap, tlsConf, conf, onClose, use0RTT)
 }
 
-func (t *Transport) init(isServer bool) error {
+func (t *Transport) init(allowZeroLengthConnIDs bool) error {
 	t.initOnce.Do(func() {
-		getMultiplexer().AddConn(t.Conn)
-
 		var conn rawConn
 		if c, ok := t.Conn.(rawConn); ok {
 			conn = c
@@ -196,7 +204,6 @@ func (t *Transport) init(isServer bool) error {
 				return
 			}
 		}
-		t.conn = conn
 
 		t.logger = utils.DefaultLogger // TODO: make this configurable
 		t.conn = conn
@@ -211,17 +218,26 @@ func (t *Transport) init(isServer bool) error {
 			t.connIDLen = t.ConnectionIDGenerator.ConnectionIDLen()
 		} else {
 			connIDLen := t.ConnectionIDLength
-			if t.ConnectionIDLength == 0 && (!t.isSingleUse || isServer) {
+			if t.ConnectionIDLength == 0 && !allowZeroLengthConnIDs {
 				connIDLen = protocol.DefaultConnectionIDLength
 			}
 			t.connIDLen = connIDLen
 			t.connIDGenerator = &protocol.DefaultConnectionIDGenerator{ConnLen: t.connIDLen}
 		}
 
+		getMultiplexer().AddConn(t.Conn)
 		go t.listen(conn)
 		go t.runSendQueue()
 	})
 	return t.initErr
+}
+
+// WriteTo sends a packet on the underlying connection.
+func (t *Transport) WriteTo(b []byte, addr net.Addr) (int, error) {
+	if err := t.init(false); err != nil {
+		return 0, err
+	}
+	return t.conn.WritePacket(b, addr, nil)
 }
 
 func (t *Transport) enqueueClosePacket(p closePacket) {
@@ -239,7 +255,7 @@ func (t *Transport) runSendQueue() {
 		case <-t.listening:
 			return
 		case p := <-t.closeQueue:
-			t.conn.WritePacket(p.payload, uint16(len(p.payload)), p.addr, p.info.OOB())
+			t.conn.WritePacket(p.payload, p.addr, p.info.OOB())
 		case p := <-t.statelessResetQueue:
 			t.sendStatelessReset(p)
 		}
@@ -305,27 +321,6 @@ func (t *Transport) listen(conn rawConn) {
 	defer close(t.listening)
 	defer getMultiplexer().RemoveConn(t.Conn)
 
-	if err := setReceiveBuffer(t.Conn, t.logger); err != nil {
-		if !strings.Contains(err.Error(), "use of closed network connection") {
-			setBufferWarningOnce.Do(func() {
-				if disable, _ := strconv.ParseBool(os.Getenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING")); disable {
-					return
-				}
-				log.Printf("%s. See https://github.com/quic-go/quic-go/wiki/UDP-Receive-Buffer-Size for details.", err)
-			})
-		}
-	}
-	if err := setSendBuffer(t.Conn, t.logger); err != nil {
-		if !strings.Contains(err.Error(), "use of closed network connection") {
-			setBufferWarningOnce.Do(func() {
-				if disable, _ := strconv.ParseBool(os.Getenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING")); disable {
-					return
-				}
-				log.Printf("%s. See https://github.com/quic-go/quic-go/wiki/UDP-Receive-Buffer-Size for details.", err)
-			})
-		}
-	}
-
 	for {
 		p, err := conn.ReadPacket()
 		//nolint:staticcheck // SA1019 ignore this!
@@ -343,6 +338,10 @@ func (t *Transport) listen(conn rawConn) {
 			continue
 		}
 		if err != nil {
+			// Windows returns an error when receiving a UDP datagram that doesn't fit into the provided buffer.
+			if isRecvMsgSizeErr(err) {
+				continue
+			}
 			t.close(err)
 			return
 		}
@@ -351,6 +350,13 @@ func (t *Transport) listen(conn rawConn) {
 }
 
 func (t *Transport) handlePacket(p receivedPacket) {
+	if len(p.data) == 0 {
+		return
+	}
+	if !wire.IsPotentialQUICPacket(p.data[0]) && !wire.IsLongHeaderPacket(p.data[0]) {
+		t.handleNonQUICPacket(p)
+		return
+	}
 	connID, err := wire.ParseConnectionID(p.data, t.connIDLen)
 	if err != nil {
 		t.logger.Debugf("error parsing connection ID on packet from %s: %s", p.remoteAddr, err)
@@ -421,14 +427,8 @@ func (t *Transport) sendStatelessReset(p receivedPacket) {
 	rand.Read(data)
 	data[0] = (data[0] & 0x7f) | 0x40
 	data = append(data, token[:]...)
-	if _, err := t.conn.WritePacket(data, uint16(len(data)), p.remoteAddr, p.info.OOB()); err != nil {
+	if _, err := t.conn.WritePacket(data, p.remoteAddr, p.info.OOB()); err != nil {
 		t.logger.Debugf("Error sending Stateless Reset to %s: %s", p.remoteAddr, err)
-	}
-}
-
-func (t *Transport) Send(data []byte, remoteAddr net.Addr, oob []byte) {
-	if _, err := t.conn.WritePacket(data, uint16(len(data)), remoteAddr, oob); err != nil {
-		t.logger.Debugf("Error sending Stateless Reset to %s: %s", remoteAddr, err)
 	}
 }
 
@@ -448,6 +448,45 @@ func (t *Transport) maybeHandleStatelessReset(data []byte) bool {
 		return true
 	}
 	return false
+}
+
+func (t *Transport) handleNonQUICPacket(p receivedPacket) {
+	// Strictly speaking, this is racy,
+	// but we only care about receiving packets at some point after ReadNonQUICPacket has been called.
+	if !t.readingNonQUICPackets.Load() {
+		return
+	}
+	select {
+	case t.nonQUICPackets <- p:
+	default:
+		if t.Tracer != nil {
+			t.Tracer.DroppedPacket(p.remoteAddr, logging.PacketTypeNotDetermined, p.Size(), logging.PacketDropDOSPrevention)
+		}
+	}
+}
+
+const maxQueuedNonQUICPackets = 32
+
+// ReadNonQUICPacket reads non-QUIC packets received on the underlying connection.
+// The detection logic is very simple: Any packet that has the first and second bit of the packet set to 0.
+// Note that this is stricter than the detection logic defined in RFC 9443.
+func (t *Transport) ReadNonQUICPacket(ctx context.Context, b []byte) (int, net.Addr, error) {
+	if err := t.init(false); err != nil {
+		return 0, nil, err
+	}
+	if !t.readingNonQUICPackets.Load() {
+		t.nonQUICPackets = make(chan receivedPacket, maxQueuedNonQUICPackets)
+		t.readingNonQUICPackets.Store(true)
+	}
+	select {
+	case <-ctx.Done():
+		return 0, nil, ctx.Err()
+	case p := <-t.nonQUICPackets:
+		n := copy(b, p.data)
+		return n, p.remoteAddr, nil
+	case <-t.listening:
+		return 0, nil, errors.New("closed")
+	}
 }
 
 // StatelessResetKey must be set.

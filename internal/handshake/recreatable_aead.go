@@ -3,26 +3,25 @@ package handshake
 import (
 	"crypto/cipher"
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qtls"
 )
 
 type RecreatableAEAD interface {
 	cipher.AEAD
-	Suite() *qtls.CipherSuiteTLS13
+	Suite() *cipherSuite
 	TrafficSecret() []byte
 	Version() protocol.VersionNumber
 }
 
 type recreatableAEAD struct {
 	inner         cipher.AEAD
-	suite         *qtls.CipherSuiteTLS13
+	suite         *cipherSuite
 	trafficSecret []byte
 	version       protocol.VersionNumber
 }
 
 var _ RecreatableAEAD = &recreatableAEAD{}
 
-func NewRecreatableAEAD(suite *qtls.CipherSuiteTLS13, trafficSecret []byte, version protocol.VersionNumber) RecreatableAEAD {
+func NewRecreatableAEAD(suite *cipherSuite, trafficSecret []byte, version protocol.VersionNumber) RecreatableAEAD {
 	return &recreatableAEAD{
 		inner:         createAEAD(suite, trafficSecret, version),
 		suite:         suite,
@@ -47,7 +46,7 @@ func (r *recreatableAEAD) Open(dst, nonce, ciphertext, additionalData []byte) ([
 	return r.inner.Open(dst, nonce, ciphertext, additionalData)
 }
 
-func (r *recreatableAEAD) Suite() *qtls.CipherSuiteTLS13 {
+func (r *recreatableAEAD) Suite() *cipherSuite {
 	return r.suite
 }
 

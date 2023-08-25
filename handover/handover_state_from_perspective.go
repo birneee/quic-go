@@ -2,6 +2,7 @@ package handover
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/internal/wire"
 )
 
 type StateFromPerspective struct {
@@ -88,4 +89,43 @@ func (s *StateFromPerspective) Version() protocol.VersionNumber {
 
 func (s *StateFromPerspective) SetVersion(version protocol.VersionNumber) {
 	s.state.Version = version
+}
+
+func (s *StateFromPerspective) Perspective() protocol.Perspective {
+	return s.perspective
+}
+
+func (s *StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ServerHighestSentPacketNumber
+	} else {
+		return s.state.ClientHighestSentPacketNumber
+	}
+}
+
+func (s *StateFromPerspective) OwnTransportParameters() *wire.TransportParameters {
+	var bytes []byte
+	if s.perspective == protocol.PerspectiveClient {
+		bytes = s.state.ClientTransportParameters
+	} else {
+		bytes = s.state.ServerTransportParameters
+	}
+
+	tp := wire.TransportParameters{}
+	err := tp.Unmarshal(bytes, s.perspective)
+	if err != nil {
+		panic(err)
+	}
+	return &tp
+}
+
+func (s *StateFromPerspective) PeerTransportParameters() *wire.TransportParameters {
+	return s.Opposite().OwnTransportParameters()
+}
+
+func (s *StateFromPerspective) Opposite() *StateFromPerspective {
+	return &StateFromPerspective{
+		state:       s.state,
+		perspective: s.perspective.Opposite(),
+	}
 }

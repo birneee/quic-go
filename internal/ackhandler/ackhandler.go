@@ -1,6 +1,7 @@
 package ackhandler
 
 import (
+	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
@@ -21,4 +22,35 @@ func NewAckHandler(
 ) (SentPacketHandler, ReceivedPacketHandler) {
 	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, rttStats, clientAddressValidated, pers, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger)
+}
+
+var RestorePacketNumberSkip protocol.PacketNumber = 10000
+
+func RestoreAckHandler(
+	state *handover.StateFromPerspective,
+	initialMaxDatagramSize protocol.ByteCount,
+	initialCongestionWindow uint32, // number of packets
+	rttStats *utils.RTTStats,
+	tracer logging.ConnectionTracer,
+	logger utils.Logger,
+) (SentPacketHandler, ReceivedPacketHandler) {
+	sph, rph := NewAckHandler(
+		0,
+		initialMaxDatagramSize,
+		initialCongestionWindow,
+		rttStats,
+		true, // TODO path challenge
+		state.Perspective(),
+		tracer,
+		logger,
+	)
+	sph.DropPackets(protocol.EncryptionInitial)
+	sph.DropPackets(protocol.EncryptionHandshake)
+
+	// skip some packets for two reasons:
+	//  - this number might be an estimate from the opposite perspective
+	//  - some packets might be sent during the handshake
+	sph.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber() + RestorePacketNumberSkip)
+
+	return sph, rph
 }

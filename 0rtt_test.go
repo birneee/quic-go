@@ -131,6 +131,6 @@ func Benchmark0RTTUpload(b *testing.B) {
 		err = stream.Close()
 		assert.NoError(b, err)
 		<-client.Context().Done()
-		assert.True(b, client.ConnectionState().TLS.Used0RTT)
+		assert.True(b, client.ConnectionState().Used0RTT)
 	}
 }

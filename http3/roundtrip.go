@@ -52,7 +52,7 @@ type RoundTripper struct {
 
 	// Enable support for HTTP/3 datagrams.
 	// If set to true, QuicConfig.EnableDatagram will be set.
-	// See https://www.ietf.org/archive/id/draft-schinazi-masque-h3-datagram-02.html.
+	// See https://datatracker.ietf.org/doc/html/rfc9297.
 	EnableDatagrams bool
 
 	// Additional HTTP/3 settings.
@@ -284,9 +284,6 @@ func (r *RoundTripper) makeDialer() func(ctx context.Context, addr string, tlsCf
 		udpAddr, err := net.ResolveUDPAddr("udp", addr)
 		if err != nil {
 			return nil, err
-		}
-		if cfg.StatelessResetKey != nil {
-			panic("stateless reset key cannot applied here")
 		}
 		return r.transport.DialEarly(ctx, udpAddr, tlsCfg, cfg)
 	}

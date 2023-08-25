@@ -12,10 +12,8 @@ github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYU
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/birneee/msgp v0.0.0-20230807002656-18d07944fa3d h1:ZPyAWPeJNcHr9vI/sVNd37ixzc5VBGkTOub9erG8R3E=
 github.com/birneee/msgp v0.0.0-20230807002656-18d07944fa3d/go.mod h1:qkpG+2ldGg4xRFmx+jfTvZPxfGFhi64BcnL9vkCm/Tw=
-github.com/birneee/qtls-go1-19 v0.0.0-20230419083934-984a4fef1aa1 h1:ncYlnb8Lr2znEKczyZfyiDtX7zraeELod2z+JvzG648=
-github.com/birneee/qtls-go1-19 v0.0.0-20230419083934-984a4fef1aa1/go.mod h1:ySOI96ew8lnoKPtSqx2BlI5wCpUVPT05RMAlajtnyOI=
-github.com/birneee/qtls-go1-20 v0.0.0-20230511155527-73dba42104f5 h1:m+zQ+gnHYfSu9vtlXJw2mi6WJqnpmrIipanWLi9Tbvo=
-github.com/birneee/qtls-go1-20 v0.0.0-20230511155527-73dba42104f5/go.mod h1:JKtK6mjbAVcUTN/9jZpvLbGxvdWIKS8uT7EiStoU1SM=
+github.com/birneee/qtls-go1-20 v0.0.0-20230822163111-cfa94cb80061 h1:2KX6WWBfcFjm6TOUosg0z4mpkN7Ft+hrY7PCvaiFpUE=
+github.com/birneee/qtls-go1-20 v0.0.0-20230822163111-cfa94cb80061/go.mod h1:X9Nh97ZL80Z+bX/gUXMbipO6OxdiDi58b/fMC9mAL+k=
 github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBTaaSFSlLx/70C2HPIMNZpVV8+vt/A+FMnYP11g=
 github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7hK1yFx9hf58LP0zeX7UjIGs20ufpu3evjr+s=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=

@@ -180,6 +180,47 @@ var _ = Describe("Server", func() {
 			Expect(hfs).To(HaveKeyWithValue(":status", []string{"200"}))
 		})
 
+		It("sets Content-Length when the handler doesn't flush to the client", func() {
+			s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("foobar"))
+			})
+
+			responseBuf := &bytes.Buffer{}
+			setRequest(encodeRequest(exampleGetRequest))
+			str.EXPECT().Context().Return(reqContext)
+			str.EXPECT().Write(gomock.Any()).DoAndReturn(responseBuf.Write).AnyTimes()
+			str.EXPECT().CancelRead(gomock.Any())
+
+			serr := s.handleRequest(conn, str, qpackDecoder, nil)
+			Expect(serr.err).ToNot(HaveOccurred())
+			hfs := decodeHeader(responseBuf)
+			Expect(hfs).To(HaveKeyWithValue(":status", []string{"200"}))
+			Expect(hfs).To(HaveKeyWithValue("content-length", []string{"6"}))
+			// status, content-length, date, content-type
+			Expect(hfs).To(HaveLen(4))
+		})
+
+		It("not sets Content-Length when the handler flushes to the client", func() {
+			s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("foobar"))
+				// force flush
+				w.(http.Flusher).Flush()
+			})
+
+			responseBuf := &bytes.Buffer{}
+			setRequest(encodeRequest(exampleGetRequest))
+			str.EXPECT().Context().Return(reqContext)
+			str.EXPECT().Write(gomock.Any()).DoAndReturn(responseBuf.Write).AnyTimes()
+			str.EXPECT().CancelRead(gomock.Any())
+
+			serr := s.handleRequest(conn, str, qpackDecoder, nil)
+			Expect(serr.err).ToNot(HaveOccurred())
+			hfs := decodeHeader(responseBuf)
+			Expect(hfs).To(HaveKeyWithValue(":status", []string{"200"}))
+			// status, date, content-type
+			Expect(hfs).To(HaveLen(3))
+		})
+
 		It("handles a aborting handler", func() {
 			s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)
@@ -193,8 +234,7 @@ var _ = Describe("Server", func() {
 
 			serr := s.handleRequest(conn, str, qpackDecoder, nil)
 			Expect(serr.err).ToNot(HaveOccurred())
-			hfs := decodeHeader(responseBuf)
-			Expect(hfs).To(HaveKeyWithValue(":status", []string{"500"}))
+			Expect(responseBuf.Bytes()).To(HaveLen(0))
 		})
 
 		It("handles a panicking handler", func() {
@@ -210,8 +250,7 @@ var _ = Describe("Server", func() {
 
 			serr := s.handleRequest(conn, str, qpackDecoder, nil)
 			Expect(serr.err).ToNot(HaveOccurred())
-			hfs := decodeHeader(responseBuf)
-			Expect(hfs).To(HaveKeyWithValue(":status", []string{"500"}))
+			Expect(responseBuf.Bytes()).To(HaveLen(0))
 		})
 
 		Context("hijacking bidirectional streams", func() {
@@ -926,7 +965,7 @@ var _ = Describe("Server", func() {
 			c, err := quic.DialAddr(context.Background(), ln.Addr().String(), &tls.Config{InsecureSkipVerify: true, NextProtos: []string{NextProtoH3}}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			defer c.CloseWithError(0, "")
-			Expect(c.ConnectionState().TLS.ConnectionState.NegotiatedProtocol).To(Equal(NextProtoH3))
+			Expect(c.ConnectionState().TLS.NegotiatedProtocol).To(Equal(NextProtoH3))
 		})
 
 		It("sets the GetConfigForClient callback if no tls.Config is given", func() {
@@ -954,7 +993,7 @@ var _ = Describe("Server", func() {
 			c, err := quic.DialAddr(context.Background(), ln.Addr().String(), &tls.Config{InsecureSkipVerify: true, NextProtos: []string{NextProtoH3}}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			defer c.CloseWithError(0, "")
-			Expect(c.ConnectionState().TLS.ConnectionState.NegotiatedProtocol).To(Equal(NextProtoH3))
+			Expect(c.ConnectionState().TLS.NegotiatedProtocol).To(Equal(NextProtoH3))
 		})
 
 		It("works if GetConfigForClient returns a nil tls.Config", func() {
@@ -967,7 +1006,7 @@ var _ = Describe("Server", func() {
 			c, err := quic.DialAddr(context.Background(), ln.Addr().String(), &tls.Config{InsecureSkipVerify: true, NextProtos: []string{NextProtoH3}}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			defer c.CloseWithError(0, "")
-			Expect(c.ConnectionState().TLS.ConnectionState.NegotiatedProtocol).To(Equal(NextProtoH3))
+			Expect(c.ConnectionState().TLS.NegotiatedProtocol).To(Equal(NextProtoH3))
 		})
 
 		It("sets the ALPN for tls.Configs returned by the tls.GetConfigForClient, if it returns a static tls.Config", func() {
@@ -985,7 +1024,7 @@ var _ = Describe("Server", func() {
 			c, err := quic.DialAddr(context.Background(), ln.Addr().String(), &tls.Config{InsecureSkipVerify: true, NextProtos: []string{NextProtoH3}}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			defer c.CloseWithError(0, "")
-			Expect(c.ConnectionState().TLS.ConnectionState.NegotiatedProtocol).To(Equal(NextProtoH3))
+			Expect(c.ConnectionState().TLS.NegotiatedProtocol).To(Equal(NextProtoH3))
 			// check that the original config was not modified
 			Expect(tlsClientConf.NextProtos).To(Equal([]string{"foo", "bar"}))
 		})

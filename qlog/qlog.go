@@ -482,6 +482,14 @@ func (t *connectionTracer) LossTimerCanceled() {
 	t.mutex.Unlock()
 }
 
+func (t *connectionTracer) ChoseAlpn(negotiatedProtocol string) {
+	t.mutex.Lock()
+	t.recordEvent(time.Now(), &eventAlpnInformation{
+		chosenAlpn: negotiatedProtocol,
+	})
+	t.mutex.Unlock()
+}
+
 func (t *connectionTracer) Debug(name, msg string) {
 	t.mutex.Lock()
 	t.recordEvent(time.Now(), &eventGeneric{

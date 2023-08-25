@@ -2,10 +2,12 @@ package quic
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"time"
+
+	"golang.org/x/exp/rand"
 
 	"github.com/quic-go/quic-go/internal/ackhandler"
 	"github.com/quic-go/quic-go/internal/handshake"
@@ -84,7 +86,7 @@ var _ = Describe("Packet packer", func() {
 	}
 
 	BeforeEach(func() {
-		rand.Seed(GinkgoRandomSeed())
+		rand.Seed(uint64(GinkgoRandomSeed()))
 		retransmissionQueue = newRetransmissionQueue()
 		mockSender := NewMockStreamSender(mockCtrl)
 		mockSender.EXPECT().onHasStreamData(gomock.Any()).AnyTimes()
@@ -333,7 +335,7 @@ var _ = Describe("Packet packer", func() {
 				sealingManager.EXPECT().GetInitialSealer().Return(nil, handshake.ErrKeysDropped)
 				sealingManager.EXPECT().GetHandshakeSealer().Return(getSealer(), nil)
 				sealingManager.EXPECT().Get1RTTSealer().Return(nil, handshake.ErrKeysNotYetAvailable)
-				quicErr := qerr.NewLocalCryptoError(0x42, "crypto error")
+				quicErr := qerr.NewLocalCryptoError(0x42, errors.New("crypto error"))
 				quicErr.FrameType = 0x1234
 				p, err := packer.PackConnectionClose(quicErr, maxPacketSize, protocol.Version1)
 				Expect(err).ToNot(HaveOccurred())
