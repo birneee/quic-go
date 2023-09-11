@@ -671,6 +671,7 @@ func (s *connection) ConnectionState() ConnectionState {
 	cs := s.cryptoStreamHandler.ConnectionState()
 	s.connState.TLS = cs.ConnectionState
 	s.connState.Used0RTT = cs.Used0RTT
+	s.connState.GSO = s.conn.capabilities().GSO
 	return s.connState
 }
 
