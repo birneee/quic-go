@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/internal/h_quic"
 	"net"
 	"strings"
 	"sync"
@@ -683,30 +682,29 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	if !h.has1RTTSealer {
 		panic("illegal handover state")
 	}
-	s.SetOwnTransportParameters(p, h_quic.FilterTransportParameters(*h.ourParams))
-	s.SetPeerTransportParameters(p, h_quic.FilterTransportParameters(*h.peerParams))
+	sfp := s.FromPerspective(p)
+	sfp.SetOwnTransportParameters(h.ourParams.StoreForHandover())
+	sfp.SetPeerTransportParameters(h.peerParams.StoreForHandover())
 	h.aead.store(s, p)
 }
 
-func RestoreCryptoSetupFromHandoverState(state handover.State, localAddr net.Addr, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, tlsConf *tls.Config) (CryptoSetup, error) {
-	sfp := state.FromPerspective(perspective)
-
-	cs := newCryptoSetup(
-		protocol.ConnectionID{}, // is not use after migration
-		nil,
-		rttStats,
-		tracer,
-		logger,
-		perspective,
-		state.Version,
-	)
-	cs.has1RTTOpener = true
-	cs.has1RTTSealer = true
-	cs.ourParams = sfp.OwnTransportParameters()
-	cs.peerParams = sfp.PeerTransportParameters()
-	cs.aead = restoreUpdatableAEAD(state, perspective, rttStats, tracer, logger)
-
-	cs.conn = handover.NewFakeTlsQuicConn() // no longer important after handshake
+func RestoreCryptoSetupFromHandoverState(state handover.State, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
+	cs := &cryptoSetup{
+		initialSealer: nil,
+		initialOpener: nil,
+		aead:          restoreUpdatableAEAD(state, perspective, rttStats, tracer, logger),
+		events:        make([]Event, 0, 16),
+		ourParams:     ourParams,
+		rttStats:      rttStats,
+		tracer:        tracer,
+		logger:        logger,
+		perspective:   perspective,
+		version:       state.Version,
+		has1RTTOpener: true,
+		has1RTTSealer: true,
+		peerParams:    peerParams,
+		conn:          handover.NewFakeTlsQuicConn(), // no longer important after handshake
+	}
 
 	return cs, nil
 }

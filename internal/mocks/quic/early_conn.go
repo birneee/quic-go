@@ -13,6 +13,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	qerr "github.com/quic-go/quic-go/internal/qerr"
+	sync "github.com/quic-go/quic-go/internal/utils/sync"
 )
 
 // MockEarlyConnection is a mock of EarlyConnection interface.
@@ -150,8 +151,22 @@ func (mr *MockEarlyConnectionMockRecorder) Destroy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockEarlyConnection)(nil).Destroy))
 }
 
+// ExtensionValues mocks base method.
+func (m *MockEarlyConnection) ExtensionValues() *sync.Map[string, interface{}] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtensionValues")
+	ret0, _ := ret[0].(*sync.Map[string, interface{}])
+	return ret0
+}
+
+// ExtensionValues indicates an expected call of ExtensionValues.
+func (mr *MockEarlyConnectionMockRecorder) ExtensionValues() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionValues", reflect.TypeOf((*MockEarlyConnection)(nil).ExtensionValues))
+}
+
 // HandlePacket mocks base method.
-func (m *MockEarlyConnection) HandlePacket(arg0 quic.UnhandledPacket) {
+func (m *MockEarlyConnection) HandlePacket(arg0 quic.ReceivedPacket) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandlePacket", arg0)
 }

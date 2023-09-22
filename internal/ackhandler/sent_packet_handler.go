@@ -919,16 +919,22 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 }
 
 func (h *sentPacketHandler) StoreState(s *handover.State) {
-	s.RTT = h.rttStats.SmoothedRTT()
-	s.SetCongestionWindow(h.congestion.GetCongestionWindow(), h.perspective)
+	sfp := s.FromPerspective(h.perspective)
+	rtt := h.rttStats.SmoothedRTT() / time.Millisecond
+	sfp.SetRTT((*int64)(&rtt))
+	cw := h.congestion.GetCongestionWindow()
+	sfp.SetCongestionWindow((*int64)(&cw))
 }
 
 func (h *sentPacketHandler) RestoreState(s *handover.State) {
-	if s.RTT != 0 {
-		h.rttStats.SetInitialRTT(s.RTT)
+	sfp := s.FromPerspective(h.perspective)
+	rtt := sfp.RTT()
+	if rtt != nil && *rtt != 0 {
+		h.rttStats.SetInitialRTT(time.Duration(*rtt) * time.Millisecond)
 	}
-	if s.CongestionWindow(h.perspective) != 0 {
-		h.congestion.SetCongestionWindow(s.CongestionWindow(h.perspective) / 2)
+	cw := sfp.CongestionWindow()
+	if cw != nil && *cw != 0 {
+		h.congestion.SetCongestionWindow(protocol.ByteCount((*cw) / 2))
 		// divide by 2, to apply congestion window carefully
 	}
 }

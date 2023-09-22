@@ -9,14 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/path"
-	"io"
-	"net"
-	"reflect"
-	"sync"
-	"sync/atomic"
-	"time"
-
 	"github.com/quic-go/quic-go/internal/ackhandler"
 	"github.com/quic-go/quic-go/internal/flowcontrol"
 	"github.com/quic-go/quic-go/internal/handshake"
@@ -24,8 +16,17 @@ import (
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/qerr"
 	"github.com/quic-go/quic-go/internal/utils"
+	sync2 "github.com/quic-go/quic-go/internal/utils/sync"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/path"
+	"github.com/quic-go/quic-go/qlog"
+	"io"
+	"net"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 type unpacker interface {
@@ -82,6 +83,9 @@ type receivedPacket struct {
 	ecn protocol.ECN
 
 	info packetInfo // only valid if the contained IP address is valid
+	// function that is applied to the associated connection of the received packet
+	// can be nil
+	connApply func(conn Connection)
 }
 
 func (p *receivedPacket) Size() protocol.ByteCount { return protocol.ByteCount(len(p.data)) }
@@ -228,6 +232,10 @@ type connection struct {
 	// canceled and reconstructed when the path is updated
 	pathUpdateCtx         utils.CounterContext
 	handoverStateRequests chan HandoverStateRequest
+	// map that can be used by quic extensions and extension headers
+	extensionValues sync2.Map[string, interface{}]
+	// set for server connections only
+	transport *Transport
 }
 
 var (
@@ -352,6 +360,46 @@ var newConnection = func(
 	return s
 }
 
+var newConnection2 = func(
+	conn sendConn,
+	runner connRunner,
+	origDestConnID protocol.ConnectionID,
+	retrySrcConnID *protocol.ConnectionID,
+	clientDestConnID protocol.ConnectionID,
+	destConnID protocol.ConnectionID,
+	srcConnID protocol.ConnectionID,
+	connIDGenerator ConnectionIDGenerator,
+	statelessResetToken protocol.StatelessResetToken,
+	conf *Config,
+	tlsConf *tls.Config,
+	tokenGenerator *handshake.TokenGenerator,
+	clientAddressValidated bool,
+	tracer logging.ConnectionTracer,
+	tracingID uint64,
+	logger utils.Logger,
+	v protocol.VersionNumber,
+	transport *Transport,
+) quicConn {
+	c := newConnection(conn,
+		runner, origDestConnID,
+		retrySrcConnID,
+		clientDestConnID,
+		destConnID,
+		srcConnID,
+		connIDGenerator,
+		statelessResetToken,
+		conf,
+		tlsConf,
+		tokenGenerator,
+		clientAddressValidated,
+		tracer,
+		tracingID,
+		logger,
+		v)
+	c.(*connection).transport = transport
+	return c
+}
+
 // declare this as a variable, such that we can it mock it in the tests
 var newClientConnection = func(
 	conn sendConn,
@@ -471,7 +519,7 @@ var newClientConnection = func(
 func (s *connection) preSetup() {
 	s.initialStream = newCryptoStream(false)
 	s.handshakeStream = newCryptoStream(false)
-	s.sendQueue = newSendQueue(s.conn)
+	s.sendQueue = newSendQueue2(s.conn, s)
 	s.retransmissionQueue = newRetransmissionQueue()
 	s.frameParser = wire.NewFrameParser(s.config.EnableDatagrams)
 	s.rttStats = &utils.RTTStats{}
@@ -806,10 +854,6 @@ func (s *connection) handleHandshakeComplete() error {
 	s.queueControlFrame(&wire.NewTokenFrame{Token: token})
 	s.queueControlFrame(&wire.HandshakeDoneFrame{})
 
-	if s.tracer != nil {
-		s.tracer.ChoseAlpn(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
-	}
-
 	return nil
 }
 
@@ -830,10 +874,19 @@ func (s *connection) handleHandshakeConfirmed() error {
 		s.mtuDiscoverer.Start(utils.Min(maxPacketSize, protocol.MaxPacketBufferSize))
 	}
 	s.maybeHandleHandoverStateRequests()
+
+	// do not log earlier to not applying additional pressure on the handshake mutex
+	if s.tracer != nil {
+		s.tracer.ChoseAlpn(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
+	}
+
 	return nil
 }
 
 func (s *connection) handlePacketImpl(rp receivedPacket) bool {
+	if rp.connApply != nil {
+		rp.connApply(s)
+	}
 
 	// ignore packet if from an ignored remote
 	// remoteAddr is nil in some unit tests
@@ -2685,6 +2738,7 @@ func (s *connection) awaitHandshakeConfirmed() error {
 func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
 	conf = conf.Populate(&state)
 	perspective := conf.Perspective
+	sfp := state.FromPerspective(perspective)
 
 	logger := utils.DefaultLogger.WithPrefix("clone")
 	remoteAddr := state.RemoteAddress(perspective)
@@ -2693,7 +2747,14 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	var sendConn *sconn
 	var closeTransport func() = nil
 
-	if conf.Listener != nil && conf.PacketConn == nil {
+	err := conf.Validate()
+	if err != nil {
+		return nil, nil, err
+	}
+	if conf.Transport != nil {
+		packetHandlerManager = conf.Transport.handlerMap
+		sendConn = newSendConn(conf.Transport.conn, remoteAddr, packetInfo{}, logger)
+	} else if conf.Listener != nil && conf.PacketConn == nil {
 		packetHandlerManager = conf.Listener.PacketHandlerManager()
 		sendConn = newSendConn(conf.Listener.Conn(), remoteAddr, packetInfo{}, logger)
 	} else if conf.PacketConn != nil && conf.Listener == nil {
@@ -2751,14 +2812,30 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
 
+	oDCID := protocol.ParseConnectionID(*state.ServerTransportParameters.OriginalDestinationConnectionID)
+
 	tracingID := nextConnTracingID()
-	var connTracer logging.ConnectionTracer
+
+	var tracers []logging.ConnectionTracer
+
 	if conf.QuicConf.Tracer != nil {
-		connTracer = conf.QuicConf.Tracer(
+		tracers = append(tracers, conf.QuicConf.Tracer(
 			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
-			state.OwnTransportParameters(logging.PerspectiveServer).OriginalDestinationConnectionID,
-		)
+			oDCID,
+		))
+	}
+
+	if qlog.QlogDir != "" {
+		var label string
+		if perspective == logging.PerspectiveClient {
+			label = "restored_client"
+		} else {
+			label = "restored_server"
+		}
+		tracer, err := qlog.NewQlogDirTracer(oDCID, label, protocol.PerspectiveServer)
+		logger.Errorf("failed to create qlog: %s", err)
+		tracers = append(tracers, tracer)
 	}
 
 	var tokenGenerator *handshake.TokenGenerator
@@ -2775,9 +2852,9 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		config:            conf.QuicConf,
 		srcConnIDLen:      state.SrcConnectionIDLength(perspective),
 		perspective:       perspective,
-		logID:             state.OwnTransportParameters(logging.PerspectiveServer).OriginalDestinationConnectionID.String(),
+		logID:             oDCID.String(),
 		logger:            logger,
-		tracer:            connTracer,
+		tracer:            logging.NewMultiplexedConnectionTracer(tracers...),
 		versionNegotiated: false,
 		version:           state.Version,
 		runner:            packetHandlerManager,
@@ -2829,16 +2906,20 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 
-	ownParams := state.OwnTransportParameters(perspective)
+	ownParams := &wire.TransportParameters{}
+	ownParams.RestoreFromHandover(sfp.OwnTransportParameters())
+	s.peerParams = &wire.TransportParameters{}
+	s.peerParams.RestoreFromHandover(sfp.PeerTransportParameters())
 
 	if s.config.EnableDatagrams {
 		ownParams.MaxDatagramFrameSize = protocol.MaxDatagramFrameSize
 	}
 	if s.tracer != nil {
-		s.tracer.SentTransportParameters(&ownParams)
+		s.tracer.SentTransportParameters(ownParams)
 	}
 
-	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, s.conn.LocalAddr(), perspective, connTracer, logger, s.rttStats, tlsConf)
+	// s.peerParams must be restored
+	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, perspective, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2875,12 +2956,8 @@ func Restore(state handover.State, conf *ConnectionRestoreConfig) (Connection, *
 		//TODO restore stateless reset tokens
 	}
 
-	peerParams := state.PeerTransportParameters(perspective)
-
-	s.peerParams = &peerParams
-
 	if s.tracer != nil {
-		s.tracer.RestoredTransportParameters(&peerParams)
+		s.tracer.RestoredTransportParameters(s.peerParams)
 	}
 
 	for sequenceNumber, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
@@ -3046,10 +3123,14 @@ func (s *connection) UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFro
 	return nil
 }
 
-func (s *connection) HandlePacket(packet UnhandledPacket) {
-	s.handlePacket(packet.receivedPacket)
+func (s *connection) HandlePacket(packet ReceivedPacket) {
+	s.handlePacket(*packet.receivedPacket)
 }
 
 func (s *connection) Destroy() {
 	s.destroyImpl(nil)
+}
+
+func (s *connection) ExtensionValues() *sync2.Map[string, interface{}] {
+	return &s.extensionValues
 }

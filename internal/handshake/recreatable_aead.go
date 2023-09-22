@@ -30,6 +30,15 @@ func NewRecreatableAEAD(suite *cipherSuite, trafficSecret []byte, version protoc
 	}
 }
 
+func NewRecreatableAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, version protocol.VersionNumber, key []byte, iv []byte, tmp []byte) RecreatableAEAD {
+	return &recreatableAEAD{
+		inner:         createAEADNoAlloc(suite, trafficSecret, version, key, iv, tmp),
+		suite:         suite,
+		trafficSecret: trafficSecret,
+		version:       version,
+	}
+}
+
 func (r *recreatableAEAD) NonceSize() int {
 	return r.inner.NonceSize()
 }

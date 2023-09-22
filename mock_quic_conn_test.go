@@ -12,6 +12,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	qerr "github.com/quic-go/quic-go/internal/qerr"
+	sync "github.com/quic-go/quic-go/internal/utils/sync"
 )
 
 // MockQUICConn is a mock of QUICConn interface.
@@ -149,6 +150,20 @@ func (mr *MockQUICConnMockRecorder) Destroy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockQUICConn)(nil).Destroy))
 }
 
+// ExtensionValues mocks base method.
+func (m *MockQUICConn) ExtensionValues() *sync.Map[string, interface{}] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtensionValues")
+	ret0, _ := ret[0].(*sync.Map[string, interface{}])
+	return ret0
+}
+
+// ExtensionValues indicates an expected call of ExtensionValues.
+func (mr *MockQUICConnMockRecorder) ExtensionValues() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionValues", reflect.TypeOf((*MockQUICConn)(nil).ExtensionValues))
+}
+
 // GetVersion mocks base method.
 func (m *MockQUICConn) GetVersion() protocol.VersionNumber {
 	m.ctrl.T.Helper()
@@ -164,7 +179,7 @@ func (mr *MockQUICConnMockRecorder) GetVersion() *gomock.Call {
 }
 
 // HandlePacket mocks base method.
-func (m *MockQUICConn) HandlePacket(arg0 UnhandledPacket) {
+func (m *MockQUICConn) HandlePacket(arg0 ReceivedPacket) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandlePacket", arg0)
 }

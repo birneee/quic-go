@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"errors"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
@@ -14,7 +15,8 @@ type ConnectionRestoreConfig struct {
 	QuicConf    *Config
 	PacketConn  net.PacketConn
 	// if null a new one is created
-	Listener *EarlyListener
+	Listener  *EarlyListener
+	Transport *Transport
 }
 
 func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRestoreConfig {
@@ -30,18 +32,17 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 	} else {
 		c.QuicConf = populateServerConfig(c.QuicConf)
 	}
-	ownTransportParams := state.OwnTransportParameters(c.Perspective)
+	ownTransportParams := state.FromPerspective(c.Perspective).OwnTransportParameters()
 	c.QuicConf.MaxStreamReceiveWindow = utils.MaxV(
 		c.QuicConf.MaxStreamReceiveWindow,
-		uint64(ownTransportParams.InitialMaxStreamDataBidiLocal),
-		uint64(ownTransportParams.InitialMaxStreamDataBidiRemote),
-		uint64(ownTransportParams.InitialMaxStreamDataUni),
+		uint64(*ownTransportParams.InitialMaxStreamDataBidiLocal),
+		uint64(*ownTransportParams.InitialMaxStreamDataBidiRemote),
+		uint64(*ownTransportParams.InitialMaxStreamDataUni),
 	)
 
 	c.QuicConf.MaxConnectionReceiveWindow = utils.MaxV(
 		c.QuicConf.MaxConnectionReceiveWindow,
 		c.QuicConf.MaxStreamReceiveWindow,
-		uint64(ownTransportParams.InitialMaxData),
 	)
 	//if c.PacketConn == nil {
 	//	if c.PacketHandlerManager == nil {
@@ -62,8 +63,25 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 	//	}
 	//	c.PacketHandlerManager = tr.handlerMap
 	//}
-	c.QuicConf.EnableDatagrams = ownTransportParams.MaxDatagramFrameSize != 0
+	c.QuicConf.EnableDatagrams = ownTransportParams.MaxDatagramFrameSize != nil && *ownTransportParams.MaxDatagramFrameSize != 0
 	return c
+}
+
+func (c *ConnectionRestoreConfig) Validate() error {
+	connCount := 0
+	if c.Transport != nil {
+		connCount += 1
+	}
+	if c.Listener != nil {
+		connCount += 1
+	}
+	if c.PacketConn != nil {
+		connCount += 1
+	}
+	if connCount > 1 {
+		return errors.New("only one of those options can be set: 'Transport', 'Listener' or 'PacketConn'")
+	}
+	return nil
 }
 
 type RestoredStreams struct {

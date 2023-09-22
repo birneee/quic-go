@@ -21,6 +21,7 @@ type sendQueue struct {
 	runStopped  chan struct{} // runStopped when the run loop returns
 	available   chan struct{}
 	conn        sendConn
+	quicConn    *connection
 }
 
 var _ sender = &sendQueue{}
@@ -35,6 +36,12 @@ func newSendQueue(conn sendConn) sender {
 		available:   make(chan struct{}, 1),
 		queue:       make(chan queueEntry, sendQueueCapacity),
 	}
+}
+
+func newSendQueue2(conn sendConn, quicConn *connection) sender {
+	q := newSendQueue(conn)
+	q.(*sendQueue).quicConn = quicConn
+	return q
 }
 
 // Send sends out a packet. It's guaranteed to not block.
@@ -77,13 +84,17 @@ func (h *sendQueue) Run() error {
 			// make sure that all queued packets are actually sent out
 			shouldClose = true
 		case e := <-h.queue:
-			if err := h.conn.Write(e.buf.Data, e.size); err != nil {
-				// This additional check enables:
-				// 1. Checking for "datagram too large" message from the kernel, as such,
-				// 2. Path MTU discovery,and
-				// 3. Eventual detection of loss PingFrame.
-				if !isSendMsgSizeErr(err) {
-					return err
+			if h.quicConn != nil && h.quicConn.transport != nil && h.quicConn.transport.CustomSend != nil {
+				h.quicConn.transport.CustomSend(e.buf.Data, e.size, h.conn.RemoteAddr(), h.conn.(*sconn).oob, h.quicConn)
+			} else {
+				if err := h.conn.Write(e.buf.Data, e.size); err != nil {
+					// This additional check enables:
+					// 1. Checking for "datagram too large" message from the kernel, as such,
+					// 2. Path MTU discovery,and
+					// 3. Eventual detection of loss PingFrame.
+					if !isSendMsgSizeErr(err) {
+						return err
+					}
 				}
 			}
 			e.buf.Release()

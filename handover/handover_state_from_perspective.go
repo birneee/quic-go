@@ -2,7 +2,6 @@ package handover
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
 )
 
 type StateFromPerspective struct {
@@ -103,29 +102,105 @@ func (s *StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
 	}
 }
 
-func (s *StateFromPerspective) OwnTransportParameters() *wire.TransportParameters {
-	var bytes []byte
-	if s.perspective == protocol.PerspectiveClient {
-		bytes = s.state.ClientTransportParameters
-	} else {
-		bytes = s.state.ServerTransportParameters
-	}
-
-	tp := wire.TransportParameters{}
-	err := tp.Unmarshal(bytes, s.perspective)
-	if err != nil {
-		panic(err)
-	}
-	return &tp
-}
-
-func (s *StateFromPerspective) PeerTransportParameters() *wire.TransportParameters {
-	return s.Opposite().OwnTransportParameters()
-}
-
 func (s *StateFromPerspective) Opposite() *StateFromPerspective {
 	return &StateFromPerspective{
 		state:       s.state,
 		perspective: s.perspective.Opposite(),
+	}
+}
+
+func (s *StateFromPerspective) OwnTransportParameters() *TransportParameters {
+	if s.perspective == protocol.PerspectiveClient {
+		return &s.state.ClientTransportParameters
+	} else {
+		return &s.state.ServerTransportParameters
+	}
+}
+
+func (s *StateFromPerspective) PeerTransportParameters() *TransportParameters {
+	return s.Opposite().OwnTransportParameters()
+}
+
+func (s *StateFromPerspective) SetOwnTransportParameters(params TransportParameters) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientTransportParameters = params
+	} else {
+		s.state.ServerTransportParameters = params
+	}
+}
+
+func (s *StateFromPerspective) SetPeerTransportParameters(params TransportParameters) {
+	s.Opposite().SetOwnTransportParameters(params)
+}
+
+func (s *StateFromPerspective) MaxOutgoingUniStream() int64 {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.MaxClientUniStream
+	} else {
+		return s.state.MaxServerUniStream
+	}
+}
+
+func (s *StateFromPerspective) MaxOutgoingBidiStream() int64 {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.MaxClientBidiStream
+	} else {
+		return s.state.MaxServerBidiStream
+	}
+}
+
+func (s *StateFromPerspective) MaxIncomingUniStream() int64 {
+	return s.Opposite().MaxOutgoingUniStream()
+}
+
+func (s *StateFromPerspective) MaxIncomingBidiStream() int64 {
+	return s.Opposite().MaxOutgoingBidiStream()
+}
+
+func (s *StateFromPerspective) SetMaxOutgoingUniStream(i int64) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.MaxClientUniStream = i
+	} else {
+		s.state.MaxServerUniStream = i
+	}
+}
+
+func (s *StateFromPerspective) SetMaxOutgoingBidiStream(i int64) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.MaxClientBidiStream = i
+	} else {
+		s.state.MaxServerBidiStream = i
+	}
+}
+
+func (s *StateFromPerspective) SetMaxIncomingUniStream(i int64) {
+	s.Opposite().SetMaxOutgoingUniStream(i)
+}
+
+func (s *StateFromPerspective) SetMaxIncomingBidiStream(i int64) {
+	s.Opposite().SetMaxOutgoingBidiStream(i)
+}
+
+func (s *StateFromPerspective) SetRTT(rtt *int64) {
+	s.state.RTT = rtt
+}
+
+func (s *StateFromPerspective) SetCongestionWindow(cw *int64) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientCongestionWindow = cw
+	} else {
+		s.state.ServerCongestionWindow = cw
+	}
+}
+
+func (s *StateFromPerspective) RTT() *int64 {
+	return s.state.RTT
+}
+
+func (s *StateFromPerspective) CongestionWindow() *int64 {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientCongestionWindow
+	} else {
+		return s.state.ServerCongestionWindow
 	}
 }

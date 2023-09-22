@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/internal/utils/sync"
 	"io"
 	"net"
 	"time"
@@ -207,9 +208,10 @@ type Connection interface {
 	AwaitPathUpdate() <-chan struct{}
 	AddProxy(conf *ProxyConfig) ProxySetupResponse
 	UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath bool, ignoreMigrationToCurrentPath bool) error
-	HandlePacket(packet UnhandledPacket)
+	HandlePacket(packet ReceivedPacket)
 	// Destroy connection without sending an error to peer
 	Destroy()
+	ExtensionValues() *sync.Map[string, interface{}]
 }
 
 // An EarlyConnection is a connection that is handshaking.
@@ -358,8 +360,6 @@ type Config struct {
 	// Only affects client behaviour.
 	// Optimistic approach! Success is not guaranteed due to race conditions.
 	AllowEarlyHandover bool
-	// Handler for short header packets with an unknown connection id
-	HandleUnknownConnectionPacket func(*Transport, ConnectionID, UnhandledPacket)
 	// Secret used for protect address validation tokens by the server.
 	// If not specified a random key is generated.
 	AddressTokenKey *[32]byte
@@ -369,6 +369,12 @@ type Config struct {
 	// The InitialCongestionWindow to use, in number of packets
 	InitialCongestionWindow uint32
 	ConnectionIDGenerator   ConnectionIDGenerator
+	// The QlogLabel is the descriptive part of the qlog file name
+	QlogLabel string
+	// The CreateQlog controls when a qlog file is created.
+	// if false and QLOGDIR is set, qlog is created (default).
+	// if true, no qlog is created.
+	DisableQlog bool
 }
 
 type ClientHelloInfo struct {
@@ -410,20 +416,34 @@ func (c *ProxyConfig) Clone() *ProxyConfig {
 	}
 }
 
-type UnhandledPacket struct {
-	receivedPacket receivedPacket
-}
-
-func (u UnhandledPacket) RemoteAddr() net.Addr {
-	return u.receivedPacket.remoteAddr
-}
-
-func (u UnhandledPacket) Data() []byte {
-	return u.receivedPacket.data
-}
-
-func (u UnhandledPacket) OOB() []byte {
-	return u.receivedPacket.info.OOB()
-}
-
 type PacketHandlerManager = packetHandlerManager
+
+type ReceivedPacket struct {
+	receivedPacket *receivedPacket
+}
+
+func (p ReceivedPacket) Data() []byte {
+	return p.receivedPacket.data
+}
+
+func (p ReceivedPacket) SetData(data []byte) {
+	p.receivedPacket.data = data
+}
+
+func (p ReceivedPacket) RemoteAddr() net.Addr {
+	return p.receivedPacket.remoteAddr
+}
+
+func (p ReceivedPacket) Info() packetInfo {
+	return p.receivedPacket.info
+}
+
+func (p ReceivedPacket) SetRemoteAddr(addr net.Addr) {
+	p.receivedPacket.remoteAddr = addr
+}
+
+// set a function that is applied to the associated connection of the received packet
+// can be nil
+func (p ReceivedPacket) SetConnApply(f func(conn Connection)) {
+	p.receivedPacket.connApply = f
+}

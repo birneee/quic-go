@@ -12,16 +12,115 @@ import (
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/testdata"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net"
 	"sync"
+	"testing"
 	"time"
 )
+
+func tlsConf() (client *tls.Config, server *tls.Config) {
+	protos := []string{"proto1"}
+	server = testdata.GetTLSConfig()
+	server.NextProtos = protos
+	certPool := x509.NewCertPool()
+	testdata.AddRootCA(certPool)
+	client = &tls.Config{
+		RootCAs:            certPool,
+		InsecureSkipVerify: true, // used because of missing IP SAN
+	}
+	client.NextProtos = protos
+	return
+}
+
+func TestServerToServerHandoverMidStream(t *testing.T) {
+	MaxIdleTimeout := 100 * time.Millisecond
+	server1AddrChan := make(chan net.Addr, 1)
+	server2AddrChan := make(chan net.Addr, 1)
+	serverStateChan := make(chan handover.State, 1)
+	server1Ctx, server1CtxCancel := context.WithCancelCause(context.Background())
+	server2Ctx, server2CtxCancel := context.WithCancelCause(context.Background())
+	clientTlsConf, serverTlsConf := tlsConf()
+	message1 := "hello"
+	message2 := "hquic"
+
+	go func() { // server 1
+		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+		require.NoError(t, err)
+		defer server.Close()
+		server1AddrChan <- server.Addr()
+		conn, err := server.Accept(context.Background())
+		require.NoError(t, err)
+		defer conn.(*connection).destroyImpl(nil)
+		// transfer data
+		err = acceptAndReceive(conn, message1, false)
+		require.NoError(t, err)
+		err = openAndSend(conn, message1, false)
+		require.NoError(t, err)
+		// state handover
+		res := conn.Handover(true, &ConnectionStateStoreConf{
+			IncludePendingOutgoingFrames: true,
+			IncludePendingIncomingFrames: true,
+		})
+		serverState := res.State
+		err = res.Error
+		require.NoError(t, err)
+		serverStateChan <- serverState
+		<-conn.Context().Done()
+		server1CtxCancel(nil)
+	}()
+	go func() { // server 2
+		defer GinkgoRecover()
+		serverState := <-serverStateChan
+		conn, restoredStreams, err := Restore(serverState, &ConnectionRestoreConfig{
+			Perspective: logging.PerspectiveServer,
+			QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
+		})
+		bidiStreams := restoredStreams.BidiStreams
+		sendStreams := restoredStreams.SendStreams
+		receiveStreams := restoredStreams.ReceiveStreams
+		require.NoError(t, err)
+		require.Equal(t, 2, len(bidiStreams))
+		require.Empty(t, sendStreams)
+		require.Empty(t, receiveStreams)
+		defer conn.(*connection).destroyImpl(nil)
+		server2AddrChan <- conn.LocalAddr()
+		// transfer
+		err = receiveMessage(bidiStreams[0], message2, true)
+		require.NoError(t, err)
+		err = sendMessage(bidiStreams[1], message2, true)
+		require.NoError(t, err)
+		<-conn.Context().Done()
+		server2CtxCancel(nil)
+	}()
+
+	originalServerAddr := <-server1AddrChan
+	clientConn, err := DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+	require.NoError(t, err)
+	// transfer
+	err = openAndSend(clientConn, message1+message2, true)
+	require.NoError(t, err)
+	err = acceptAndReceive(clientConn, message1+message2, true)
+	require.NoError(t, err)
+	migratedServerAddr := clientConn.RemoteAddr()
+	require.NotEqual(t, originalServerAddr.String(), migratedServerAddr.String()) // check if migrated
+
+	require.Eventually(t, func() bool {
+		<-server1Ctx.Done()
+		return true
+	}, time.Second, 100*time.Millisecond)
+	require.Eventually(t, func() bool {
+		<-server2Ctx.Done()
+		return true
+	}, time.Second, 100*time.Millisecond)
+	// destroy sessions
+	clientConn.(*connection).destroyImpl(nil)
+}
 
 var _ = Describe("Handover", func() {
 	var (
 		message1      = "hello"
-		message2      = "hquic"
 		idleTimeout   = 100 * time.Millisecond
 		serverTlsConf *tls.Config
 		clientTlsConf *tls.Config
@@ -45,76 +144,6 @@ var _ = Describe("Handover", func() {
 	AfterEach(func() {
 		Eventually(areConnsRunning).Should(BeFalse())
 		Eventually(areServersRunning).Should(BeFalse())
-	})
-
-	It("server to server handover mid-stream", func() {
-		MaxIdleTimeout := 100 * time.Millisecond
-		server1AddrChan := make(chan net.Addr, 1)
-		server2AddrChan := make(chan net.Addr, 1)
-		serverStateChan := make(chan handover.State, 1)
-
-		go func() { // server 1
-			defer GinkgoRecover()
-			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
-			Expect(err).ToNot(HaveOccurred())
-			defer server.Close()
-			server1AddrChan <- server.Addr()
-			conn, err := server.Accept(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-			defer conn.(*connection).destroyImpl(nil)
-			// transfer data
-			err = acceptAndReceive(conn, message1, false)
-			Expect(err).ToNot(HaveOccurred())
-			err = openAndSend(conn, message1, false)
-			Expect(err).ToNot(HaveOccurred())
-			// state handover
-			res := conn.Handover(true, &ConnectionStateStoreConf{
-				IncludePendingOutgoingFrames: true,
-				IncludePendingIncomingFrames: true,
-			})
-			serverState := res.State
-			err = res.Error
-			Expect(err).ToNot(HaveOccurred())
-			serverStateChan <- serverState
-			<-conn.Context().Done()
-		}()
-		go func() { // server 2
-			defer GinkgoRecover()
-			serverState := <-serverStateChan
-			conn, restoredStreams, err := Restore(serverState, &ConnectionRestoreConfig{
-				Perspective: logging.PerspectiveServer,
-				QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
-			})
-			bidiStreams := restoredStreams.BidiStreams
-			sendStreams := restoredStreams.SendStreams
-			receiveStreams := restoredStreams.ReceiveStreams
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(bidiStreams)).To(BeEquivalentTo(2))
-			Expect(sendStreams).To(BeEmpty())
-			Expect(receiveStreams).To(BeEmpty())
-			defer conn.(*connection).destroyImpl(nil)
-			server2AddrChan <- conn.LocalAddr()
-			// transfer
-			err = receiveMessage(bidiStreams[0], message2, true)
-			Expect(err).ToNot(HaveOccurred())
-			err = sendMessage(bidiStreams[1], message2, true)
-			Expect(err).ToNot(HaveOccurred())
-			<-conn.Context().Done()
-		}()
-
-		originalServerAddr := <-server1AddrChan
-		clientConn, err := DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
-		Expect(err).ToNot(HaveOccurred())
-		// transfer
-		err = openAndSend(clientConn, message1+message2, true)
-		Expect(err).ToNot(HaveOccurred())
-		err = acceptAndReceive(clientConn, message1+message2, true)
-		Expect(err).ToNot(HaveOccurred())
-		migratedServerAddr := clientConn.RemoteAddr()
-		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String())) // check if migrated
-
-		// destroy sessions
-		clientConn.(*connection).destroyImpl(nil)
 	})
 
 	It("server to server handover", func() {

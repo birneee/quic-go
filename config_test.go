@@ -66,7 +66,8 @@ var _ = Describe("Config", func() {
 			}
 
 			switch fn := typ.Field(i).Name; fn {
-			case "GetConfigForClient", "RequireAddressValidation", "GetLogWriter", "AllowConnectionWindowIncrease", "Tracer", "HandleUnknownConnectionPacket":
+			case "GetConfigForClient", "RequireAddressValidation", "GetLogWriter", "AllowConnectionWindowIncrease", "Tracer",
+				"HandleUnknownConnectionPacket", "CustomSend", "HandleNonQUICPacket":
 				// Can't compare functions.
 			case "Versions":
 				f.Set(reflect.ValueOf([]VersionNumber{1, 2, 3}))
@@ -118,6 +119,12 @@ var _ = Describe("Config", func() {
 				f.Set(reflect.ValueOf(&[32]byte{1, 2, 3, 4}))
 			case "InitialCongestionWindow":
 				f.Set(reflect.ValueOf(uint32(100)))
+			case "MaxAcceptedPacketSize":
+				f.Set(reflect.ValueOf(1300))
+			case "QlogLabel":
+				f.Set(reflect.ValueOf("client"))
+			case "DisableQlog":
+				f.Set(reflect.ValueOf(true))
 			default:
 				Fail(fmt.Sprintf("all fields must be accounted for, but saw unknown field %q", fn))
 			}

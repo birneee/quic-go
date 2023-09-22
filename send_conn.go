@@ -110,6 +110,10 @@ func (c *sconn) LocalAddr() net.Addr  { return c.localAddr }
 
 func (c *sconn) SetCurrentRemoteAddr(addr net.Addr) {
 	c.remoteAddr = addr
+	//TODO set net interface
+	if len(c.oob) != 0 {
+		resetPacketInfoEthernetInterfaceIndexSocketOption(c.oob)
+	}
 }
 
 func restoreSendConn(c rawConn, remote net.Addr, logger utils.Logger) *sconn {

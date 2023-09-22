@@ -409,6 +409,10 @@ func (m *streamsMap) StoreState(state *handover.State, config *ConnectionStateSt
 	sfp.SetNextIncomingBidiStream(m.incomingBidiStreams.nextStreamToAccept.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite()))
 	sfp.SetNextOutgoingUniStream(m.outgoingUniStreams.nextStream.StreamID(protocol.StreamTypeUni, m.perspective))
 	sfp.SetNextOutgoingBidiStream(m.outgoingBidiStreams.nextStream.StreamID(protocol.StreamTypeBidi, m.perspective))
+	sfp.SetMaxIncomingUniStream(int64(m.incomingUniStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())))
+	sfp.SetMaxIncomingBidiStream(int64(m.incomingBidiStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())))
+	sfp.SetMaxOutgoingUniStream(int64(m.outgoingUniStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective)))
+	sfp.SetMaxOutgoingBidiStream(int64(m.outgoingBidiStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective)))
 }
 
 func (m *streamsMap) Restore(state *handover.State) (*RestoredStreams, error) {
@@ -442,12 +446,14 @@ func (m *streamsMap) Restore(state *handover.State) (*RestoredStreams, error) {
 	sfp := state.FromPerspective(m.perspective)
 	m.outgoingUniStreams.nextStream = sfp.NextOutgoingUniStream().StreamNum()
 	m.outgoingBidiStreams.nextStream = sfp.NextOutgoingBidiStream().StreamNum()
+	m.outgoingUniStreams.maxStream = protocol.StreamID(sfp.MaxOutgoingUniStream()).StreamNum()
+	m.outgoingBidiStreams.maxStream = protocol.StreamID(sfp.MaxOutgoingBidiStream()).StreamNum()
 	m.incomingUniStreams.nextStreamToAccept = sfp.NextIncomingUniStream().StreamNum()
 	m.incomingUniStreams.nextStreamToOpen = m.incomingUniStreams.nextStreamToAccept
-	m.incomingUniStreams.maxStream = m.incomingUniStreams.nextStreamToOpen + protocol.StreamNum(m.incomingUniStreams.maxNumStreams-uint64(len(m.incomingUniStreams.streams))) - 1
+	m.incomingUniStreams.maxStream = protocol.StreamID(sfp.MaxIncomingUniStream()).StreamNum()
 	m.incomingBidiStreams.nextStreamToAccept = sfp.NextIncomingBidiStream().StreamNum()
 	m.incomingBidiStreams.nextStreamToOpen = m.incomingBidiStreams.nextStreamToAccept
-	m.incomingBidiStreams.maxStream = m.incomingBidiStreams.nextStreamToOpen + protocol.StreamNum(m.incomingBidiStreams.maxNumStreams-uint64(len(m.incomingBidiStreams.streams))) - 1
+	m.incomingBidiStreams.maxStream = protocol.StreamID(sfp.MaxIncomingBidiStream()).StreamNum()
 
 	return restoredStreams, nil
 }

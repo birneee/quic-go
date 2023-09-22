@@ -3,7 +3,6 @@ package handover
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/logging"
 )
 
 type UniStreamState struct {
@@ -31,7 +30,7 @@ func (u *UniStreamState) IncomingOffset(perspective protocol.Perspective) protoc
 	return u.Offset
 }
 
-func (u *UniStreamState) PendingIncomingFrames(perspective protocol.Perspective) map[logging.ByteCount][]byte {
+func (u *UniStreamState) PendingIncomingFrames(perspective protocol.Perspective) map[protocol.ByteCount][]byte {
 	return u.PendingFrames
 }
 
@@ -63,7 +62,7 @@ func (u *UniStreamState) OutgoingOffset(perspective protocol.Perspective) protoc
 	return u.Offset
 }
 
-func (u *UniStreamState) PendingSentData(perspective protocol.Perspective) map[logging.ByteCount][]byte {
+func (u *UniStreamState) PendingSentData(perspective protocol.Perspective) map[protocol.ByteCount][]byte {
 	return u.PendingFrames
 }
 
@@ -89,7 +88,7 @@ type SendStreamState interface {
 	SetOutgoingFinOffset(perspective protocol.Perspective, offset protocol.ByteCount)
 	SetPendingOutgoingFrames(perspective protocol.Perspective, frames map[protocol.ByteCount][]byte)
 	OutgoingOffset(perspective protocol.Perspective) protocol.ByteCount
-	PendingSentData(perspective protocol.Perspective) map[logging.ByteCount][]byte
+	PendingSentData(perspective protocol.Perspective) map[protocol.ByteCount][]byte
 	WriteFinOffset(perspective protocol.Perspective) protocol.ByteCount
 	SetOutgoingMaxData(perspective protocol.Perspective, window protocol.ByteCount)
 	OutgoingMaxData(perspective protocol.Perspective) protocol.ByteCount
@@ -101,7 +100,7 @@ type SendStreamStateFromPerspective interface {
 	SetOutgoingFinOffset(offset protocol.ByteCount)
 	SetPendingOutgoingFrames(frames map[protocol.ByteCount][]byte)
 	OutgoingOffset() protocol.ByteCount
-	PendingSentData() map[logging.ByteCount][]byte
+	PendingSentData() map[protocol.ByteCount][]byte
 	WriteFinOffset() protocol.ByteCount
 	SetOutgoingMaxData(window protocol.ByteCount)
 	OutgoingMaxData() protocol.ByteCount
@@ -114,7 +113,7 @@ type ReceiveStreamState interface {
 	SetIncomingFinOffset(perspective protocol.Perspective, offset protocol.ByteCount)
 	SetPendingIncomingFrames(perspective protocol.Perspective, frames map[protocol.ByteCount][]byte)
 	IncomingOffset(perspective protocol.Perspective) protocol.ByteCount
-	PendingIncomingFrames(perspective protocol.Perspective) map[logging.ByteCount][]byte
+	PendingIncomingFrames(perspective protocol.Perspective) map[protocol.ByteCount][]byte
 	IncomingFinOffset(perspective protocol.Perspective) protocol.ByteCount
 	IncomingMaxData(perspective protocol.Perspective) protocol.ByteCount
 	SetIncomingMaxData(perspective protocol.Perspective, window protocol.ByteCount)

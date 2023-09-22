@@ -59,6 +59,9 @@ func populateServerConfig(config *Config) *Config {
 	if config.RequireAddressValidation == nil {
 		config.RequireAddressValidation = func(net.Addr) bool { return false }
 	}
+	if config.QlogLabel == "client" {
+		config.QlogLabel = "server"
+	}
 	return config
 }
 
@@ -112,6 +115,10 @@ func populateConfig(config *Config) *Config {
 	if initialCongestionWindow == 0 {
 		initialCongestionWindow = protocol.DefaultInitialCongestionWindow
 	}
+	qlogLabel := config.QlogLabel
+	if qlogLabel == "" {
+		qlogLabel = "client"
+	}
 
 	return &Config{
 		GetConfigForClient:               config.GetConfigForClient,
@@ -137,11 +144,12 @@ func populateConfig(config *Config) *Config {
 		Tracer:                           config.Tracer,
 		ProxyConf:                        config.ProxyConf,
 		AllowEarlyHandover:               config.AllowEarlyHandover,
+		QlogLabel:                        qlogLabel,
+		DisableQlog:                      config.DisableQlog,
 		//TODO should be configured on a connHandler level
-		HandleUnknownConnectionPacket: config.HandleUnknownConnectionPacket,
-		AddressTokenKey:               config.AddressTokenKey,
-		StatelessResetKey:             config.StatelessResetKey,
-		InitialCongestionWindow:       initialCongestionWindow,
-		ConnectionIDGenerator:         config.ConnectionIDGenerator,
+		AddressTokenKey:         config.AddressTokenKey,
+		StatelessResetKey:       config.StatelessResetKey,
+		InitialCongestionWindow: initialCongestionWindow,
+		ConnectionIDGenerator:   config.ConnectionIDGenerator,
 	}
 }

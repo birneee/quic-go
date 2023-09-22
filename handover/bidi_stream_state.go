@@ -3,7 +3,6 @@ package handover
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/logging"
 )
 
 type BidiStreamState struct {
@@ -57,7 +56,7 @@ func (s *BidiStreamState) SetPendingOutgoingFrames(perspective protocol.Perspect
 }
 
 func (s *BidiStreamState) IncomingOffset(perspective protocol.Perspective) protocol.ByteCount {
-	if perspective == logging.PerspectiveClient {
+	if perspective == protocol.PerspectiveClient {
 		return s.ClientDirectionOffset
 	} else {
 		return s.ServerDirectionOffset
@@ -69,7 +68,7 @@ func (s *BidiStreamState) OutgoingOffset(perspective protocol.Perspective) proto
 }
 
 func (s *BidiStreamState) IncomingFinOffset(perspective protocol.Perspective) protocol.ByteCount {
-	if perspective == logging.PerspectiveClient {
+	if perspective == protocol.PerspectiveClient {
 		return s.ClientDirectionFinOffset
 	} else {
 		return s.ServerDirectionFinOffset
@@ -80,15 +79,15 @@ func (s *BidiStreamState) WriteFinOffset(perspective protocol.Perspective) proto
 	return s.IncomingFinOffset(perspective.Opposite())
 }
 
-func (s *BidiStreamState) PendingIncomingFrames(perspective protocol.Perspective) map[logging.ByteCount][]byte {
-	if perspective == logging.PerspectiveClient {
+func (s *BidiStreamState) PendingIncomingFrames(perspective protocol.Perspective) map[protocol.ByteCount][]byte {
+	if perspective == protocol.PerspectiveClient {
 		return s.ClientDirectionPendingFrames
 	} else {
 		return s.ServerDirectionPendingFrames
 	}
 }
 
-func (s *BidiStreamState) PendingSentData(perspective protocol.Perspective) map[logging.ByteCount][]byte {
+func (s *BidiStreamState) PendingSentData(perspective protocol.Perspective) map[protocol.ByteCount][]byte {
 	return s.PendingIncomingFrames(perspective.Opposite())
 }
 

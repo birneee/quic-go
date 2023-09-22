@@ -8,13 +8,10 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/quic-go/quic-go/internal/indi_utils"
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
-	"github.com/quic-go/quic-go/logging"
 	"github.com/tinylib/msgp/msgp"
 	"math"
 	"net"
 	"strconv"
-	"time"
 )
 
 type ConnectionIDSequenceNumber uint64
@@ -64,9 +61,9 @@ type State struct {
 	ServerAddress             string
 	ClientAddress             string
 	// TODO only include non-default parameters
-	ClientTransportParameters []byte
+	ClientTransportParameters TransportParameters
 	// TODO only include non-default parameters
-	ServerTransportParameters []byte
+	ServerTransportParameters TransportParameters
 	// might be an estimate from the opposite perspective
 	ClientHighestSentPacketNumber protocol.PacketNumber
 	// might be an estimate from the opposite perspective
@@ -81,9 +78,20 @@ type State struct {
 	ServerDirectionMaxData        protocol.ByteCount
 	ServerDirectionBytes          protocol.ByteCount
 	ClientDirectionBytes          protocol.ByteCount
-	ClientCongestionWindow        protocol.ByteCount
-	ServerCongestionWindow        protocol.ByteCount
-	RTT                           time.Duration
+	// in byte
+	ClientCongestionWindow *int64
+	// in byte
+	ServerCongestionWindow *int64
+	// in ms
+	RTT *int64
+	// max stream id
+	MaxClientUniStream int64
+	// max stream id
+	MaxServerUniStream int64
+	// max stream id
+	MaxClientBidiStream int64
+	// max stream id
+	MaxServerBidiStream int64
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
@@ -284,38 +292,6 @@ func (s *State) SrcConnectionIDLength(perspective protocol.Perspective) int {
 	panic("no connection ids")
 }
 
-func (s *State) OwnTransportParameters(perspective protocol.Perspective) wire.TransportParameters {
-	var bytes []byte
-	if perspective == protocol.PerspectiveClient {
-		bytes = s.ClientTransportParameters
-	} else {
-		bytes = s.ServerTransportParameters
-	}
-
-	tp := wire.TransportParameters{}
-	err := tp.Unmarshal(bytes, perspective)
-	if err != nil {
-		panic(err)
-	}
-	return tp
-}
-
-func (s *State) SetOwnTransportParameters(perspective protocol.Perspective, tp wire.TransportParameters) {
-	if perspective == protocol.PerspectiveClient {
-		s.ClientTransportParameters = tp.MarshalForHandover(perspective)
-	} else {
-		s.ServerTransportParameters = tp.MarshalForHandover(perspective)
-	}
-}
-
-func (s *State) PeerTransportParameters(perspective protocol.Perspective) wire.TransportParameters {
-	return s.OwnTransportParameters(perspective.Opposite())
-}
-
-func (s *State) SetPeerTransportParameters(perspective protocol.Perspective, tp wire.TransportParameters) {
-	s.SetOwnTransportParameters(perspective.Opposite(), tp)
-}
-
 func (s *State) HighestSentPacketNumber(perspective protocol.Perspective) protocol.PacketNumber {
 	if perspective == protocol.PerspectiveClient {
 		return s.ServerHighestSentPacketNumber
@@ -433,24 +409,8 @@ func (s *State) ParseMsgp(buf []byte) (*State, error) {
 	return s, nil
 }
 
-func (s *State) CongestionWindow(perspective protocol.Perspective) protocol.ByteCount {
-	if perspective == protocol.PerspectiveClient {
-		return s.ClientCongestionWindow
-	} else {
-		return s.ServerCongestionWindow
-	}
-}
-
-func (s *State) SetCongestionWindow(window protocol.ByteCount, perspective protocol.Perspective) {
-	if perspective == protocol.PerspectiveClient {
-		s.ClientCongestionWindow = window
-	} else {
-		s.ServerCongestionWindow = window
-	}
-}
-
-func (s *State) ConnIDLen(p logging.Perspective) int {
-	if p == logging.PerspectiveClient {
+func (s *State) ConnIDLen(p protocol.Perspective) int {
+	if p == protocol.PerspectiveClient {
 		for _, value := range s.ClientConnectionIDs {
 			return len(value.ConnectionID)
 		}

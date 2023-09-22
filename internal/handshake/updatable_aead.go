@@ -118,6 +118,10 @@ func (a *updatableAEAD) getNextTrafficSecret(hash crypto.Hash, ts []byte) []byte
 	return hkdfExpandLabel(hash, ts, []byte{}, "quic ku", hash.Size())
 }
 
+func (a *updatableAEAD) getNextTrafficSecretNoAlloc(hash crypto.Hash, ts []byte, out []byte, tmp []byte) {
+	hkdfExpandLabelNoAlloc(hash, ts, []byte{}, "quic ku", out, tmp)
+}
+
 // SetReadKey sets the read key.
 // For the client, this function is called before SetWriteKey.
 // For the server, this function is called after SetWriteKey.
@@ -368,4 +372,50 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 	a.nextSendAEAD = NewRecreatableAEAD(suite, a.nextSendTrafficSecret, a.version)
 
 	return a
+}
+
+func restoreUpdatableAEADReducedAllocstate(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+	a := newUpdatableAEAD(
+		rttStats,
+		tracer,
+		logger,
+		state.Version,
+	)
+
+	a.keyPhase = state.KeyPhase
+	a.highestRcvdPN = state.HighestSentPacketNumber(perspective.Opposite())
+	suite := getCipherSuite(state.CipherSuiteId)
+
+	bufs := buffers[[16]byte, [12]byte, [32]byte]{} //TODO make dynamic
+	a.rcvAEAD = NewRecreatableAEADNoAlloc(suite, state.ReceiveTrafficSecret(perspective), a.version, bufs.rcvKeyBuf[:], bufs.rcvIVBuf[:], bufs.tmpBuf[:])
+	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
+	a.sendAEAD = NewRecreatableAEADNoAlloc(suite, state.SendTrafficSecret(perspective), a.version, bufs.sendKeyBuf[:], bufs.sendIVBuf[:], bufs.tmpBuf[:])
+	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
+	if perspective == protocol.PerspectiveClient {
+		a.setAEADParameters(a.rcvAEAD, suite)
+	} else {
+		a.setAEADParameters(a.sendAEAD, suite)
+	}
+	a.nextRcvTrafficSecret = bufs.nextRcvTrafficSecretBuf[:]
+	a.getNextTrafficSecretNoAlloc(suite.Hash, state.ReceiveTrafficSecret(perspective), bufs.nextRcvTrafficSecretBuf[:], bufs.tmpBuf[:])
+	a.nextRcvAEAD = NewRecreatableAEADNoAlloc(suite, a.nextRcvTrafficSecret, a.version, bufs.nextRcvKeyBuf[:], bufs.nextRcvIVBuf[:], bufs.tmpBuf[:])
+	a.nextSendTrafficSecret = bufs.nextSendTrafficSecretBuf[:]
+	a.getNextTrafficSecretNoAlloc(suite.Hash, state.SendTrafficSecret(perspective), bufs.nextSendTrafficSecretBuf[:], bufs.tmpBuf[:])
+	a.nextSendAEAD = NewRecreatableAEADNoAlloc(suite, a.nextSendTrafficSecret, a.version, bufs.nextSendKeyBuf[:], bufs.nextSendIVBuf[:], bufs.tmpBuf[:])
+
+	return a
+}
+
+type buffers[KeyBuf any, IVBuf any, HashBuf any] struct {
+	rcvKeyBuf                KeyBuf
+	rcvIVBuf                 IVBuf
+	sendKeyBuf               KeyBuf
+	sendIVBuf                IVBuf
+	nextRcvKeyBuf            KeyBuf
+	nextRcvIVBuf             IVBuf
+	nextSendKeyBuf           KeyBuf
+	nextSendIVBuf            IVBuf
+	nextSendTrafficSecretBuf HashBuf
+	nextRcvTrafficSecretBuf  HashBuf
+	tmpBuf                   [1024]byte
 }

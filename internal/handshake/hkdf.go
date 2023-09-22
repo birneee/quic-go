@@ -27,3 +27,23 @@ func hkdfExpandLabel(hash crypto.Hash, secret, context []byte, label string, len
 	}
 	return out
 }
+
+func hkdfExpandLabelNoAlloc(hash crypto.Hash, secret, context []byte, label string, out []byte, tmp []byte) {
+	b := tmp[:3]
+	if cap(b) < 3+6+len(label)+1+len(context) {
+		panic("require more tmp capacity")
+	}
+	length := len(out)
+	binary.BigEndian.PutUint16(tmp, uint16(length))
+	b[2] = uint8(6 + len(label))
+	b = append(b, []byte("tls13 ")...)
+	b = append(b, []byte(label)...)
+	b = b[:3+6+len(label)+1]
+	b[3+6+len(label)] = uint8(len(context))
+	b = append(b, context...)
+
+	n, err := hkdf.Expand(hash.New, secret, b).Read(out)
+	if err != nil || n != length {
+		panic("quic: HKDF-Expand-Label invocation failed unexpectedly")
+	}
+}

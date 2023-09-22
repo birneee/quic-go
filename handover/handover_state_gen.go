@@ -405,13 +405,13 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "ClientTransportParameters":
-			z.ClientTransportParameters, err = dc.ReadBytes(z.ClientTransportParameters)
+			err = z.ClientTransportParameters.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "ClientTransportParameters")
 				return
 			}
 		case "ServerTransportParameters":
-			z.ServerTransportParameters, err = dc.ReadBytes(z.ServerTransportParameters)
+			err = z.ServerTransportParameters.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "ServerTransportParameters")
 				return
@@ -561,21 +561,81 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "ClientCongestionWindow":
-			err = z.ClientCongestionWindow.DecodeMsg(dc)
-			if err != nil {
-				err = msgp.WrapError(err, "ClientCongestionWindow")
-				return
+			if dc.IsNil() {
+				err = dc.ReadNil()
+				if err != nil {
+					err = msgp.WrapError(err, "ClientCongestionWindow")
+					return
+				}
+				z.ClientCongestionWindow = nil
+			} else {
+				if z.ClientCongestionWindow == nil {
+					z.ClientCongestionWindow = new(int64)
+				}
+				*z.ClientCongestionWindow, err = dc.ReadInt64()
+				if err != nil {
+					err = msgp.WrapError(err, "ClientCongestionWindow")
+					return
+				}
 			}
 		case "ServerCongestionWindow":
-			err = z.ServerCongestionWindow.DecodeMsg(dc)
-			if err != nil {
-				err = msgp.WrapError(err, "ServerCongestionWindow")
-				return
+			if dc.IsNil() {
+				err = dc.ReadNil()
+				if err != nil {
+					err = msgp.WrapError(err, "ServerCongestionWindow")
+					return
+				}
+				z.ServerCongestionWindow = nil
+			} else {
+				if z.ServerCongestionWindow == nil {
+					z.ServerCongestionWindow = new(int64)
+				}
+				*z.ServerCongestionWindow, err = dc.ReadInt64()
+				if err != nil {
+					err = msgp.WrapError(err, "ServerCongestionWindow")
+					return
+				}
 			}
 		case "RTT":
-			z.RTT, err = dc.ReadDuration()
+			if dc.IsNil() {
+				err = dc.ReadNil()
+				if err != nil {
+					err = msgp.WrapError(err, "RTT")
+					return
+				}
+				z.RTT = nil
+			} else {
+				if z.RTT == nil {
+					z.RTT = new(int64)
+				}
+				*z.RTT, err = dc.ReadInt64()
+				if err != nil {
+					err = msgp.WrapError(err, "RTT")
+					return
+				}
+			}
+		case "MaxClientUniStream":
+			z.MaxClientUniStream, err = dc.ReadInt64()
 			if err != nil {
-				err = msgp.WrapError(err, "RTT")
+				err = msgp.WrapError(err, "MaxClientUniStream")
+				return
+			}
+		case "MaxServerUniStream":
+			z.MaxServerUniStream, err = dc.ReadInt64()
+			if err != nil {
+				err = msgp.WrapError(err, "MaxServerUniStream")
+				return
+			}
+		case "MaxClientBidiStream":
+			z.MaxClientBidiStream, err = dc.ReadInt64()
+			if err != nil {
+				err = msgp.WrapError(err, "MaxClientBidiStream")
+				return
+			}
+		case "MaxServerBidiStream":
+			z.MaxServerBidiStream, err = dc.ReadInt64()
+			if err != nil {
+				err = msgp.WrapError(err, "MaxServerBidiStream")
 				return
 			}
 		default:
@@ -591,9 +651,9 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 28
+	// map header, size 32
 	// write "ClientConnectionIDs"
-	err = en.Append(0xde, 0x0, 0x1c, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	err = en.Append(0xde, 0x0, 0x20, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	if err != nil {
 		return
 	}
@@ -777,7 +837,7 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.ClientTransportParameters)
+	err = z.ClientTransportParameters.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "ClientTransportParameters")
 		return
@@ -787,7 +847,7 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.ServerTransportParameters)
+	err = z.ServerTransportParameters.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "ServerTransportParameters")
 		return
@@ -955,29 +1015,90 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = z.ClientCongestionWindow.EncodeMsg(en)
-	if err != nil {
-		err = msgp.WrapError(err, "ClientCongestionWindow")
-		return
+	if z.ClientCongestionWindow == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		err = en.WriteInt64(*z.ClientCongestionWindow)
+		if err != nil {
+			err = msgp.WrapError(err, "ClientCongestionWindow")
+			return
+		}
 	}
 	// write "ServerCongestionWindow"
 	err = en.Append(0xb6, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x67, 0x65, 0x73, 0x74, 0x69, 0x6f, 0x6e, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77)
 	if err != nil {
 		return
 	}
-	err = z.ServerCongestionWindow.EncodeMsg(en)
-	if err != nil {
-		err = msgp.WrapError(err, "ServerCongestionWindow")
-		return
+	if z.ServerCongestionWindow == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		err = en.WriteInt64(*z.ServerCongestionWindow)
+		if err != nil {
+			err = msgp.WrapError(err, "ServerCongestionWindow")
+			return
+		}
 	}
 	// write "RTT"
 	err = en.Append(0xa3, 0x52, 0x54, 0x54)
 	if err != nil {
 		return
 	}
-	err = en.WriteDuration(z.RTT)
+	if z.RTT == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		err = en.WriteInt64(*z.RTT)
+		if err != nil {
+			err = msgp.WrapError(err, "RTT")
+			return
+		}
+	}
+	// write "MaxClientUniStream"
+	err = en.Append(0xb2, 0x4d, 0x61, 0x78, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x55, 0x6e, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
 	if err != nil {
-		err = msgp.WrapError(err, "RTT")
+		return
+	}
+	err = en.WriteInt64(z.MaxClientUniStream)
+	if err != nil {
+		err = msgp.WrapError(err, "MaxClientUniStream")
+		return
+	}
+	// write "MaxServerUniStream"
+	err = en.Append(0xb2, 0x4d, 0x61, 0x78, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x55, 0x6e, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt64(z.MaxServerUniStream)
+	if err != nil {
+		err = msgp.WrapError(err, "MaxServerUniStream")
+		return
+	}
+	// write "MaxClientBidiStream"
+	err = en.Append(0xb3, 0x4d, 0x61, 0x78, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x42, 0x69, 0x64, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt64(z.MaxClientBidiStream)
+	if err != nil {
+		err = msgp.WrapError(err, "MaxClientBidiStream")
+		return
+	}
+	// write "MaxServerBidiStream"
+	err = en.Append(0xb3, 0x4d, 0x61, 0x78, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x42, 0x69, 0x64, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt64(z.MaxServerBidiStream)
+	if err != nil {
+		err = msgp.WrapError(err, "MaxServerBidiStream")
 		return
 	}
 	return
@@ -986,9 +1107,9 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 28
+	// map header, size 32
 	// string "ClientConnectionIDs"
-	o = append(o, 0xde, 0x0, 0x1c, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	o = append(o, 0xde, 0x0, 0x20, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	o = msgp.AppendMapHeader(o, uint32(len(z.ClientConnectionIDs)))
 	for za0001, za0002 := range z.ClientConnectionIDs {
 		o = msgp.AppendString(o, za0001.MsgpStrMapKey())
@@ -1058,10 +1179,18 @@ func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendString(o, z.ClientAddress)
 	// string "ClientTransportParameters"
 	o = append(o, 0xb9, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x73)
-	o = msgp.AppendBytes(o, z.ClientTransportParameters)
+	o, err = z.ClientTransportParameters.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "ClientTransportParameters")
+		return
+	}
 	// string "ServerTransportParameters"
 	o = append(o, 0xb9, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x73)
-	o = msgp.AppendBytes(o, z.ServerTransportParameters)
+	o, err = z.ServerTransportParameters.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "ServerTransportParameters")
+		return
+	}
 	// string "ClientHighestSentPacketNumber"
 	o = append(o, 0xbd, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x48, 0x69, 0x67, 0x68, 0x65, 0x73, 0x74, 0x53, 0x65, 0x6e, 0x74, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72)
 	o, err = z.ClientHighestSentPacketNumber.MarshalMsg(o)
@@ -1164,21 +1293,37 @@ func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	}
 	// string "ClientCongestionWindow"
 	o = append(o, 0xb6, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x67, 0x65, 0x73, 0x74, 0x69, 0x6f, 0x6e, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77)
-	o, err = z.ClientCongestionWindow.MarshalMsg(o)
-	if err != nil {
-		err = msgp.WrapError(err, "ClientCongestionWindow")
-		return
+	if z.ClientCongestionWindow == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		o = msgp.AppendInt64(o, *z.ClientCongestionWindow)
 	}
 	// string "ServerCongestionWindow"
 	o = append(o, 0xb6, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x67, 0x65, 0x73, 0x74, 0x69, 0x6f, 0x6e, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77)
-	o, err = z.ServerCongestionWindow.MarshalMsg(o)
-	if err != nil {
-		err = msgp.WrapError(err, "ServerCongestionWindow")
-		return
+	if z.ServerCongestionWindow == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		o = msgp.AppendInt64(o, *z.ServerCongestionWindow)
 	}
 	// string "RTT"
 	o = append(o, 0xa3, 0x52, 0x54, 0x54)
-	o = msgp.AppendDuration(o, z.RTT)
+	if z.RTT == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		o = msgp.AppendInt64(o, *z.RTT)
+	}
+	// string "MaxClientUniStream"
+	o = append(o, 0xb2, 0x4d, 0x61, 0x78, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x55, 0x6e, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	o = msgp.AppendInt64(o, z.MaxClientUniStream)
+	// string "MaxServerUniStream"
+	o = append(o, 0xb2, 0x4d, 0x61, 0x78, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x55, 0x6e, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	o = msgp.AppendInt64(o, z.MaxServerUniStream)
+	// string "MaxClientBidiStream"
+	o = append(o, 0xb3, 0x4d, 0x61, 0x78, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x42, 0x69, 0x64, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	o = msgp.AppendInt64(o, z.MaxClientBidiStream)
+	// string "MaxServerBidiStream"
+	o = append(o, 0xb3, 0x4d, 0x61, 0x78, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x42, 0x69, 0x64, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
+	o = msgp.AppendInt64(o, z.MaxServerBidiStream)
 	return
 }
 
@@ -1395,13 +1540,13 @@ func (z *State) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "ClientTransportParameters":
-			z.ClientTransportParameters, bts, err = msgp.ReadBytesBytes(bts, z.ClientTransportParameters)
+			bts, err = z.ClientTransportParameters.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "ClientTransportParameters")
 				return
 			}
 		case "ServerTransportParameters":
-			z.ServerTransportParameters, bts, err = msgp.ReadBytesBytes(bts, z.ServerTransportParameters)
+			bts, err = z.ServerTransportParameters.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "ServerTransportParameters")
 				return
@@ -1549,21 +1694,78 @@ func (z *State) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "ClientCongestionWindow":
-			bts, err = z.ClientCongestionWindow.UnmarshalMsg(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "ClientCongestionWindow")
-				return
+			if msgp.IsNil(bts) {
+				bts, err = msgp.ReadNilBytes(bts)
+				if err != nil {
+					return
+				}
+				z.ClientCongestionWindow = nil
+			} else {
+				if z.ClientCongestionWindow == nil {
+					z.ClientCongestionWindow = new(int64)
+				}
+				*z.ClientCongestionWindow, bts, err = msgp.ReadInt64Bytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "ClientCongestionWindow")
+					return
+				}
 			}
 		case "ServerCongestionWindow":
-			bts, err = z.ServerCongestionWindow.UnmarshalMsg(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "ServerCongestionWindow")
-				return
+			if msgp.IsNil(bts) {
+				bts, err = msgp.ReadNilBytes(bts)
+				if err != nil {
+					return
+				}
+				z.ServerCongestionWindow = nil
+			} else {
+				if z.ServerCongestionWindow == nil {
+					z.ServerCongestionWindow = new(int64)
+				}
+				*z.ServerCongestionWindow, bts, err = msgp.ReadInt64Bytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "ServerCongestionWindow")
+					return
+				}
 			}
 		case "RTT":
-			z.RTT, bts, err = msgp.ReadDurationBytes(bts)
+			if msgp.IsNil(bts) {
+				bts, err = msgp.ReadNilBytes(bts)
+				if err != nil {
+					return
+				}
+				z.RTT = nil
+			} else {
+				if z.RTT == nil {
+					z.RTT = new(int64)
+				}
+				*z.RTT, bts, err = msgp.ReadInt64Bytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "RTT")
+					return
+				}
+			}
+		case "MaxClientUniStream":
+			z.MaxClientUniStream, bts, err = msgp.ReadInt64Bytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "RTT")
+				err = msgp.WrapError(err, "MaxClientUniStream")
+				return
+			}
+		case "MaxServerUniStream":
+			z.MaxServerUniStream, bts, err = msgp.ReadInt64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "MaxServerUniStream")
+				return
+			}
+		case "MaxClientBidiStream":
+			z.MaxClientBidiStream, bts, err = msgp.ReadInt64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "MaxClientBidiStream")
+				return
+			}
+		case "MaxServerBidiStream":
+			z.MaxServerBidiStream, bts, err = msgp.ReadInt64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "MaxServerBidiStream")
 				return
 			}
 		default:
@@ -1604,7 +1806,7 @@ func (z *State) Msgsize() (s int) {
 			}
 		}
 	}
-	s += 8 + z.Version.Msgsize() + 9 + z.KeyPhase.Msgsize() + 14 + msgp.Uint16Size + 26 + msgp.BytesPrefixSize + len(z.ServerHeaderProtectionKey) + 26 + msgp.BytesPrefixSize + len(z.ClientHeaderProtectionKey) + 20 + msgp.BytesPrefixSize + len(z.ServerTrafficSecret) + 20 + msgp.BytesPrefixSize + len(z.ClientTrafficSecret) + 14 + msgp.StringPrefixSize + len(z.ServerAddress) + 14 + msgp.StringPrefixSize + len(z.ClientAddress) + 26 + msgp.BytesPrefixSize + len(z.ClientTransportParameters) + 26 + msgp.BytesPrefixSize + len(z.ServerTransportParameters) + 30 + z.ClientHighestSentPacketNumber.Msgsize() + 30 + z.ServerHighestSentPacketNumber.Msgsize() + 11 + msgp.MapHeaderSize
+	s += 8 + z.Version.Msgsize() + 9 + z.KeyPhase.Msgsize() + 14 + msgp.Uint16Size + 26 + msgp.BytesPrefixSize + len(z.ServerHeaderProtectionKey) + 26 + msgp.BytesPrefixSize + len(z.ClientHeaderProtectionKey) + 20 + msgp.BytesPrefixSize + len(z.ServerTrafficSecret) + 20 + msgp.BytesPrefixSize + len(z.ClientTrafficSecret) + 14 + msgp.StringPrefixSize + len(z.ServerAddress) + 14 + msgp.StringPrefixSize + len(z.ClientAddress) + 26 + z.ClientTransportParameters.Msgsize() + 26 + z.ServerTransportParameters.Msgsize() + 30 + z.ClientHighestSentPacketNumber.Msgsize() + 30 + z.ServerHighestSentPacketNumber.Msgsize() + 11 + msgp.MapHeaderSize
 	if z.UniStreams != nil {
 		for za0005, za0006 := range z.UniStreams {
 			_ = za0006
@@ -1628,6 +1830,24 @@ func (z *State) Msgsize() (s int) {
 			}
 		}
 	}
-	s += 20 + z.ClientNextUniStream.Msgsize() + 20 + z.ServerNextUniStream.Msgsize() + 21 + z.ClientNextBidiStream.Msgsize() + 21 + z.ServerNextBidiStream.Msgsize() + 23 + z.ClientDirectionMaxData.Msgsize() + 23 + z.ServerDirectionMaxData.Msgsize() + 21 + z.ServerDirectionBytes.Msgsize() + 21 + z.ClientDirectionBytes.Msgsize() + 23 + z.ClientCongestionWindow.Msgsize() + 23 + z.ServerCongestionWindow.Msgsize() + 4 + msgp.DurationSize
+	s += 20 + z.ClientNextUniStream.Msgsize() + 20 + z.ServerNextUniStream.Msgsize() + 21 + z.ClientNextBidiStream.Msgsize() + 21 + z.ServerNextBidiStream.Msgsize() + 23 + z.ClientDirectionMaxData.Msgsize() + 23 + z.ServerDirectionMaxData.Msgsize() + 21 + z.ServerDirectionBytes.Msgsize() + 21 + z.ClientDirectionBytes.Msgsize() + 23
+	if z.ClientCongestionWindow == nil {
+		s += msgp.NilSize
+	} else {
+		s += msgp.Int64Size
+	}
+	s += 23
+	if z.ServerCongestionWindow == nil {
+		s += msgp.NilSize
+	} else {
+		s += msgp.Int64Size
+	}
+	s += 4
+	if z.RTT == nil {
+		s += msgp.NilSize
+	} else {
+		s += msgp.Int64Size
+	}
+	s += 19 + msgp.Int64Size + 19 + msgp.Int64Size + 20 + msgp.Int64Size + 20 + msgp.Int64Size
 	return
 }

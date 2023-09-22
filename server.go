@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/qlog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -111,7 +112,8 @@ type baseServer struct {
 
 	tracer logging.Tracer
 
-	logger utils.Logger
+	logger    utils.Logger
+	transport *Transport
 }
 
 func (s *baseServer) PacketHandlerManager() packetHandlerManager {
@@ -228,14 +230,16 @@ func listenUDP(addr string) (*net.UDPConn, error) {
 // including reusing the underlying UDP socket for outgoing QUIC connections.
 func Listen(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*Listener, error) {
 	config = populateServerConfig(config)
-	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey, ConnectionIDGenerator: config.ConnectionIDGenerator}
+	tr := &Transport{Conn: conn, isSingleUse: true}
+	tr.ApplyConfig(config)
 	return tr.Listen(tlsConf, config)
 }
 
 // ListenEarly works like Listen, but it returns connections before the handshake completes.
 func ListenEarly(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*EarlyListener, error) {
 	config = populateServerConfig(config)
-	tr := &Transport{Conn: conn, isSingleUse: true, StatelessResetKey: config.StatelessResetKey, ConnectionIDGenerator: config.ConnectionIDGenerator}
+	tr := &Transport{Conn: conn, isSingleUse: true}
+	tr.ApplyConfig(config)
 	return tr.ListenEarly(tlsConf, config)
 }
 
@@ -248,6 +252,7 @@ func newServer(
 	tracer logging.Tracer,
 	onClose func(),
 	acceptEarly bool,
+	transport *Transport,
 ) (*baseServer, error) {
 	tokenGenerator, err := handshake.NewTokenGenerator(rand.Reader, config.AddressTokenKey)
 	if err != nil {
@@ -271,6 +276,7 @@ func newServer(
 		logger:                  utils.DefaultLogger.WithPrefix("server"),
 		acceptEarlyConns:        acceptEarly,
 		onClose:                 onClose,
+		transport:               transport,
 	}
 	if acceptEarly {
 		s.zeroRTTQueues = map[protocol.ConnectionID]*zeroRTTQueue{}
@@ -643,15 +649,26 @@ func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error
 			}
 			config = populateConfig(conf)
 		}
-		var tracer logging.ConnectionTracer
+
+		var tracers []logging.ConnectionTracer
+
 		if config.Tracer != nil {
 			// Use the same connection ID that is passed to the client's GetLogWriter callback.
 			connID := hdr.DestConnectionID
 			if origDestConnID.Len() > 0 {
 				connID = origDestConnID
 			}
-			tracer = config.Tracer(context.WithValue(context.Background(), ConnectionTracingKey, tracingID), protocol.PerspectiveServer, connID)
+			tracers = append(tracers, config.Tracer(context.WithValue(context.Background(), ConnectionTracingKey, tracingID), protocol.PerspectiveServer, connID))
 		}
+
+		if qlog.QlogDir != "" && !s.config.DisableQlog {
+			tracer, err := qlog.NewQlogDirTracer(origDestConnID, s.config.QlogLabel, protocol.PerspectiveServer)
+			s.logger.Errorf("failed to create qlog: %s", err)
+			tracers = append(tracers, tracer)
+		}
+
+		tracer := logging.NewMultiplexedConnectionTracer(tracers...)
+
 		conn = s.newConn(
 			newSendConn(s.conn, p.remoteAddr, p.info, s.logger),
 			s.connHandler,
@@ -671,6 +688,9 @@ func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error
 			s.logger,
 			hdr.Version,
 		)
+		if conn, ok := conn.(*connection); ok {
+			conn.transport = s.transport
+		}
 		conn.handlePacket(p)
 
 		if q, ok := s.zeroRTTQueues[hdr.DestConnectionID]; ok {

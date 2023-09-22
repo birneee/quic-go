@@ -77,6 +77,28 @@ func isGSOSupported(conn syscall.RawConn) bool {
 	return serr == nil
 }
 
+// set ipi_ifindex of IP_PKTINFO socket option to 0
+func resetPacketInfoEthernetInterfaceIndexSocketOption(b []byte) {
+	setPacketInfoEthernetInterfaceIndexSocketOption(b, 0)
+}
+
+// set ipi_ifindex of IP_PKTINFO socket option
+func setPacketInfoEthernetInterfaceIndexSocketOption(b []byte, ethernetInterfaceIndex uint) {
+	h := (*unix.Cmsghdr)(unsafe.Pointer(&b[0]))
+	if h.Level != unix.IPPROTO_IP {
+		panic("unexpected")
+	}
+	if h.Type != unix.IP_PKTINFO {
+		panic("unexpected")
+	}
+	if h.Len != 28 {
+		panic("unexpected")
+	}
+	dataOffset := unix.CmsgSpace(0)
+	data := b[dataOffset:]
+	*(*uint)(unsafe.Pointer(&data[0])) = ethernetInterfaceIndex
+}
+
 func appendUDPSegmentSizeMsg(b []byte, size uint16) []byte {
 	startLen := len(b)
 	const dataLen = 2 // payload is a uint16

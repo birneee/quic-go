@@ -3,10 +3,10 @@ package qlog
 import (
 	"errors"
 	"fmt"
+	"github.com/quic-go/quic-go/internal/qerr"
 	"net"
 	"time"
 
-	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
@@ -113,12 +113,12 @@ func (e eventConnectionClosed) IsNil() bool        { return false }
 
 func (e eventConnectionClosed) MarshalJSONObject(enc *gojay.Encoder) {
 	var (
-		statelessResetErr     *quic.StatelessResetError
-		handshakeTimeoutErr   *quic.HandshakeTimeoutError
-		idleTimeoutErr        *quic.IdleTimeoutError
-		applicationErr        *quic.ApplicationError
-		transportErr          *quic.TransportError
-		versionNegotiationErr *quic.VersionNegotiationError
+		statelessResetErr     *qerr.StatelessResetError
+		handshakeTimeoutErr   *qerr.HandshakeTimeoutError
+		idleTimeoutErr        *qerr.IdleTimeoutError
+		applicationErr        *qerr.ApplicationError
+		transportErr          *qerr.TransportError
+		versionNegotiationErr *qerr.VersionNegotiationError
 	)
 	switch {
 	case errors.As(e.e, &statelessResetErr):
@@ -462,14 +462,6 @@ func (a preferredAddress) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("stateless_reset_token", fmt.Sprintf("%x", a.StatelessResetToken))
 }
 
-func (e eventAlpnInformation) Category() category { return categoryTransport }
-func (e eventAlpnInformation) Name() string       { return "alpn_information" }
-func (e eventAlpnInformation) IsNil() bool        { return false }
-
-func (e eventAlpnInformation) MarshalJSONObject(enc *gojay.Encoder) {
-	enc.StringKeyOmitEmpty("chosen_alpn", e.chosenAlpn)
-}
-
 type eventLossTimerSet struct {
 	TimerType timerType
 	EncLevel  protocol.EncryptionLevel
@@ -539,4 +531,12 @@ func (e eventGeneric) MarshalJSONObject(enc *gojay.Encoder) {
 
 type eventAlpnInformation struct {
 	chosenAlpn string
+}
+
+func (e eventAlpnInformation) Category() category { return categoryTransport }
+func (e eventAlpnInformation) Name() string       { return "alpn_information" }
+func (e eventAlpnInformation) IsNil() bool        { return false }
+
+func (e eventAlpnInformation) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.StringKeyOmitEmpty("chosen_alpn", e.chosenAlpn)
 }

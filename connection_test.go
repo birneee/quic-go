@@ -2603,9 +2603,11 @@ var _ = Describe("Client Connection", func() {
 		sph := mockackhandler.NewMockSentPacketHandler(mockCtrl)
 		conn.sentPacketHandler = sph
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
+		tracer.EXPECT().ChoseAlpn(gomock.Any())
 		sph.EXPECT().DropPackets(protocol.EncryptionHandshake)
 		sph.EXPECT().SetHandshakeConfirmed()
 		cryptoSetup.EXPECT().SetHandshakeConfirmed()
+		cryptoSetup.EXPECT().ConnectionState()
 		Expect(conn.handleHandshakeDoneFrame()).To(Succeed())
 	})
 
@@ -2615,11 +2617,13 @@ var _ = Describe("Client Connection", func() {
 		conn.sentPacketHandler = sph
 		ack := &wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: 1, Largest: 3}}}
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
+		tracer.EXPECT().ChoseAlpn(gomock.Any())
 		sph.EXPECT().ReceivedAck(ack, protocol.Encryption1RTT, gomock.Any()).Return(true, nil)
 		sph.EXPECT().DropPackets(protocol.EncryptionHandshake)
 		sph.EXPECT().SetHandshakeConfirmed()
 		cryptoSetup.EXPECT().SetLargest1RTTAcked(protocol.PacketNumber(3))
 		cryptoSetup.EXPECT().SetHandshakeConfirmed()
+		cryptoSetup.EXPECT().ConnectionState()
 		Expect(conn.handleAckFrame(ack, protocol.Encryption1RTT)).To(Succeed())
 	})
 

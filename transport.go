@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"errors"
+	"fmt"
+	"math"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -90,9 +92,18 @@ type Transport struct {
 
 	logger utils.Logger
 
-	// for e.g. H-QUIC
-	handleUnknownConnection func(*Transport, ConnectionID, UnhandledPacket)
-	restoredHQUIC           bool
+	// for e.g. H-QUIC.
+	// Handler for short header packets with an unknown connection id.
+	HandleUnknownConnectionPacket func(ConnectionID, ReceivedPacket)
+	restoredHQUIC                 bool
+	//TODO move to transport config
+	CustomHandleNonQuicPacket func(p ReceivedPacket)
+	// e.g. to reduce size to allow for extension headers.
+	// ignore when 0.
+	//TODO move to transport config
+	MaxAcceptedQuicPacketSize int
+	//TODO move to transport config
+	CustomSend func(data []byte, size logging.ByteCount, remoteAddr net.Addr, oob []byte, conn Connection)
 }
 
 // Listen starts listening for incoming QUIC connections.
@@ -116,12 +127,11 @@ func (t *Transport) Listen(tlsConf *tls.Config, conf *Config) (*Listener, error)
 	if err := t.init(false); err != nil {
 		return nil, err
 	}
-	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, false)
+	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, false, t)
 	if err != nil {
 		return nil, err
 	}
 	t.server = s
-	t.handleUnknownConnection = s.config.HandleUnknownConnectionPacket
 	return &Listener{baseServer: s}, nil
 }
 
@@ -146,12 +156,11 @@ func (t *Transport) ListenEarly(tlsConf *tls.Config, conf *Config) (*EarlyListen
 	if err := t.init(false); err != nil {
 		return nil, err
 	}
-	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, true)
+	s, err := newServer(t.conn, t.handlerMap, t.connIDGenerator, tlsConf, conf, t.Tracer, t.closeServer, true, t)
 	if err != nil {
 		return nil, err
 	}
 	t.server = s
-	t.handleUnknownConnection = s.config.HandleUnknownConnectionPacket
 	return &EarlyListener{baseServer: s}, nil
 }
 
@@ -223,6 +232,10 @@ func (t *Transport) init(allowZeroLengthConnIDs bool) error {
 			}
 			t.connIDLen = connIDLen
 			t.connIDGenerator = &protocol.DefaultConnectionIDGenerator{ConnLen: t.connIDLen}
+		}
+
+		if t.MaxAcceptedQuicPacketSize == 0 {
+			t.MaxAcceptedQuicPacketSize = protocol.MaxPacketBufferSize
 		}
 
 		getMultiplexer().AddConn(t.Conn)
@@ -354,8 +367,15 @@ func (t *Transport) handlePacket(p receivedPacket) {
 		return
 	}
 	if !wire.IsPotentialQUICPacket(p.data[0]) && !wire.IsLongHeaderPacket(p.data[0]) {
-		t.handleNonQUICPacket(p)
+		if t.CustomHandleNonQuicPacket != nil {
+			t.CustomHandleNonQuicPacket(ReceivedPacket{&p})
+		} else {
+			t.handleNonQUICPacket(p)
+		}
 		return
+	}
+	if t.MaxAcceptedQuicPacketSize != 0 && len(p.data) > t.MaxAcceptedQuicPacketSize {
+		return //ignore
 	}
 	connID, err := wire.ParseConnectionID(p.data, t.connIDLen)
 	if err != nil {
@@ -375,8 +395,8 @@ func (t *Transport) handlePacket(p receivedPacket) {
 		return
 	}
 	if !wire.IsLongHeaderPacket(p.data[0]) {
-		if t.handleUnknownConnection != nil {
-			t.handleUnknownConnection(t, connID, UnhandledPacket{receivedPacket: p})
+		if t.HandleUnknownConnectionPacket != nil {
+			t.HandleUnknownConnectionPacket(connID, ReceivedPacket{&p})
 			return
 		}
 		t.maybeSendStatelessReset(p)
@@ -492,6 +512,43 @@ func (t *Transport) ReadNonQUICPacket(ctx context.Context, b []byte) (int, net.A
 // StatelessResetKey must be set.
 // Does not send stateless resets in response to very small packets.
 // Do not use p after calling this method, because it is freeing the packet buffer.
-func (t *Transport) MaybeSendStatelessReset(p UnhandledPacket) {
-	t.maybeSendStatelessReset(p.receivedPacket)
+func (t *Transport) MaybeSendStatelessReset(p ReceivedPacket) {
+	t.maybeSendStatelessReset(*p.receivedPacket)
+}
+
+// len(b) == size => not GSO
+// inspired by quic-go/send_conn.go/sconn/Write
+func (t *Transport) Send(p []byte, size logging.ByteCount, remoteAddr net.Addr, oob []byte) error {
+	if !t.conn.capabilities().GSO {
+		if protocol.ByteCount(len(p)) != size {
+			panic(fmt.Sprintf("inconsistent packet size (%d vs %d)", len(p), size))
+		}
+		_, err := t.conn.WritePacket(p, remoteAddr, oob)
+		return err
+	}
+	// GSO is supported. Append the control message and send.
+	if size > math.MaxUint16 {
+		panic("size overflow")
+	}
+	_, err := t.conn.WritePacket(p, remoteAddr, appendUDPSegmentSizeMsg(oob, uint16(size)))
+	if err != nil && isGSOError(err) {
+		panic(fmt.Sprintf("GSO failed when sending to %s", remoteAddr))
+	}
+	return err
+}
+
+func (t *Transport) HandlePacket(p ReceivedPacket) {
+	t.handlePacket(*p.receivedPacket)
+}
+
+func (t *Transport) GetHandler(id ConnectionID) (packetHandler, bool) {
+	return t.handlerMap.Get(id)
+}
+
+// The quic.Config struct also contains values regarding transport.
+// This function copies relevant values from Config to Transport.
+// TODO move config to a dedicated TransportConfig struct.
+func (t *Transport) ApplyConfig(config *Config) {
+	t.StatelessResetKey = config.StatelessResetKey
+	t.ConnectionIDGenerator = config.ConnectionIDGenerator
 }
