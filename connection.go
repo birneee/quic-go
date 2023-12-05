@@ -725,7 +725,7 @@ runLoop:
 			sendQueueAvailable = s.sendQueue.Available()
 			continue
 		}
-		if err := s.triggerSending(); err != nil {
+		if err := s.triggerSending(now); err != nil {
 			s.closeLocal(err)
 		}
 		if s.sendQueue.WouldBlock() {
@@ -1941,14 +1941,14 @@ func (s *connection) applyTransportParameters() {
 	}
 }
 
-func (s *connection) triggerSending() error {
+// now is passed as an argument to prevent calling time.Now() multiple times
+func (s *connection) triggerSending(now time.Time) error {
 	if s.pathManager.IsIgnoreSendTo(s.conn.RemoteAddr()) && s.handshakeComplete {
 		s.logger.Debugf("Ignore sending packets to this remote address")
 		return nil
 	}
 
 	s.pacingDeadline = time.Time{}
-	now := time.Now()
 
 	sendMode := s.sentPacketHandler.SendMode(now)
 	//nolint:exhaustive // No need to handle pacing limited here.
@@ -1980,7 +1980,7 @@ func (s *connection) triggerSending() error {
 			s.scheduleSending()
 			return nil
 		}
-		return s.triggerSending()
+		return s.triggerSending(now)
 	case ackhandler.SendPTOHandshake:
 		if err := s.sendProbePacket(protocol.EncryptionHandshake, now); err != nil {
 			return err
@@ -1989,7 +1989,7 @@ func (s *connection) triggerSending() error {
 			s.scheduleSending()
 			return nil
 		}
-		return s.triggerSending()
+		return s.triggerSending(now)
 	case ackhandler.SendPTOAppData:
 		if err := s.sendProbePacket(protocol.Encryption1RTT, now); err != nil {
 			return err
@@ -1998,7 +1998,7 @@ func (s *connection) triggerSending() error {
 			s.scheduleSending()
 			return nil
 		}
-		return s.triggerSending()
+		return s.triggerSending(now)
 	default:
 		return fmt.Errorf("BUG: invalid send mode %d", sendMode)
 	}
