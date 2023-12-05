@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/asn1"
 	"fmt"
-	"io"
 	"net"
 	"time"
 
@@ -45,17 +44,9 @@ type TokenGenerator struct {
 	tokenProtector tokenProtector
 }
 
-// NewTokenGenerator initializes a new TookenGenerator.
-// If addressTokenKey is nil, a random one is generated.
-// Otherwise, the addressTokenKey must be tokenSecretSize long.
-func NewTokenGenerator(rand io.Reader, addressTokenKey *[32]byte) (*TokenGenerator, error) {
-	tokenProtector, err := newTokenProtector(rand, addressTokenKey)
-	if err != nil {
-		return nil, err
-	}
-	return &TokenGenerator{
-		tokenProtector: tokenProtector,
-	}, nil
+// NewTokenGenerator initializes a new TokenGenerator
+func NewTokenGenerator(key TokenProtectorKey) *TokenGenerator {
+	return &TokenGenerator{tokenProtector: newTokenProtector(key)}
 }
 
 // NewRetryToken generates a new token for a Retry for a given source address

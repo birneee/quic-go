@@ -62,7 +62,7 @@ func init() {
 
 // NewQlogDirTracer returns nil if QLOGDIR environment variable is not set.
 // label is a descriptive name or category e.g. client.
-func NewQlogDirTracer(odcid logging.ConnectionID, label string, perspective protocol.Perspective) (logging.ConnectionTracer, error) {
+func NewQlogDirTracer(odcid logging.ConnectionID, label string, perspective protocol.Perspective) (*logging.ConnectionTracer, error) {
 	if QlogDir == "" {
 		return nil, nil
 	}
@@ -93,11 +93,9 @@ type connectionTracer struct {
 	lastMetrics *metrics
 }
 
-var _ logging.ConnectionTracer = &connectionTracer{}
-
 // NewConnectionTracer creates a new tracer to record a qlog for a connection.
-func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protocol.ConnectionID) logging.ConnectionTracer {
-	t := &connectionTracer{
+func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protocol.ConnectionID) *logging.ConnectionTracer {
+	t := connectionTracer{
 		w:             w,
 		perspective:   p,
 		odcid:         odcid,
@@ -106,7 +104,89 @@ func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protoco
 		referenceTime: time.Now(),
 	}
 	go t.run()
-	return t
+	return &logging.ConnectionTracer{
+		StartedConnection: func(local, remote net.Addr, srcConnID, destConnID logging.ConnectionID) {
+			t.StartedConnection(local, remote, srcConnID, destConnID)
+		},
+		NegotiatedVersion: func(chosen logging.VersionNumber, clientVersions, serverVersions []logging.VersionNumber) {
+			t.NegotiatedVersion(chosen, clientVersions, serverVersions)
+		},
+		ClosedConnection:            func(e error) { t.ClosedConnection(e) },
+		SentTransportParameters:     func(tp *wire.TransportParameters) { t.SentTransportParameters(tp) },
+		ReceivedTransportParameters: func(tp *wire.TransportParameters) { t.ReceivedTransportParameters(tp) },
+		RestoredTransportParameters: func(tp *wire.TransportParameters) { t.RestoredTransportParameters(tp) },
+		SentLongHeaderPacket: func(hdr *logging.ExtendedHeader, size logging.ByteCount, ecn logging.ECN, ack *logging.AckFrame, frames []logging.Frame) {
+			t.SentLongHeaderPacket(hdr, size, ecn, ack, frames)
+		},
+		SentShortHeaderPacket: func(hdr *logging.ShortHeader, size logging.ByteCount, ecn logging.ECN, ack *logging.AckFrame, frames []logging.Frame) {
+			t.SentShortHeaderPacket(hdr, size, ecn, ack, frames)
+		},
+		ReceivedLongHeaderPacket: func(hdr *logging.ExtendedHeader, size logging.ByteCount, ecn logging.ECN, frames []logging.Frame) {
+			t.ReceivedLongHeaderPacket(hdr, size, ecn, frames)
+		},
+		ReceivedShortHeaderPacket: func(hdr *logging.ShortHeader, size logging.ByteCount, ecn logging.ECN, frames []logging.Frame) {
+			t.ReceivedShortHeaderPacket(hdr, size, ecn, frames)
+		},
+		ReceivedRetry: func(hdr *wire.Header) {
+			t.ReceivedRetry(hdr)
+		},
+		ReceivedVersionNegotiationPacket: func(dest, src logging.ArbitraryLenConnectionID, versions []logging.VersionNumber) {
+			t.ReceivedVersionNegotiationPacket(dest, src, versions)
+		},
+		BufferedPacket: func(pt logging.PacketType, size protocol.ByteCount) {
+			t.BufferedPacket(pt, size)
+		},
+		DroppedPacket: func(pt logging.PacketType, pn logging.PacketNumber, size logging.ByteCount, reason logging.PacketDropReason) {
+			t.DroppedPacket(pt, pn, size, reason)
+		},
+		UpdatedMetrics: func(rttStats *utils.RTTStats, cwnd, bytesInFlight protocol.ByteCount, packetsInFlight int) {
+			t.UpdatedMetrics(rttStats, cwnd, bytesInFlight, packetsInFlight)
+		},
+		LostPacket: func(encLevel protocol.EncryptionLevel, pn protocol.PacketNumber, lossReason logging.PacketLossReason) {
+			t.LostPacket(encLevel, pn, lossReason)
+		},
+		UpdatedCongestionState: func(state logging.CongestionState) {
+			t.UpdatedCongestionState(state)
+		},
+		UpdatedPTOCount: func(value uint32) {
+			t.UpdatedPTOCount(value)
+		},
+		UpdatedKeyFromTLS: func(encLevel protocol.EncryptionLevel, pers protocol.Perspective) {
+			t.UpdatedKeyFromTLS(encLevel, pers)
+		},
+		UpdatedKey: func(generation protocol.KeyPhase, remote bool) {
+			t.UpdatedKey(generation, remote)
+		},
+		DroppedEncryptionLevel: func(encLevel protocol.EncryptionLevel) {
+			t.DroppedEncryptionLevel(encLevel)
+		},
+		DroppedKey: func(generation protocol.KeyPhase) {
+			t.DroppedKey(generation)
+		},
+		SetLossTimer: func(tt logging.TimerType, encLevel protocol.EncryptionLevel, timeout time.Time) {
+			t.SetLossTimer(tt, encLevel, timeout)
+		},
+		LossTimerExpired: func(tt logging.TimerType, encLevel protocol.EncryptionLevel) {
+			t.LossTimerExpired(tt, encLevel)
+		},
+		LossTimerCanceled: func() {
+			t.LossTimerCanceled()
+		},
+		ECNStateUpdated: func(state logging.ECNState, trigger logging.ECNStateTrigger) {
+			t.ECNStateUpdated(state, trigger)
+		},
+		ChoseAlpn: func(protocol string) {
+			t.mutex.Lock()
+			t.recordEvent(time.Now(), eventAlpnInformation{chosenAlpn: protocol})
+			t.mutex.Unlock()
+		},
+		Debug: func(name, msg string) {
+			t.Debug(name, msg)
+		},
+		Close: func() {
+			t.Close()
+		},
+	}
 }
 
 func (t *connectionTracer) run() {
@@ -283,15 +363,33 @@ func (t *connectionTracer) toTransportParameters(tp *wire.TransportParameters) *
 	}
 }
 
-func (t *connectionTracer) SentLongHeaderPacket(hdr *logging.ExtendedHeader, packetSize logging.ByteCount, ack *logging.AckFrame, frames []logging.Frame) {
-	t.sentPacket(*transformLongHeader(hdr), packetSize, hdr.Length, ack, frames)
+func (t *connectionTracer) SentLongHeaderPacket(
+	hdr *logging.ExtendedHeader,
+	size logging.ByteCount,
+	ecn logging.ECN,
+	ack *logging.AckFrame,
+	frames []logging.Frame,
+) {
+	t.sentPacket(*transformLongHeader(hdr), size, hdr.Length, ecn, ack, frames)
 }
 
-func (t *connectionTracer) SentShortHeaderPacket(hdr *logging.ShortHeader, packetSize logging.ByteCount, ack *logging.AckFrame, frames []logging.Frame) {
-	t.sentPacket(*transformShortHeader(hdr), packetSize, 0, ack, frames)
+func (t *connectionTracer) SentShortHeaderPacket(
+	hdr *logging.ShortHeader,
+	size logging.ByteCount,
+	ecn logging.ECN,
+	ack *logging.AckFrame,
+	frames []logging.Frame,
+) {
+	t.sentPacket(*transformShortHeader(hdr), size, 0, ecn, ack, frames)
 }
 
-func (t *connectionTracer) sentPacket(hdr gojay.MarshalerJSONObject, packetSize, payloadLen logging.ByteCount, ack *logging.AckFrame, frames []logging.Frame) {
+func (t *connectionTracer) sentPacket(
+	hdr gojay.MarshalerJSONObject,
+	size, payloadLen logging.ByteCount,
+	ecn logging.ECN,
+	ack *logging.AckFrame,
+	frames []logging.Frame,
+) {
 	numFrames := len(frames)
 	if ack != nil {
 		numFrames++
@@ -306,14 +404,15 @@ func (t *connectionTracer) sentPacket(hdr gojay.MarshalerJSONObject, packetSize,
 	t.mutex.Lock()
 	t.recordEvent(time.Now(), &eventPacketSent{
 		Header:        hdr,
-		Length:        packetSize,
+		Length:        size,
 		PayloadLength: payloadLen,
+		ECN:           ecn,
 		Frames:        fs,
 	})
 	t.mutex.Unlock()
 }
 
-func (t *connectionTracer) ReceivedLongHeaderPacket(hdr *logging.ExtendedHeader, packetSize logging.ByteCount, frames []logging.Frame) {
+func (t *connectionTracer) ReceivedLongHeaderPacket(hdr *logging.ExtendedHeader, size logging.ByteCount, ecn logging.ECN, frames []logging.Frame) {
 	fs := make([]frame, len(frames))
 	for i, f := range frames {
 		fs[i] = frame{Frame: f}
@@ -322,14 +421,15 @@ func (t *connectionTracer) ReceivedLongHeaderPacket(hdr *logging.ExtendedHeader,
 	t.mutex.Lock()
 	t.recordEvent(time.Now(), &eventPacketReceived{
 		Header:        header,
-		Length:        packetSize,
+		Length:        size,
 		PayloadLength: hdr.Length,
+		ECN:           ecn,
 		Frames:        fs,
 	})
 	t.mutex.Unlock()
 }
 
-func (t *connectionTracer) ReceivedShortHeaderPacket(hdr *logging.ShortHeader, packetSize logging.ByteCount, frames []logging.Frame) {
+func (t *connectionTracer) ReceivedShortHeaderPacket(hdr *logging.ShortHeader, size logging.ByteCount, ecn logging.ECN, frames []logging.Frame) {
 	fs := make([]frame, len(frames))
 	for i, f := range frames {
 		fs[i] = frame{Frame: f}
@@ -338,8 +438,9 @@ func (t *connectionTracer) ReceivedShortHeaderPacket(hdr *logging.ShortHeader, p
 	t.mutex.Lock()
 	t.recordEvent(time.Now(), &eventPacketReceived{
 		Header:        header,
-		Length:        packetSize,
-		PayloadLength: packetSize - wire.ShortHeaderLen(hdr.DestConnectionID, hdr.PacketNumberLen),
+		Length:        size,
+		PayloadLength: size - wire.ShortHeaderLen(hdr.DestConnectionID, hdr.PacketNumberLen),
+		ECN:           ecn,
 		Frames:        fs,
 	})
 	t.mutex.Unlock()
@@ -378,12 +479,13 @@ func (t *connectionTracer) BufferedPacket(pt logging.PacketType, size protocol.B
 	t.mutex.Unlock()
 }
 
-func (t *connectionTracer) DroppedPacket(pt logging.PacketType, size protocol.ByteCount, reason logging.PacketDropReason) {
+func (t *connectionTracer) DroppedPacket(pt logging.PacketType, pn logging.PacketNumber, size protocol.ByteCount, reason logging.PacketDropReason) {
 	t.mutex.Lock()
 	t.recordEvent(time.Now(), &eventPacketDropped{
-		PacketType: pt,
-		PacketSize: size,
-		Trigger:    packetDropReason(reason),
+		PacketType:   pt,
+		PacketNumber: pn,
+		PacketSize:   size,
+		Trigger:      packetDropReason(reason),
 	})
 	t.mutex.Unlock()
 }
@@ -512,11 +614,9 @@ func (t *connectionTracer) LossTimerCanceled() {
 	t.mutex.Unlock()
 }
 
-func (t *connectionTracer) ChoseAlpn(negotiatedProtocol string) {
+func (t *connectionTracer) ECNStateUpdated(state logging.ECNState, trigger logging.ECNStateTrigger) {
 	t.mutex.Lock()
-	t.recordEvent(time.Now(), &eventAlpnInformation{
-		chosenAlpn: negotiatedProtocol,
-	})
+	t.recordEvent(time.Now(), &eventECNStateUpdated{state: state, trigger: trigger})
 	t.mutex.Unlock()
 }
 

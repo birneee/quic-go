@@ -16,11 +16,12 @@ func NewAckHandler(
 	initialCongestionWindow uint32, // number of packets
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
+	enableECN bool,
 	pers protocol.Perspective,
-	tracer logging.ConnectionTracer,
+	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, rttStats, clientAddressValidated, pers, tracer, logger)
+	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, initialCongestionWindow, rttStats, clientAddressValidated, enableECN, pers, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger)
 }
 
@@ -31,7 +32,8 @@ func RestoreAckHandler(
 	initialMaxDatagramSize protocol.ByteCount,
 	initialCongestionWindow uint32, // number of packets
 	rttStats *utils.RTTStats,
-	tracer logging.ConnectionTracer,
+	enableECN bool,
+	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
 	sph, rph := NewAckHandler(
@@ -40,6 +42,7 @@ func RestoreAckHandler(
 		initialCongestionWindow,
 		rttStats,
 		true, // TODO path challenge
+		enableECN,
 		state.Perspective(),
 		tracer,
 		logger,

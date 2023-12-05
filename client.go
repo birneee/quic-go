@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
+
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
 	"github.com/quic-go/quic-go/qlog"
-	"net"
 )
 
 type client struct {
@@ -34,7 +35,7 @@ type client struct {
 
 	conn quicConn
 
-	tracer    logging.ConnectionTracer
+	tracer    *logging.ConnectionTracer
 	tracingID uint64
 	logger    utils.Logger
 }
@@ -128,10 +129,9 @@ func setupTransport(c net.PacketConn, tlsConf *tls.Config, createdPacketConn boo
 	}
 	conf = populateConfig(conf)
 	return &Transport{
-		Conn:              c,
-		createdConn:       createdPacketConn,
-		isSingleUse:       true,
-		StatelessResetKey: conf.StatelessResetKey,
+		Conn:        c,
+		createdConn: createdPacketConn,
+		isSingleUse: true,
 	}, nil
 }
 
@@ -151,8 +151,7 @@ func dial(
 	}
 	c.packetHandlers = packetHandlers
 
-	var tracers []logging.ConnectionTracer
-
+	var tracers []*logging.ConnectionTracer
 	c.tracingID = nextConnTracingID()
 	if c.config.Tracer != nil {
 		tracers = append(tracers, c.config.Tracer(context.WithValue(ctx, ConnectionTracingKey, c.tracingID), protocol.PerspectiveClient, c.destConnID))
@@ -166,7 +165,7 @@ func dial(
 
 	c.tracer = logging.NewMultiplexedConnectionTracer(tracers...)
 
-	if c.tracer != nil {
+	if c.tracer != nil && c.tracer.StartedConnection != nil {
 		c.tracer.StartedConnection(c.sendConn.LocalAddr(), c.sendConn.RemoteAddr(), c.srcConnID, c.destConnID)
 	}
 	if err := c.dial(ctx); err != nil {
@@ -246,7 +245,7 @@ func (c *client) dial(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		c.conn.shutdown()
-		return ctx.Err()
+		return context.Cause(ctx)
 	case err := <-errorChan:
 		return err
 	case recreateErr := <-recreateChan:

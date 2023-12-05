@@ -25,31 +25,32 @@ var _ = Describe("Received Packet Tracker", func() {
 	Context("accepting packets", func() {
 		It("saves the time when each packet arrived", func() {
 			Expect(tracker.ReceivedPacket(protocol.PacketNumber(3), protocol.ECNNon, time.Now(), true)).To(Succeed())
-			Expect(tracker.largestObservedReceivedTime).To(BeTemporally("~", time.Now(), 10*time.Millisecond))
+			Expect(tracker.largestObservedRcvdTime).To(BeTemporally("~", time.Now(), 10*time.Millisecond))
 		})
 
-		It("updates the largestObserved and the largestObservedReceivedTime", func() {
+		It("updates the largestObserved and the largestObservedRcvdTime", func() {
 			now := time.Now()
 			tracker.largestObserved = 3
-			tracker.largestObservedReceivedTime = now.Add(-1 * time.Second)
+			tracker.largestObservedRcvdTime = now.Add(-1 * time.Second)
 			Expect(tracker.ReceivedPacket(5, protocol.ECNNon, now, true)).To(Succeed())
 			Expect(tracker.largestObserved).To(Equal(protocol.PacketNumber(5)))
-			Expect(tracker.largestObservedReceivedTime).To(Equal(now))
+			Expect(tracker.largestObservedRcvdTime).To(Equal(now))
 		})
 
-		It("doesn't update the largestObserved and the largestObservedReceivedTime for a belated packet", func() {
+		It("doesn't update the largestObserved and the largestObservedRcvdTime for a belated packet", func() {
 			now := time.Now()
 			timestamp := now.Add(-1 * time.Second)
 			tracker.largestObserved = 5
-			tracker.largestObservedReceivedTime = timestamp
+			tracker.largestObservedRcvdTime = timestamp
 			Expect(tracker.ReceivedPacket(4, protocol.ECNNon, now, true)).To(Succeed())
 			Expect(tracker.largestObserved).To(Equal(protocol.PacketNumber(5)))
-			Expect(tracker.largestObservedReceivedTime).To(Equal(timestamp))
+			Expect(tracker.largestObservedRcvdTime).To(Equal(timestamp))
 		})
 	})
 
 	Context("ACKs", func() {
 		Context("queueing ACKs", func() {
+			// receives and gets ACKs for packet numbers 1 to 10 (including)
 			receiveAndAck10Packets := func() {
 				for i := 1; i <= 10; i++ {
 					Expect(tracker.ReceivedPacket(protocol.PacketNumber(i), protocol.ECNNon, time.Time{}, true)).To(Succeed())
@@ -124,6 +125,16 @@ var _ = Describe("Received Packet Tracker", func() {
 				Expect(tracker.ReceivedPacket(12, protocol.ECNNon, rcvTime, true)).To(Succeed())
 				Expect(tracker.ackQueued).To(BeFalse())
 				Expect(tracker.GetAlarmTimeout()).To(Equal(rcvTime.Add(protocol.MaxAckDelay)))
+			})
+
+			It("queues an ACK if the packet was ECN-CE marked", func() {
+				receiveAndAck10Packets()
+				Expect(tracker.ReceivedPacket(11, protocol.ECNCE, time.Now(), true)).To(Succeed())
+				ack := tracker.GetAckFrame(true)
+				Expect(ack).ToNot(BeNil())
+				Expect(ack.AckRanges).To(HaveLen(1))
+				Expect(ack.AckRanges[0].Largest).To(Equal(protocol.PacketNumber(11)))
+				Expect(ack.ECNCE).To(BeEquivalentTo(1))
 			})
 
 			It("queues an ACK if it was reported missing before", func() {

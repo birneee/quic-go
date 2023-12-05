@@ -158,6 +158,7 @@ type eventPacketSent struct {
 	PayloadLength logging.ByteCount
 	Frames        frames
 	IsCoalesced   bool
+	ECN           logging.ECN
 	Trigger       string
 }
 
@@ -172,6 +173,9 @@ func (e eventPacketSent) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.ObjectKey("raw", rawInfo{Length: e.Length, PayloadLength: e.PayloadLength})
 	enc.ArrayKeyOmitEmpty("frames", e.Frames)
 	enc.BoolKeyOmitEmpty("is_coalesced", e.IsCoalesced)
+	if e.ECN != logging.ECNUnsupported {
+		enc.StringKey("ecn", ecn(e.ECN).String())
+	}
 	enc.StringKeyOmitEmpty("trigger", e.Trigger)
 }
 
@@ -180,6 +184,7 @@ type eventPacketReceived struct {
 	Length        logging.ByteCount
 	PayloadLength logging.ByteCount
 	Frames        frames
+	ECN           logging.ECN
 	IsCoalesced   bool
 	Trigger       string
 }
@@ -195,6 +200,9 @@ func (e eventPacketReceived) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.ObjectKey("raw", rawInfo{Length: e.Length, PayloadLength: e.PayloadLength})
 	enc.ArrayKeyOmitEmpty("frames", e.Frames)
 	enc.BoolKeyOmitEmpty("is_coalesced", e.IsCoalesced)
+	if e.ECN != logging.ECNUnsupported {
+		enc.StringKey("ecn", ecn(e.ECN).String())
+	}
 	enc.StringKeyOmitEmpty("trigger", e.Trigger)
 }
 
@@ -235,15 +243,16 @@ func (e eventPacketBuffered) IsNil() bool        { return false }
 
 func (e eventPacketBuffered) MarshalJSONObject(enc *gojay.Encoder) {
 	//nolint:gosimple
-	enc.ObjectKey("header", packetHeaderWithType{PacketType: e.PacketType})
+	enc.ObjectKey("header", packetHeaderWithType{PacketType: e.PacketType, PacketNumber: protocol.InvalidPacketNumber})
 	enc.ObjectKey("raw", rawInfo{Length: e.PacketSize})
 	enc.StringKey("trigger", "keys_unavailable")
 }
 
 type eventPacketDropped struct {
-	PacketType logging.PacketType
-	PacketSize protocol.ByteCount
-	Trigger    packetDropReason
+	PacketType   logging.PacketType
+	PacketSize   protocol.ByteCount
+	PacketNumber logging.PacketNumber
+	Trigger      packetDropReason
 }
 
 func (e eventPacketDropped) Category() category { return categoryTransport }
@@ -251,7 +260,10 @@ func (e eventPacketDropped) Name() string       { return "packet_dropped" }
 func (e eventPacketDropped) IsNil() bool        { return false }
 
 func (e eventPacketDropped) MarshalJSONObject(enc *gojay.Encoder) {
-	enc.ObjectKey("header", packetHeaderWithType{PacketType: e.PacketType})
+	enc.ObjectKey("header", packetHeaderWithType{
+		PacketType:   e.PacketType,
+		PacketNumber: e.PacketNumber,
+	})
 	enc.ObjectKey("raw", rawInfo{Length: e.PacketSize})
 	enc.StringKey("trigger", e.Trigger.String())
 }
@@ -514,6 +526,20 @@ func (e eventCongestionStateUpdated) IsNil() bool        { return false }
 
 func (e eventCongestionStateUpdated) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("new", e.state.String())
+}
+
+type eventECNStateUpdated struct {
+	state   logging.ECNState
+	trigger logging.ECNStateTrigger
+}
+
+func (e eventECNStateUpdated) Category() category { return categoryRecovery }
+func (e eventECNStateUpdated) Name() string       { return "ecn_state_updated" }
+func (e eventECNStateUpdated) IsNil() bool        { return false }
+
+func (e eventECNStateUpdated) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.StringKey("new", ecnState(e.state).String())
+	enc.StringKeyOmitEmpty("trigger", ecnStateTrigger(e.trigger).String())
 }
 
 type eventGeneric struct {

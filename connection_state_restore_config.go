@@ -1,22 +1,16 @@
 package quic
 
 import (
-	"errors"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
-	"net"
 )
 
 // for connection restore from H-QUIC state
 type ConnectionRestoreConfig struct {
 	Perspective logging.Perspective
 	QuicConf    *Config
-	PacketConn  net.PacketConn
-	// if null a new one is created
-	Listener  *EarlyListener
-	Transport *Transport
 }
 
 func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRestoreConfig {
@@ -68,19 +62,6 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 }
 
 func (c *ConnectionRestoreConfig) Validate() error {
-	connCount := 0
-	if c.Transport != nil {
-		connCount += 1
-	}
-	if c.Listener != nil {
-		connCount += 1
-	}
-	if c.PacketConn != nil {
-		connCount += 1
-	}
-	if connCount > 1 {
-		return errors.New("only one of those options can be set: 'Transport', 'Listener' or 'PacketConn'")
-	}
 	return nil
 }
 

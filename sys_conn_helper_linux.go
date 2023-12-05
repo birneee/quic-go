@@ -14,19 +14,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var gsoDisabled bool
-
-func init() {
-	disabled, err := strconv.ParseBool(os.Getenv("QUIC_GO_DISABLE_GSO"))
-	if err == nil {
-		gsoDisabled = disabled
-	}
-}
-
 const (
 	msgTypeIPTOS = unix.IP_TOS
 	ipv4PKTINFO  = unix.IP_PKTINFO
 )
+
+const ecnIPv4DataLen = 1
 
 const batchSize = 8 // needs to smaller than MaxUint8 (otherwise the type of oobConn.readPos has to be changed)
 
@@ -65,7 +58,8 @@ func parseIPv4PktInfo(body []byte) (ip netip.Addr, ifIndex uint32, ok bool) {
 // isGSOSupported tests if the kernel supports GSO.
 // Sending with GSO might still fail later on, if the interface doesn't support it (see isGSOError).
 func isGSOSupported(conn syscall.RawConn) bool {
-	if gsoDisabled {
+	disabled, err := strconv.ParseBool(os.Getenv("QUIC_GO_DISABLE_GSO"))
+	if err == nil && disabled {
 		return false
 	}
 	var serr error
@@ -122,6 +116,17 @@ func isGSOError(err error) bool {
 		// https://git.kernel.org/pub/scm/docs/man-pages/man-pages.git/tree/man7/udp.7?id=806eabd74910447f21005160e90957bde4db0183#n228
 		// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/ipv4/udp.c?h=v6.2&id=c9c3395d5e3dcc6daee66c6908354d47bf98cb0c#n942
 		return serr.Err == unix.EIO
+	}
+	return false
+}
+
+// The first sendmsg call on a new UDP socket sometimes errors on Linux.
+// It's not clear why this happens.
+// See https://github.com/golang/go/issues/63322.
+func isPermissionError(err error) bool {
+	var serr *os.SyscallError
+	if errors.As(err, &serr) {
+		return serr.Syscall == "sendmsg" && serr.Err == unix.EPERM
 	}
 	return false
 }

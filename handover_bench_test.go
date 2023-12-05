@@ -83,9 +83,8 @@ func BenchmarkHandover(b *testing.B) {
 		require.NoError(b, err)
 		state, err := (&handover.State{}).ParseMsgp(serializedState)
 		require.NoError(b, err)
-		newServer, streams, err := Restore(*state, &ConnectionRestoreConfig{
+		newServer, streams, err := Restore(transport, *state, &ConnectionRestoreConfig{
 			Perspective: protocol.PerspectiveServer,
-			Transport:   transport,
 		})
 		server = newServer
 		require.NoError(b, err)

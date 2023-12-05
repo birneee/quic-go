@@ -73,7 +73,7 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	go func() { // server 2
 		defer GinkgoRecover()
 		serverState := <-serverStateChan
-		conn, restoredStreams, err := Restore(serverState, &ConnectionRestoreConfig{
+		conn, restoredStreams, err := Restore(nil, serverState, &ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveServer,
 			QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
 		})
@@ -171,7 +171,7 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
-			conn, _, err := Restore(serverState, &ConnectionRestoreConfig{
+			conn, _, err := Restore(nil, serverState, &ConnectionRestoreConfig{
 				Perspective: logging.PerspectiveServer,
 				QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
 			})
@@ -230,7 +230,7 @@ var _ = Describe("Handover", func() {
 		handoverState := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		migratedClientSession, _, err := Restore(handoverState, &ConnectionRestoreConfig{
+		migratedClientSession, _, err := Restore(nil, handoverState, &ConnectionRestoreConfig{
 			Perspective: protocol.PerspectiveClient,
 			QuicConf:    &Config{},
 		})
@@ -275,7 +275,7 @@ var _ = Describe("Handover", func() {
 		restoredServerAddrChan := make(chan net.Addr, 1)
 		go func() {
 			defer GinkgoRecover()
-			restoredServerConn, _, err := Restore(handoverState, &ConnectionRestoreConfig{
+			restoredServerConn, _, err := Restore(nil, handoverState, &ConnectionRestoreConfig{
 				Perspective: logging.PerspectiveServer,
 				QuicConf:    &Config{MaxIdleTimeout: idleTimeout},
 			})
@@ -333,7 +333,7 @@ var _ = Describe("Handover", func() {
 		clientState1 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn2, _, err := Restore(clientState1, &ConnectionRestoreConfig{
+		clientConn2, _, err := Restore(nil, clientState1, &ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveClient,
 			QuicConf:    &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout},
 		})
@@ -342,7 +342,7 @@ var _ = Describe("Handover", func() {
 		clientState2 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn3, _, err := Restore(clientState2, &ConnectionRestoreConfig{
+		clientConn3, _, err := Restore(nil, clientState2, &ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveClient,
 			QuicConf:    &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout},
 		})

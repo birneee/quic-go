@@ -44,7 +44,7 @@ type cryptoSetup struct {
 
 	rttStats *utils.RTTStats
 
-	tracer logging.ConnectionTracer
+	tracer *logging.ConnectionTracer
 	logger utils.Logger
 
 	perspective protocol.Perspective
@@ -78,7 +78,7 @@ func NewCryptoSetupClient(
 	tlsConf *tls.Config,
 	enable0RTT bool,
 	rttStats *utils.RTTStats,
-	tracer logging.ConnectionTracer,
+	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) CryptoSetup {
@@ -97,6 +97,7 @@ func NewCryptoSetupClient(
 	quicConf := &qtls.QUICConfig{TLSConfig: tlsConf}
 	qtls.SetupConfigForClient(quicConf, cs.marshalDataForSessionState, cs.handleDataFromSessionState)
 	cs.tlsConf = tlsConf
+	cs.allow0RTT = enable0RTT
 
 	cs.conn = qtls.QUICClient(quicConf)
 	cs.conn.SetTransportParameters(cs.ourParams.Marshal(protocol.PerspectiveClient))
@@ -112,7 +113,7 @@ func NewCryptoSetupServer(
 	tlsConf *tls.Config,
 	allow0RTT bool,
 	rttStats *utils.RTTStats,
-	tracer logging.ConnectionTracer,
+	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) CryptoSetup {
@@ -128,7 +129,7 @@ func NewCryptoSetupServer(
 	cs.allow0RTT = allow0RTT
 
 	quicConf := &qtls.QUICConfig{TLSConfig: tlsConf}
-	qtls.SetupConfigForServer(quicConf, cs.allow0RTT, cs.getDataForSessionTicket, cs.accept0RTT)
+	qtls.SetupConfigForServer(quicConf, cs.allow0RTT, cs.getDataForSessionTicket, cs.handleSessionTicket)
 	addConnToClientHelloInfo(quicConf.TLSConfig, localAddr, remoteAddr)
 
 	cs.tlsConf = quicConf.TLSConfig
@@ -147,6 +148,9 @@ func addConnToClientHelloInfo(conf *tls.Config, localAddr, remoteAddr net.Addr) 
 			info.Conn = &conn{localAddr: localAddr, remoteAddr: remoteAddr}
 			c, err := gcfc(info)
 			if c != nil {
+				c = c.Clone()
+				// This won't be necessary anymore once https://github.com/golang/go/issues/63722 is accepted.
+				c.MinVersion = tls.VersionTLS13
 				// We're returning a tls.Config here, so we need to apply this recursively.
 				addConnToClientHelloInfo(c, localAddr, remoteAddr)
 			}
@@ -166,13 +170,13 @@ func newCryptoSetup(
 	connID protocol.ConnectionID,
 	tp *wire.TransportParameters,
 	rttStats *utils.RTTStats,
-	tracer logging.ConnectionTracer,
+	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 	perspective protocol.Perspective,
 	version protocol.VersionNumber,
 ) *cryptoSetup {
 	initialSealer, initialOpener := NewInitialAEAD(connID, perspective, version)
-	if tracer != nil {
+	if tracer != nil && tracer.UpdatedKeyFromTLS != nil {
 		tracer.UpdatedKeyFromTLS(protocol.EncryptionInitial, protocol.PerspectiveClient)
 		tracer.UpdatedKeyFromTLS(protocol.EncryptionInitial, protocol.PerspectiveServer)
 	}
@@ -194,7 +198,7 @@ func (h *cryptoSetup) ChangeConnectionID(id protocol.ConnectionID) {
 	initialSealer, initialOpener := NewInitialAEAD(id, h.perspective, h.version)
 	h.initialSealer = initialSealer
 	h.initialOpener = initialOpener
-	if h.tracer != nil {
+	if h.tracer != nil && h.tracer.UpdatedKeyFromTLS != nil {
 		h.tracer.UpdatedKeyFromTLS(protocol.EncryptionInitial, protocol.PerspectiveClient)
 		h.tracer.UpdatedKeyFromTLS(protocol.EncryptionInitial, protocol.PerspectiveServer)
 	}
@@ -317,13 +321,20 @@ func (h *cryptoSetup) marshalDataForSessionState() []byte {
 	return h.peerParams.MarshalForSessionTicket(b)
 }
 
-func (h *cryptoSetup) handleDataFromSessionState(data []byte) {
+func (h *cryptoSetup) handleDataFromSessionState(data []byte) (allowEarlyData bool) {
 	tp, err := h.handleDataFromSessionStateImpl(data)
 	if err != nil {
 		h.logger.Debugf("Restoring of transport parameters from session ticket failed: %s", err.Error())
 		return
 	}
-	h.zeroRTTParameters = tp
+	// The session ticket might have been saved from a connection that allowed 0-RTT,
+	// and therefore contain transport parameters.
+	// Only use them if 0-RTT is actually used on the new connection.
+	if tp != nil && h.allow0RTT {
+		h.zeroRTTParameters = tp
+		return true
+	}
+	return false
 }
 
 func (h *cryptoSetup) handleDataFromSessionStateImpl(data []byte) (*wire.TransportParameters, error) {
@@ -348,10 +359,13 @@ func (h *cryptoSetup) handleDataFromSessionStateImpl(data []byte) (*wire.Transpo
 }
 
 func (h *cryptoSetup) getDataForSessionTicket() []byte {
-	return (&sessionTicket{
-		Parameters: h.ourParams,
-		RTT:        h.rttStats.SmoothedRTT(),
-	}).Marshal()
+	ticket := &sessionTicket{
+		RTT: h.rttStats.SmoothedRTT(),
+	}
+	if h.allow0RTT {
+		ticket.Parameters = h.ourParams
+	}
+	return ticket.Marshal()
 }
 
 // GetSessionTicket generates a new session ticket.
@@ -380,12 +394,18 @@ func (h *cryptoSetup) GetSessionTicket() ([]byte, error) {
 	return ticket, nil
 }
 
-// accept0RTT is called for the server when receiving the client's session ticket.
-// It decides whether to accept 0-RTT.
-func (h *cryptoSetup) accept0RTT(sessionTicketData []byte) bool {
+// handleSessionTicket is called for the server when receiving the client's session ticket.
+// It reads parameters from the session ticket and checks whether to accept 0-RTT if the session ticket enabled 0-RTT.
+// Note that the fact that the session ticket allows 0-RTT doesn't mean that the actual TLS handshake enables 0-RTT:
+// A client may use a 0-RTT enabled session to resume a TLS session without using 0-RTT.
+func (h *cryptoSetup) handleSessionTicket(sessionTicketData []byte, using0RTT bool) bool {
 	var t sessionTicket
-	if err := t.Unmarshal(sessionTicketData); err != nil {
-		h.logger.Debugf("Unmarshalling transport parameters from session ticket failed: %s", err.Error())
+	if err := t.Unmarshal(sessionTicketData, using0RTT); err != nil {
+		h.logger.Debugf("Unmarshalling session ticket failed: %s", err.Error())
+		return false
+	}
+	h.rttStats.SetInitialRTT(t.RTT)
+	if !using0RTT {
 		return false
 	}
 	valid := h.ourParams.ValidFor0RTT(t.Parameters)
@@ -398,7 +418,6 @@ func (h *cryptoSetup) accept0RTT(sessionTicketData []byte) bool {
 		return false
 	}
 	h.logger.Debugf("Accepting 0-RTT. Restoring RTT from session ticket: %s", t.RTT)
-	h.rttStats.SetInitialRTT(t.RTT)
 	return true
 }
 
@@ -452,7 +471,7 @@ func (h *cryptoSetup) SetReadKey(el qtls.QUICEncryptionLevel, suiteID uint16, tr
 	}
 	h.mutex.Unlock()
 	h.events = append(h.events, Event{Kind: EventReceivedReadKeys})
-	if h.tracer != nil {
+	if h.tracer != nil && h.tracer.UpdatedKeyFromTLS != nil {
 		h.tracer.UpdatedKeyFromTLS(qtls.FromTLSEncryptionLevel(el), h.perspective.Opposite())
 	}
 }
@@ -474,7 +493,7 @@ func (h *cryptoSetup) SetWriteKey(el qtls.QUICEncryptionLevel, suiteID uint16, t
 		if h.logger.Debug() {
 			h.logger.Debugf("Installed 0-RTT Write keys (using %s)", tls.CipherSuiteName(suite.ID))
 		}
-		if h.tracer != nil {
+		if h.tracer != nil && h.tracer.UpdatedKeyFromTLS != nil {
 			h.tracer.UpdatedKeyFromTLS(protocol.Encryption0RTT, h.perspective)
 		}
 		// don't set used0RTT here. 0-RTT might still get rejected.
@@ -498,7 +517,7 @@ func (h *cryptoSetup) SetWriteKey(el qtls.QUICEncryptionLevel, suiteID uint16, t
 			h.used0RTT.Store(true)
 			h.zeroRTTSealer = nil
 			h.logger.Debugf("Dropping 0-RTT keys.")
-			if h.tracer != nil {
+			if h.tracer != nil && h.tracer.DroppedEncryptionLevel != nil {
 				h.tracer.DroppedEncryptionLevel(protocol.Encryption0RTT)
 			}
 		}
@@ -506,7 +525,7 @@ func (h *cryptoSetup) SetWriteKey(el qtls.QUICEncryptionLevel, suiteID uint16, t
 		panic("unexpected write encryption level")
 	}
 	h.mutex.Unlock()
-	if h.tracer != nil {
+	if h.tracer != nil && h.tracer.UpdatedKeyFromTLS != nil {
 		h.tracer.UpdatedKeyFromTLS(qtls.FromTLSEncryptionLevel(el), h.perspective)
 	}
 }
@@ -646,7 +665,7 @@ func (h *cryptoSetup) Get1RTTOpener() (ShortHeaderOpener, error) {
 	if h.zeroRTTOpener != nil && time.Since(h.handshakeCompleteTime) > 3*h.rttStats.PTO(true) {
 		h.zeroRTTOpener = nil
 		h.logger.Debugf("Dropping 0-RTT keys.")
-		if h.tracer != nil {
+		if h.tracer != nil && h.tracer.DroppedEncryptionLevel != nil {
 			h.tracer.DroppedEncryptionLevel(protocol.Encryption0RTT)
 		}
 	}
@@ -688,7 +707,7 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	h.aead.store(s, p)
 }
 
-func RestoreCryptoSetupFromHandoverState(state handover.State, perspective protocol.Perspective, tracer logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
+func RestoreCryptoSetupFromHandoverState(state handover.State, perspective protocol.Perspective, tracer *logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
 	cs := &cryptoSetup{
 		initialSealer: nil,
 		initialOpener: nil,

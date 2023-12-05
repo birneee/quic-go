@@ -163,8 +163,8 @@ func main() {
 	handler := setupHandler(*www)
 	quicConf := &quic.Config{}
 	if *enableQlog {
-		quicConf.Tracer = func(ctx context.Context, p logging.Perspective, connID quic.ConnectionID) logging.ConnectionTracer {
-			filename := fmt.Sprintf("server_%x.qlog", connID)
+		quicConf.Tracer = func(ctx context.Context, p logging.Perspective, connID quic.ConnectionID) *logging.ConnectionTracer {
+			filename := fmt.Sprintf("server_%s.qlog", connID)
 			f, err := os.Create(filename)
 			if err != nil {
 				log.Fatal(err)

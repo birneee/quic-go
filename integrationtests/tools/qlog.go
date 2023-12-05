@@ -14,13 +14,13 @@ import (
 	"github.com/quic-go/quic-go/qlog"
 )
 
-func NewQlogger(logger io.Writer) func(context.Context, logging.Perspective, quic.ConnectionID) logging.ConnectionTracer {
-	return func(_ context.Context, p logging.Perspective, connID quic.ConnectionID) logging.ConnectionTracer {
+func NewQlogger(logger io.Writer) func(context.Context, logging.Perspective, quic.ConnectionID) *logging.ConnectionTracer {
+	return func(_ context.Context, p logging.Perspective, connID quic.ConnectionID) *logging.ConnectionTracer {
 		role := "server"
 		if p == logging.PerspectiveClient {
 			role = "client"
 		}
-		filename := fmt.Sprintf("log_%x_%s.qlog", connID.Bytes(), role)
+		filename := fmt.Sprintf("log_%s_%s.qlog", connID, role)
 		fmt.Fprintf(logger, "Creating %s.\n", filename)
 		f, err := os.Create(filename)
 		if err != nil {
