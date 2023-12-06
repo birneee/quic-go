@@ -1941,7 +1941,6 @@ func (s *connection) applyTransportParameters() {
 	}
 }
 
-// now is passed as an argument to prevent calling time.Now() multiple times
 func (s *connection) triggerSending(now time.Time) error {
 	if s.pathManager.IsIgnoreSendTo(s.conn.RemoteAddr()) && s.handshakeComplete {
 		s.logger.Debugf("Ignore sending packets to this remote address")
@@ -2167,7 +2166,7 @@ func (s *connection) maybeSendAckOnlyPacket(now time.Time) error {
 		if packet == nil {
 			return nil
 		}
-		return s.sendPackedCoalescedPacket(packet, ecn, time.Now())
+		return s.sendPackedCoalescedPacket(packet, ecn, now)
 	}
 
 	ecn := s.sentPacketHandler.ECNMode(true)
