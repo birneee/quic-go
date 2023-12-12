@@ -128,3 +128,51 @@ func (s *BidiStreamStateFromPerspective) OutgoingMaxData() protocol.ByteCount {
 		return s.state.ClientDirectionMaxData
 	}
 }
+
+func (s *BidiStreamStateFromPerspective) SetIncomingFinOffset(offset protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionFinOffset = offset
+	} else {
+		s.state.ServerDirectionFinOffset = offset
+	}
+}
+
+func (s *BidiStreamStateFromPerspective) SetPendingIncomingFrames(frames map[protocol.ByteCount][]byte) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionPendingFrames = frames
+	} else {
+		s.state.ServerDirectionPendingFrames = frames
+	}
+}
+
+func (s *BidiStreamStateFromPerspective) IncomingFinOffset() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientDirectionFinOffset
+	} else {
+		return s.state.ServerDirectionFinOffset
+	}
+}
+
+func (s *BidiStreamStateFromPerspective) IncomingMaxData() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientDirectionMaxData
+	} else {
+		return s.state.ServerDirectionMaxData
+	}
+}
+
+func (s *BidiStreamStateFromPerspective) SetIncomingMaxData(maxData protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionMaxData = maxData
+	} else {
+		s.state.ServerDirectionMaxData = maxData
+	}
+}
+
+func (s *BidiStreamStateFromPerspective) SetIncomingAcknowledgedOffset(offset protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionAcknowledgedOffset = offset
+	} else {
+		s.state.ServerDirectionAcknowledgedOffset = offset
+	}
+}

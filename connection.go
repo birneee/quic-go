@@ -302,7 +302,6 @@ var newConnection = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		0,
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		s.config.InitialCongestionWindow,
 		s.rttStats,
 		clientAddressValidated,
 		s.conn.capabilities().ECN,
@@ -310,6 +309,8 @@ var newConnection = func(
 		s.tracer,
 		s.logger,
 	)
+	s.sentPacketHandler.SetInitialCongestionWindow(s.config.InitialCongestionWindow)
+	s.sentPacketHandler.SetMaxBandwidth(s.config.MaxBandwidth)
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 	params := &wire.TransportParameters{
 		InitialMaxStreamDataBidiLocal:   protocol.ByteCount(s.config.InitialStreamReceiveWindow),
@@ -453,7 +454,6 @@ var newClientConnection = func(
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		initialPacketNumber,
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		s.config.InitialCongestionWindow,
 		s.rttStats,
 		false, // has no effect
 		s.conn.capabilities().ECN,
@@ -461,6 +461,8 @@ var newClientConnection = func(
 		s.tracer,
 		s.logger,
 	)
+	s.sentPacketHandler.SetInitialCongestionWindow(s.config.InitialCongestionWindow)
+	s.sentPacketHandler.SetMaxBandwidth(s.config.MaxBandwidth)
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 	oneRTTStream := newCryptoStream()
 	params := &wire.TransportParameters{
@@ -2776,9 +2778,9 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 			restoredHQUIC:      true,
 			ConnectionIDLength: state.ConnIDLen(perspective),
 		}
-		if err := t.init(true); err != nil {
-			panic(err)
-		}
+	}
+	if err := t.init(true); err != nil {
+		panic(err)
 	}
 	packetHandlerManager := t.handlerMap
 	sendConn := newSendConn(t.conn, remoteAddr, packetInfo{}, logger)
@@ -2872,12 +2874,13 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.RestoreAckHandler(
 		state.FromPerspective(perspective),
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		s.config.InitialCongestionWindow,
 		s.rttStats,
 		s.conn.capabilities().ECN,
 		s.tracer,
 		s.logger,
 	)
+	s.sentPacketHandler.SetInitialCongestionWindow(s.config.InitialCongestionWindow)
+	s.sentPacketHandler.SetMaxBandwidth(s.config.MaxBandwidth)
 
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 
@@ -2889,7 +2892,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 	if s.config.EnableDatagrams {
 		ownParams.MaxDatagramFrameSize = wire.MaxDatagramSize
 	}
-	if s.tracer != nil {
+	if s.tracer != nil && s.tracer.SentTransportParameters != nil {
 		s.tracer.SentTransportParameters(ownParams)
 	}
 
@@ -2931,7 +2934,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		//TODO restore stateless reset tokens
 	}
 
-	if s.tracer != nil {
+	if s.tracer != nil && s.tracer.RestoredTransportParameters != nil {
 		s.tracer.RestoredTransportParameters(s.peerParams)
 	}
 
@@ -3108,4 +3111,16 @@ func (s *connection) Destroy() {
 
 func (s *connection) ExtensionValues() *sync2.Map[string, interface{}] {
 	return &s.extensionValues
+}
+
+func (s *connection) onStreamDataReadByApplication(id protocol.StreamID, offset uint64, n int) {
+	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
+		s.tracer.StreamDataMoved(id, offset, n, "transport", "application")
+	}
+}
+
+func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offset uint64, n int) {
+	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
+		s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
+	}
 }

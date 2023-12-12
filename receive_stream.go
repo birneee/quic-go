@@ -23,7 +23,7 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf)
 	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 }
 
@@ -93,6 +93,9 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 
 	if completed {
 		s.sender.onStreamCompleted(s.streamID)
+	}
+	if n > 0 {
+		s.sender.onStreamDataReadByApplication(s.streamID, uint64(s.readOffset())-uint64(n), n)
 	}
 	return n, err
 }
@@ -332,11 +335,11 @@ func (s *receiveStream) signalRead() {
 }
 
 func (s *receiveStream) readOffset() protocol.ByteCount {
-	currentFrameRemainingLength := 0
 	if s.currentFrame != nil {
-		currentFrameRemainingLength = len(s.currentFrame) - s.readPosInFrame
+		return s.frameQueue.readPos - protocol.ByteCount(len(s.currentFrame)) + protocol.ByteCount(s.readPosInFrame)
+	} else {
+		return s.frameQueue.readPos
 	}
-	return s.frameQueue.readPos - protocol.ByteCount(currentFrameRemainingLength)
 }
 
 func (s *receiveStream) pendingReceivedFrames() map[protocol.ByteCount][]byte {
@@ -356,13 +359,14 @@ func (s *receiveStream) pendingReceivedFrames() map[protocol.ByteCount][]byte {
 	return data
 }
 
-func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
-	state.SetIncomingOffset(perspective, s.readOffset())
-	state.SetIncomingFinOffset(perspective, s.finalOffset)
+func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf) {
+	state.SetIncomingOffset(s.readOffset())
+	state.SetIncomingAcknowledgedOffset(s.readOffset())
+	state.SetIncomingFinOffset(s.finalOffset)
 	if config.IncludePendingIncomingFrames {
-		state.SetPendingIncomingFrames(perspective, s.pendingReceivedFrames())
+		state.SetPendingIncomingFrames(s.pendingReceivedFrames())
 	}
-	s.flowController.StoreReceiveState(state, perspective)
+	s.flowController.StoreReceiveState(state)
 }
 
 func (s *receiveStream) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {

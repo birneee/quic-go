@@ -456,15 +456,15 @@ func (c *ReceiveStreamIrestoreReceiveStateCall) DoAndReturn(f func(handover.Rece
 }
 
 // storeReceiveState mocks base method.
-func (m *MockReceiveStreamI) storeReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective, arg2 *ConnectionStateStoreConf) {
+func (m *MockReceiveStreamI) storeReceiveState(arg0 handover.ReceiveStreamStateFromPerspective, arg1 *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeReceiveState", arg0, arg1, arg2)
+	m.ctrl.Call(m, "storeReceiveState", arg0, arg1)
 }
 
 // storeReceiveState indicates an expected call of storeReceiveState.
-func (mr *MockReceiveStreamIMockRecorder) storeReceiveState(arg0, arg1, arg2 any) *ReceiveStreamIstoreReceiveStateCall {
+func (mr *MockReceiveStreamIMockRecorder) storeReceiveState(arg0, arg1 any) *ReceiveStreamIstoreReceiveStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).storeReceiveState), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockReceiveStreamI)(nil).storeReceiveState), arg0, arg1)
 	return &ReceiveStreamIstoreReceiveStateCall{Call: call}
 }
 
@@ -480,13 +480,13 @@ func (c *ReceiveStreamIstoreReceiveStateCall) Return() *ReceiveStreamIstoreRecei
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ReceiveStreamIstoreReceiveStateCall) Do(f func(handover.ReceiveStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *ReceiveStreamIstoreReceiveStateCall {
+func (c *ReceiveStreamIstoreReceiveStateCall) Do(f func(handover.ReceiveStreamStateFromPerspective, *ConnectionStateStoreConf)) *ReceiveStreamIstoreReceiveStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ReceiveStreamIstoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *ReceiveStreamIstoreReceiveStateCall {
+func (c *ReceiveStreamIstoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamStateFromPerspective, *ConnectionStateStoreConf)) *ReceiveStreamIstoreReceiveStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

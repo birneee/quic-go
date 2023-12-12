@@ -189,6 +189,8 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		s.mutex.Lock()
 	}
 
+	s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
+
 	if bytesWritten == len(p) {
 		return bytesWritten, nil
 	}

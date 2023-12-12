@@ -335,15 +335,15 @@ func (c *StreamFlowControllerSendWindowSizeCall) DoAndReturn(f func() protocol.B
 }
 
 // StoreReceiveState mocks base method.
-func (m *MockStreamFlowController) StoreReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective) {
+func (m *MockStreamFlowController) StoreReceiveState(arg0 handover.ReceiveStreamStateFromPerspective) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreReceiveState", arg0, arg1)
+	m.ctrl.Call(m, "StoreReceiveState", arg0)
 }
 
 // StoreReceiveState indicates an expected call of StoreReceiveState.
-func (mr *MockStreamFlowControllerMockRecorder) StoreReceiveState(arg0, arg1 any) *StreamFlowControllerStoreReceiveStateCall {
+func (mr *MockStreamFlowControllerMockRecorder) StoreReceiveState(arg0 any) *StreamFlowControllerStoreReceiveStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreReceiveState), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreReceiveState), arg0)
 	return &StreamFlowControllerStoreReceiveStateCall{Call: call}
 }
 
@@ -359,13 +359,13 @@ func (c *StreamFlowControllerStoreReceiveStateCall) Return() *StreamFlowControll
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamFlowControllerStoreReceiveStateCall) Do(f func(handover.ReceiveStreamState, protocol.Perspective)) *StreamFlowControllerStoreReceiveStateCall {
+func (c *StreamFlowControllerStoreReceiveStateCall) Do(f func(handover.ReceiveStreamStateFromPerspective)) *StreamFlowControllerStoreReceiveStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamFlowControllerStoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamState, protocol.Perspective)) *StreamFlowControllerStoreReceiveStateCall {
+func (c *StreamFlowControllerStoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamStateFromPerspective)) *StreamFlowControllerStoreReceiveStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -133,4 +133,6 @@ func Benchmark0RTTUpload(b *testing.B) {
 		<-client.Context().Done()
 		assert.True(b, client.ConnectionState().Used0RTT)
 	}
+	b.StopTimer()
+	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "hs/s")
 }

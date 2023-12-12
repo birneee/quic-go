@@ -12,6 +12,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	congestion "github.com/quic-go/quic-go/internal/congestion"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -441,6 +442,78 @@ func (c *SendAlgorithmWithDebugInfosSetCongestionWindowCall) Do(f func(protocol.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *SendAlgorithmWithDebugInfosSetCongestionWindowCall) DoAndReturn(f func(protocol.ByteCount)) *SendAlgorithmWithDebugInfosSetCongestionWindowCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetInitialCongestionWindow mocks base method.
+func (m *MockSendAlgorithmWithDebugInfos) SetInitialCongestionWindow(arg0 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetInitialCongestionWindow", arg0)
+}
+
+// SetInitialCongestionWindow indicates an expected call of SetInitialCongestionWindow.
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetInitialCongestionWindow(arg0 any) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInitialCongestionWindow", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetInitialCongestionWindow), arg0)
+	return &SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall{Call: call}
+}
+
+// SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall wrap *gomock.Call
+type SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Return() *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Do(f func(uint32)) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) DoAndReturn(f func(uint32)) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMaxBandwidth mocks base method.
+func (m *MockSendAlgorithmWithDebugInfos) SetMaxBandwidth(arg0 congestion.Bandwidth) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetMaxBandwidth", arg0)
+}
+
+// SetMaxBandwidth indicates an expected call of SetMaxBandwidth.
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetMaxBandwidth(arg0 any) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxBandwidth", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetMaxBandwidth), arg0)
+	return &SendAlgorithmWithDebugInfosSetMaxBandwidthCall{Call: call}
+}
+
+// SendAlgorithmWithDebugInfosSetMaxBandwidthCall wrap *gomock.Call
+type SendAlgorithmWithDebugInfosSetMaxBandwidthCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) Return() *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) Do(f func(congestion.Bandwidth)) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) DoAndReturn(f func(congestion.Bandwidth)) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

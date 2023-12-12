@@ -2,6 +2,7 @@ package ackhandler
 
 import (
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/internal/congestion"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -44,6 +45,8 @@ type SentPacketHandler interface {
 	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
 	StoreState(h *handover.State)
 	RestoreState(h *handover.State)
+	SetMaxBandwidth(bandwidth congestion.Bandwidth)
+	SetInitialCongestionWindow(window uint32)
 }
 
 type sentPacketTracker interface {

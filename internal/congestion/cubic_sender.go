@@ -54,8 +54,9 @@ type cubicSender struct {
 
 	maxDatagramSize protocol.ByteCount
 
-	lastState logging.CongestionState
-	tracer    *logging.ConnectionTracer
+	lastState    logging.CongestionState
+	tracer       *logging.ConnectionTracer
+	maxBandwidth Bandwidth
 }
 
 var (
@@ -68,7 +69,6 @@ func NewCubicSender(
 	clock Clock,
 	rttStats *utils.RTTStats,
 	initialMaxDatagramSize protocol.ByteCount,
-	initialCongestionWindow uint32, // number of packets
 	reno bool,
 	tracer *logging.ConnectionTracer,
 ) *cubicSender {
@@ -77,7 +77,7 @@ func NewCubicSender(
 		rttStats,
 		reno,
 		initialMaxDatagramSize,
-		protocol.ByteCount(initialCongestionWindow)*initialMaxDatagramSize,
+		protocol.DefaultInitialCongestionWindow*initialMaxDatagramSize,
 		protocol.MaxCongestionWindowPackets*initialMaxDatagramSize,
 		tracer,
 	)
@@ -112,6 +112,7 @@ func newCubicSender(
 		c.lastState = logging.CongestionStateSlowStart
 		c.tracer.UpdatedCongestionState(logging.CongestionStateSlowStart)
 	}
+	c.maxBandwidth = infBandwidth
 	return c
 }
 
@@ -265,9 +266,12 @@ func (c *cubicSender) BandwidthEstimate() Bandwidth {
 	srtt := c.rttStats.SmoothedRTT()
 	if srtt == 0 {
 		// If we haven't measured an rtt, the bandwidth estimate is unknown.
-		return infBandwidth
+		return c.maxBandwidth
 	}
-	return BandwidthFromDelta(c.GetCongestionWindow(), srtt)
+	return utils.Min(
+		BandwidthFromDelta(c.GetCongestionWindow(), srtt),
+		c.maxBandwidth,
+	)
 }
 
 // OnRetransmissionTimeout is called on an retransmission timeout
@@ -323,4 +327,13 @@ func (c *cubicSender) SetCongestionWindow(window protocol.ByteCount) {
 	if c.congestionWindow > c.maxCongestionWindow() {
 		c.congestionWindow = c.maxCongestionWindow()
 	}
+}
+
+func (c *cubicSender) SetMaxBandwidth(bandwidth Bandwidth) {
+	c.maxBandwidth = bandwidth
+}
+
+// in number of packets
+func (c *cubicSender) SetInitialCongestionWindow(window uint32) {
+	c.initialCongestionWindow = protocol.ByteCount(window) * initialMaxDatagramSize
 }

@@ -358,7 +358,7 @@ func (m *streamsMap) RestoreReceiveStream(streamID StreamID, state *handover.Uni
 
 func streamIToBidiStreamState(s streamI, perspective logging.Perspective, config *ConnectionStateStoreConf) handover.BidiStreamState {
 	ss := handover.BidiStreamState{}
-	s.storeReceiveState(&ss, perspective, config)
+	s.storeReceiveState(ss.FromPerspective(perspective), config)
 	s.storeSendState(&ss, perspective, config)
 	return ss
 }
@@ -395,7 +395,7 @@ func (m *streamsMap) UniStreamStates(config *ConnectionStateStoreConf) map[proto
 	for _, entry := range m.incomingUniStreams.streams {
 		stream := entry.stream
 		s := &handover.UniStreamState{}
-		stream.storeReceiveState(s, m.perspective, config)
+		stream.storeReceiveState(s.ReceiveStreamFromPerspective(m.perspective), config)
 		ss[stream.StreamID()] = s
 	}
 	return ss

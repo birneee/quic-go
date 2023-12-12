@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/internal/congestion"
 	"github.com/quic-go/quic-go/internal/utils/sync"
 	"io"
 	"net"
@@ -20,6 +21,9 @@ type StreamID = protocol.StreamID
 
 // A VersionNumber is a QUIC version number.
 type VersionNumber = protocol.VersionNumber
+
+// Bandwidth in bit per second
+type Bandwidth = congestion.Bandwidth
 
 const (
 	// Version1 is RFC 9000
@@ -360,7 +364,8 @@ type Config struct {
 	// The CreateQlog controls when a qlog file is created.
 	// if false and QLOGDIR is set, qlog is created (default).
 	// if true, no qlog is created.
-	DisableQlog bool
+	DisableQlog  bool
+	MaxBandwidth Bandwidth
 }
 
 type ClientHelloInfo struct {

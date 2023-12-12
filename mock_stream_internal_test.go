@@ -873,15 +873,15 @@ func (c *StreamIrestoreSendStateCall) DoAndReturn(f func(handover.SendStreamStat
 }
 
 // storeReceiveState mocks base method.
-func (m *MockStreamI) storeReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective, arg2 *ConnectionStateStoreConf) {
+func (m *MockStreamI) storeReceiveState(arg0 handover.ReceiveStreamStateFromPerspective, arg1 *ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "storeReceiveState", arg0, arg1, arg2)
+	m.ctrl.Call(m, "storeReceiveState", arg0, arg1)
 }
 
 // storeReceiveState indicates an expected call of storeReceiveState.
-func (mr *MockStreamIMockRecorder) storeReceiveState(arg0, arg1, arg2 any) *StreamIstoreReceiveStateCall {
+func (mr *MockStreamIMockRecorder) storeReceiveState(arg0, arg1 any) *StreamIstoreReceiveStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockStreamI)(nil).storeReceiveState), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeReceiveState", reflect.TypeOf((*MockStreamI)(nil).storeReceiveState), arg0, arg1)
 	return &StreamIstoreReceiveStateCall{Call: call}
 }
 
@@ -897,13 +897,13 @@ func (c *StreamIstoreReceiveStateCall) Return() *StreamIstoreReceiveStateCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamIstoreReceiveStateCall) Do(f func(handover.ReceiveStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *StreamIstoreReceiveStateCall {
+func (c *StreamIstoreReceiveStateCall) Do(f func(handover.ReceiveStreamStateFromPerspective, *ConnectionStateStoreConf)) *StreamIstoreReceiveStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamIstoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *StreamIstoreReceiveStateCall {
+func (c *StreamIstoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamStateFromPerspective, *ConnectionStateStoreConf)) *StreamIstoreReceiveStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

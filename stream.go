@@ -28,6 +28,8 @@ type streamSender interface {
 	onHasStreamData(protocol.StreamID)
 	// must be called without holding the mutex that is acquired by closeForShutdown
 	onStreamCompleted(protocol.StreamID)
+	onStreamDataReadByApplication(id protocol.StreamID, offset uint64, n int)
+	onStreamDataWrittenByApplication(id protocol.StreamID, offset uint64, n int)
 }
 
 // Each of the both stream halves gets its own uniStreamSender.
@@ -58,7 +60,7 @@ type streamI interface {
 	handleStreamFrame(*wire.StreamFrame) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf)
 	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 	// for sending
 	hasData() bool

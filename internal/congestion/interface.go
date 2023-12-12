@@ -26,4 +26,8 @@ type SendAlgorithmWithDebugInfos interface {
 	InRecovery() bool
 	GetCongestionWindow() protocol.ByteCount
 	SetCongestionWindow(window protocol.ByteCount)
+	SetMaxBandwidth(bandwidth Bandwidth)
+	SetInitialCongestionWindow(window uint32)
 }
+
+const InfBandwidth = infBandwidth

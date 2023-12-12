@@ -158,8 +158,8 @@ func (c *streamFlowController) RestoreSendState(state handover.SendStreamState, 
 	c.bytesSent = state.OutgoingOffset(perspective)
 }
 
-func (c *streamFlowController) StoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
-	state.SetIncomingMaxData(perspective, c.receiveWindow)
+func (c *streamFlowController) StoreReceiveState(state handover.ReceiveStreamStateFromPerspective) {
+	state.SetIncomingMaxData(c.receiveWindow)
 }
 
 func (c *streamFlowController) RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {

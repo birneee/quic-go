@@ -83,6 +83,11 @@ func (u *UniStreamState) SendStreamFromPerspective(perspective protocol.Perspect
 	panic("implement me")
 }
 
+func (z *UniStreamState) ReceiveStreamFromPerspective(perspective protocol.Perspective) ReceiveStreamStateFromPerspective {
+	//TODO implement me
+	panic("implement me")
+}
+
 type SendStreamState interface {
 	SetOutgoingOffset(perspective protocol.Perspective, offset protocol.ByteCount)
 	SetOutgoingFinOffset(perspective protocol.Perspective, offset protocol.ByteCount)
@@ -117,4 +122,16 @@ type ReceiveStreamState interface {
 	IncomingFinOffset(perspective protocol.Perspective) protocol.ByteCount
 	IncomingMaxData(perspective protocol.Perspective) protocol.ByteCount
 	SetIncomingMaxData(perspective protocol.Perspective, window protocol.ByteCount)
+}
+
+type ReceiveStreamStateFromPerspective interface {
+	SetIncomingOffset(offset protocol.ByteCount)
+	SetIncomingFinOffset(offset protocol.ByteCount)
+	SetPendingIncomingFrames(frames map[protocol.ByteCount][]byte)
+	IncomingOffset() protocol.ByteCount
+	PendingIncomingFrames() map[protocol.ByteCount][]byte
+	IncomingFinOffset() protocol.ByteCount
+	IncomingMaxData() protocol.ByteCount
+	SetIncomingMaxData(window protocol.ByteCount)
+	SetIncomingAcknowledgedOffset(offset protocol.ByteCount)
 }

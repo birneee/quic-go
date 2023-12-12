@@ -29,7 +29,7 @@ type StreamFlowController interface {
 	Abandon()
 	StoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
 	RestoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
-	StoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
+	StoreReceiveState(state handover.ReceiveStreamStateFromPerspective)
 	RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 }
 

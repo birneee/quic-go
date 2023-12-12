@@ -112,7 +112,6 @@ var (
 func newSentPacketHandler(
 	initialPN protocol.PacketNumber,
 	initialMaxDatagramSize protocol.ByteCount,
-	initialCongestionWindow uint32, // number of packets
 	rttStats *utils.RTTStats,
 	clientAddressValidated bool,
 	enableECN bool,
@@ -124,7 +123,6 @@ func newSentPacketHandler(
 		congestion.DefaultClock{},
 		rttStats,
 		initialMaxDatagramSize,
-		initialCongestionWindow,
 		true, // use Reno
 		tracer,
 	)
@@ -978,4 +976,12 @@ func (h *sentPacketHandler) RestoreState(s *handover.State) {
 		h.congestion.SetCongestionWindow(protocol.ByteCount((*cw) / 2))
 		// divide by 2, to apply congestion window carefully
 	}
+}
+
+func (h *sentPacketHandler) SetMaxBandwidth(bandwidth congestion.Bandwidth) {
+	h.congestion.SetMaxBandwidth(bandwidth)
+}
+
+func (h *sentPacketHandler) SetInitialCongestionWindow(window uint32) {
+	h.congestion.SetInitialCongestionWindow(window)
 }

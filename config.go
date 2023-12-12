@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/internal/congestion"
 	"net"
 	"time"
 
@@ -116,6 +117,10 @@ func populateConfig(config *Config) *Config {
 	if qlogLabel == "" {
 		qlogLabel = "client"
 	}
+	maxBandwidth := config.MaxBandwidth
+	if maxBandwidth == 0 {
+		maxBandwidth = congestion.InfBandwidth
+	}
 
 	return &Config{
 		GetConfigForClient:             config.GetConfigForClient,
@@ -141,5 +146,6 @@ func populateConfig(config *Config) *Config {
 		QlogLabel:                      qlogLabel,
 		DisableQlog:                    config.DisableQlog,
 		InitialCongestionWindow:        initialCongestionWindow,
+		MaxBandwidth:                   maxBandwidth,
 	}
 }
