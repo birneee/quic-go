@@ -7,6 +7,7 @@ import (
 )
 
 type fakeTlsQuicConn struct {
+	connectionState tls.ConnectionState
 }
 
 func (f fakeTlsQuicConn) SetTransportParameters(params []byte) {
@@ -40,11 +41,14 @@ func (f fakeTlsQuicConn) SendSessionTicket(earlyData bool) error {
 }
 
 func (f fakeTlsQuicConn) ConnectionState() tls.ConnectionState {
-	return tls.ConnectionState{
-		HandshakeComplete: true,
-	}
+	return f.connectionState
 }
 
-func NewFakeTlsQuicConn() qtls.QUICConn {
-	return &fakeTlsQuicConn{}
+func NewFakeTlsQuicConn(alpn string) qtls.QUICConn {
+	return &fakeTlsQuicConn{
+		connectionState: tls.ConnectionState{
+			HandshakeComplete:  true,
+			NegotiatedProtocol: alpn,
+		},
+	}
 }

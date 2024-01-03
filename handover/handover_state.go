@@ -92,6 +92,7 @@ type State struct {
 	MaxClientBidiStream int64
 	// max stream id
 	MaxServerBidiStream int64
+	ALPN                string
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {

@@ -638,6 +638,12 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "MaxServerBidiStream")
 				return
 			}
+		case "ALPN":
+			z.ALPN, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "ALPN")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -651,9 +657,9 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 32
+	// map header, size 33
 	// write "ClientConnectionIDs"
-	err = en.Append(0xde, 0x0, 0x20, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	err = en.Append(0xde, 0x0, 0x21, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	if err != nil {
 		return
 	}
@@ -1101,15 +1107,25 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "MaxServerBidiStream")
 		return
 	}
+	// write "ALPN"
+	err = en.Append(0xa4, 0x41, 0x4c, 0x50, 0x4e)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.ALPN)
+	if err != nil {
+		err = msgp.WrapError(err, "ALPN")
+		return
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
 func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 32
+	// map header, size 33
 	// string "ClientConnectionIDs"
-	o = append(o, 0xde, 0x0, 0x20, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	o = append(o, 0xde, 0x0, 0x21, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	o = msgp.AppendMapHeader(o, uint32(len(z.ClientConnectionIDs)))
 	for za0001, za0002 := range z.ClientConnectionIDs {
 		o = msgp.AppendString(o, za0001.MsgpStrMapKey())
@@ -1324,6 +1340,9 @@ func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "MaxServerBidiStream"
 	o = append(o, 0xb3, 0x4d, 0x61, 0x78, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x42, 0x69, 0x64, 0x69, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d)
 	o = msgp.AppendInt64(o, z.MaxServerBidiStream)
+	// string "ALPN"
+	o = append(o, 0xa4, 0x41, 0x4c, 0x50, 0x4e)
+	o = msgp.AppendString(o, z.ALPN)
 	return
 }
 
@@ -1768,6 +1787,12 @@ func (z *State) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "MaxServerBidiStream")
 				return
 			}
+		case "ALPN":
+			z.ALPN, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "ALPN")
+				return
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -1848,6 +1873,6 @@ func (z *State) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 19 + msgp.Int64Size + 19 + msgp.Int64Size + 20 + msgp.Int64Size + 20 + msgp.Int64Size
+	s += 19 + msgp.Int64Size + 19 + msgp.Int64Size + 20 + msgp.Int64Size + 20 + msgp.Int64Size + 5 + msgp.StringPrefixSize + len(z.ALPN)
 	return
 }

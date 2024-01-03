@@ -2646,6 +2646,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
 	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
 	s.cryptoStreamHandler.StoreHandoverState(&state, s.perspective)
+	state.ALPN = s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol
 
 	activeSrcConnIDs := make(map[handover.ConnectionIDSequenceNumber]*handover.ConnectionIDWithResetToken, 0)
 	for sn, connID := range s.connIDGenerator.activeSrcConnIDs {
@@ -3121,6 +3122,11 @@ func (s *connection) onStreamDataReadByApplication(id protocol.StreamID, offset 
 
 func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offset uint64, n int) {
 	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
-		s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
+		select {
+		case <-s.ctx.Done():
+			// do not log, because tracer might be closed
+		default:
+			s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
+		}
 	}
 }

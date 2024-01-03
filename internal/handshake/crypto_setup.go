@@ -692,7 +692,8 @@ func wrapError(err error) error {
 }
 
 func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspective) {
-	if !h.conn.ConnectionState().HandshakeComplete {
+	connectionState := h.conn.ConnectionState()
+	if !connectionState.HandshakeComplete {
 		panic("0RTT handover not supported")
 	}
 	if !h.has1RTTOpener {
@@ -704,6 +705,7 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	sfp := s.FromPerspective(p)
 	sfp.SetOwnTransportParameters(h.ourParams.StoreForHandover())
 	sfp.SetPeerTransportParameters(h.peerParams.StoreForHandover())
+	s.ALPN = connectionState.NegotiatedProtocol
 	h.aead.store(s, p)
 }
 
@@ -722,7 +724,7 @@ func RestoreCryptoSetupFromHandoverState(state handover.State, perspective proto
 		has1RTTOpener: true,
 		has1RTTSealer: true,
 		peerParams:    peerParams,
-		conn:          handover.NewFakeTlsQuicConn(), // no longer important after handshake
+		conn:          handover.NewFakeTlsQuicConn(state.ALPN), // no longer important after handshake
 	}
 
 	return cs, nil
