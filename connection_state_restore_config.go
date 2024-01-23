@@ -2,7 +2,6 @@ package quic
 
 import (
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
 )
@@ -21,11 +20,7 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 		c.QuicConf = &Config{}
 	}
 
-	if c.Perspective == protocol.PerspectiveClient {
-		c.QuicConf = populateConfig(c.QuicConf)
-	} else {
-		c.QuicConf = populateServerConfig(c.QuicConf)
-	}
+	c.QuicConf = populateConfig(c.QuicConf)
 	ownTransportParams := state.FromPerspective(c.Perspective).OwnTransportParameters()
 	c.QuicConf.MaxStreamReceiveWindow = utils.MaxV(
 		c.QuicConf.MaxStreamReceiveWindow,
