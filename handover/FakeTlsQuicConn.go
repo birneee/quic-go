@@ -20,9 +20,9 @@ func (f fakeTlsQuicConn) Start(ctx context.Context) error {
 	panic("implement me")
 }
 
-func (f fakeTlsQuicConn) NextEvent() qtls.QUICEvent {
+func (f fakeTlsQuicConn) NextEvent() tls.QUICEvent {
 	// do nothing
-	return qtls.QUICEvent{Kind: qtls.QUICNoEvent}
+	return tls.QUICEvent{Kind: tls.QUICNoEvent}
 }
 
 func (f fakeTlsQuicConn) Close() error {
@@ -30,12 +30,12 @@ func (f fakeTlsQuicConn) Close() error {
 	return nil
 }
 
-func (f fakeTlsQuicConn) HandleData(level qtls.QUICEncryptionLevel, data []byte) error {
+func (f fakeTlsQuicConn) HandleData(level tls.QUICEncryptionLevel, data []byte) error {
 	// do nothing
 	return nil
 }
 
-func (f fakeTlsQuicConn) SendSessionTicket(earlyData bool) error {
+func (f fakeTlsQuicConn) SendSessionTicket(opts tls.QUICSessionTicketOptions) error {
 	//TODO implement me
 	panic("implement me")
 }

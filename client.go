@@ -9,7 +9,6 @@ import (
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
-	"github.com/quic-go/quic-go/qlog"
 )
 
 type client struct {
@@ -151,20 +150,10 @@ func dial(
 	}
 	c.packetHandlers = packetHandlers
 
-	var tracers []*logging.ConnectionTracer
 	c.tracingID = nextConnTracingID()
 	if c.config.Tracer != nil {
-		tracers = append(tracers, c.config.Tracer(context.WithValue(ctx, ConnectionTracingKey, c.tracingID), protocol.PerspectiveClient, c.destConnID))
+		c.tracer = c.config.Tracer(context.WithValue(ctx, ConnectionTracingKey, c.tracingID), protocol.PerspectiveClient, c.destConnID)
 	}
-
-	if qlog.QlogDir != "" && !c.config.DisableQlog {
-		tracer, err := qlog.NewQlogDirTracer(c.destConnID, c.config.QlogLabel, protocol.PerspectiveClient)
-		c.logger.Errorf("failed to create qlog: %s", err)
-		tracers = append(tracers, tracer)
-	}
-
-	c.tracer = logging.NewMultiplexedConnectionTracer(tracers...)
-
 	if c.tracer != nil && c.tracer.StartedConnection != nil {
 		c.tracer.StartedConnection(c.sendConn.LocalAddr(), c.sendConn.RemoteAddr(), c.srcConnID, c.destConnID)
 	}
@@ -244,7 +233,7 @@ func (c *client) dial(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		c.conn.shutdown()
+		c.conn.destroy(nil)
 		return context.Cause(ctx)
 	case err := <-errorChan:
 		return err

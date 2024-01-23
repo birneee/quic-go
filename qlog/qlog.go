@@ -1,14 +1,11 @@
 package qlog
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"os"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -25,10 +22,6 @@ import (
 // When building a binary from this repository, the version can be set using the following go build flag:
 // -ldflags="-X github.com/quic-go/quic-go/qlog.quicGoVersion=foobar"
 var quicGoVersion = "(devel)"
-
-// QlogDir contains the value of the QLOGDIR environment variable.
-// If it is the empty string ("") no qlog output should be written.
-var QlogDir string
 
 func init() {
 	if quicGoVersion != "(devel)" { // variable set by ldflags
@@ -51,29 +44,6 @@ func init() {
 			break
 		}
 	}
-	QlogDir = os.Getenv("QLOGDIR")
-	if QlogDir != "" {
-		err := os.MkdirAll(QlogDir, os.ModePerm)
-		if err != nil {
-			panic(fmt.Sprintf("failed to create qlog dir: %s", err))
-		}
-	}
-}
-
-// NewQlogDirTracer returns nil if QLOGDIR environment variable is not set.
-// label is a descriptive name or category e.g. client.
-func NewQlogDirTracer(odcid logging.ConnectionID, label string, perspective protocol.Perspective) (*logging.ConnectionTracer, error) {
-	if QlogDir == "" {
-		return nil, nil
-	}
-	path := filepath.Join(
-		QlogDir,
-		fmt.Sprintf("%s_%s.qlog", odcid.String(), label))
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create qlog file: %s", err)
-	}
-	return NewConnectionTracer(utils.NewBufferedWriteCloser(bufio.NewWriter(f), f), perspective, odcid), nil
 }
 
 const eventChanSize = 50
@@ -175,9 +145,9 @@ func NewConnectionTracer(w io.WriteCloser, p protocol.Perspective, odcid protoco
 		ECNStateUpdated: func(state logging.ECNState, trigger logging.ECNStateTrigger) {
 			t.ECNStateUpdated(state, trigger)
 		},
-		ChoseAlpn: func(protocol string) {
+		ChoseALPN: func(protocol string) {
 			t.mutex.Lock()
-			t.recordEvent(time.Now(), eventAlpnInformation{chosenAlpn: protocol})
+			t.recordEvent(time.Now(), eventALPNInformation{chosenALPN: protocol})
 			t.mutex.Unlock()
 		},
 		StreamDataMoved: func(id logging.StreamID, offset uint64, n int, from string, to string) {
@@ -339,9 +309,7 @@ func (t *connectionTracer) toTransportParameters(tp *wire.TransportParameters) *
 	if tp.PreferredAddress != nil {
 		pa = &preferredAddress{
 			IPv4:                tp.PreferredAddress.IPv4,
-			PortV4:              tp.PreferredAddress.IPv4Port,
 			IPv6:                tp.PreferredAddress.IPv6,
-			PortV6:              tp.PreferredAddress.IPv6Port,
 			ConnectionID:        tp.PreferredAddress.ConnectionID,
 			StatelessResetToken: tp.PreferredAddress.StatelessResetToken,
 		}

@@ -995,6 +995,42 @@ func (c *QUICConnUpdateRemoteAddrCall) DoAndReturn(f func(net.UDPAddr, bool, boo
 	return c
 }
 
+// closeWithTransportError mocks base method.
+func (m *MockQUICConn) closeWithTransportError(arg0 qerr.TransportErrorCode) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "closeWithTransportError", arg0)
+}
+
+// closeWithTransportError indicates an expected call of closeWithTransportError.
+func (mr *MockQUICConnMockRecorder) closeWithTransportError(arg0 any) *QUICConncloseWithTransportErrorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "closeWithTransportError", reflect.TypeOf((*MockQUICConn)(nil).closeWithTransportError), arg0)
+	return &QUICConncloseWithTransportErrorCall{Call: call}
+}
+
+// QUICConncloseWithTransportErrorCall wrap *gomock.Call
+type QUICConncloseWithTransportErrorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *QUICConncloseWithTransportErrorCall) Return() *QUICConncloseWithTransportErrorCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *QUICConncloseWithTransportErrorCall) Do(f func(qerr.TransportErrorCode)) *QUICConncloseWithTransportErrorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *QUICConncloseWithTransportErrorCall) DoAndReturn(f func(qerr.TransportErrorCode)) *QUICConncloseWithTransportErrorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // destroy mocks base method.
 func (m *MockQUICConn) destroy(arg0 error) {
 	m.ctrl.T.Helper()
@@ -1177,42 +1213,6 @@ func (c *QUICConnrunCall) Do(f func() error) *QUICConnrunCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *QUICConnrunCall) DoAndReturn(f func() error) *QUICConnrunCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// shutdown mocks base method.
-func (m *MockQUICConn) shutdown() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "shutdown")
-}
-
-// shutdown indicates an expected call of shutdown.
-func (mr *MockQUICConnMockRecorder) shutdown() *QUICConnshutdownCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "shutdown", reflect.TypeOf((*MockQUICConn)(nil).shutdown))
-	return &QUICConnshutdownCall{Call: call}
-}
-
-// QUICConnshutdownCall wrap *gomock.Call
-type QUICConnshutdownCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *QUICConnshutdownCall) Return() *QUICConnshutdownCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *QUICConnshutdownCall) Do(f func()) *QUICConnshutdownCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnshutdownCall) DoAndReturn(f func()) *QUICConnshutdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

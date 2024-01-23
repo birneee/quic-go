@@ -327,7 +327,7 @@ var _ = Describe("Server", func() {
 				Eventually(run).Should(BeClosed())
 				Eventually(done).Should(BeClosed())
 				// shutdown
-				conn.EXPECT().destroy(gomock.Any())
+				conn.EXPECT().closeWithTransportError(gomock.Any())
 			})
 
 			It("sends a Version Negotiation Packet for unsupported versions", func() {
@@ -530,7 +530,7 @@ var _ = Describe("Server", func() {
 				Eventually(run).Should(BeClosed())
 				Eventually(done).Should(BeClosed())
 				// shutdown
-				conn.EXPECT().destroy(gomock.Any()).MaxTimes(1)
+				conn.EXPECT().closeWithTransportError(gomock.Any()).MaxTimes(1)
 			})
 
 			It("drops packets if the receive queue is full", func() {
@@ -570,7 +570,7 @@ var _ = Describe("Server", func() {
 					conn.EXPECT().Context().Return(context.Background()).MaxTimes(1)
 					conn.EXPECT().HandshakeComplete().Return(make(chan struct{})).MaxTimes(1)
 					// shutdown
-					conn.EXPECT().destroy(gomock.Any()).MaxTimes(1)
+					conn.EXPECT().closeWithTransportError(gomock.Any()).MaxTimes(1)
 					return conn
 				}
 
@@ -697,68 +697,6 @@ var _ = Describe("Server", func() {
 					return len(b), nil
 				})
 				serv.handlePacket(p)
-				Eventually(done).Should(BeClosed())
-			})
-
-			It("doesn't accept new connections if they were closed in the mean time", func() {
-				p := getInitial(protocol.ParseConnectionID([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-				ctx, cancel := context.WithCancel(context.Background())
-				connCreated := make(chan struct{})
-				conn := NewMockQUICConn(mockCtrl)
-				serv.newConn = func(
-					_ sendConn,
-					runner connRunner,
-					_ protocol.ConnectionID,
-					_ *protocol.ConnectionID,
-					_ protocol.ConnectionID,
-					_ protocol.ConnectionID,
-					_ protocol.ConnectionID,
-					_ ConnectionIDGenerator,
-					_ protocol.StatelessResetToken,
-					_ *Config,
-					_ *tls.Config,
-					_ *handshake.TokenGenerator,
-					_ bool,
-					_ *logging.ConnectionTracer,
-					_ uint64,
-					_ utils.Logger,
-					_ protocol.VersionNumber,
-				) quicConn {
-					conn.EXPECT().handlePacket(p)
-					conn.EXPECT().run()
-					conn.EXPECT().Context().Return(ctx)
-					c := make(chan struct{})
-					close(c)
-					conn.EXPECT().HandshakeComplete().Return(c)
-					close(connCreated)
-					return conn
-				}
-
-				phm.EXPECT().Get(gomock.Any())
-				phm.EXPECT().AddWithConnID(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_, _ protocol.ConnectionID, fn func() (packetHandler, bool)) bool {
-					phm.EXPECT().GetStatelessResetToken(gomock.Any())
-					_, ok := fn()
-					return ok
-				})
-
-				serv.handlePacket(p)
-				// make sure there are no Write calls on the packet conn
-				time.Sleep(50 * time.Millisecond)
-				Eventually(connCreated).Should(BeClosed())
-				cancel()
-				time.Sleep(scaleDuration(200 * time.Millisecond))
-
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					serv.Accept(context.Background())
-					close(done)
-				}()
-				Consistently(done).ShouldNot(BeClosed())
-
-				// make the go routine return
-				conn.EXPECT().getPerspective().MaxTimes(2) // initOnce for every conn ID
-				Expect(serv.Close()).To(Succeed())
 				Eventually(done).Should(BeClosed())
 			})
 		})
@@ -1008,7 +946,7 @@ var _ = Describe("Server", func() {
 				) quicConn {
 					conn := NewMockQUICConn(mockCtrl)
 					conn.EXPECT().handlePacket(gomock.Any())
-					conn.EXPECT().destroy(&qerr.TransportError{ErrorCode: ConnectionRefused}).Do(func(error) { close(destroyed) })
+					conn.EXPECT().closeWithTransportError(ConnectionRefused).Do(func(TransportErrorCode) { close(destroyed) })
 					conn.EXPECT().HandshakeComplete().Return(make(chan struct{}))
 					conn.EXPECT().run().MaxTimes(1)
 					conn.EXPECT().Context().Return(context.Background())
@@ -1289,7 +1227,7 @@ var _ = Describe("Server", func() {
 				serv.baseServer.handlePacket(getInitialWithRandomDestConnID())
 			}
 
-			Eventually(func() int32 { return atomic.LoadInt32(&serv.baseServer.connQueueLen) }).Should(BeEquivalentTo(protocol.MaxAcceptQueueSize))
+			Eventually(serv.baseServer.connQueue).Should(HaveLen(protocol.MaxAcceptQueueSize))
 			// make sure there are no Write calls on the packet conn
 			time.Sleep(50 * time.Millisecond)
 
@@ -1468,7 +1406,7 @@ var _ = Describe("Server", func() {
 				conn.EXPECT().Context().Return(context.Background())
 				close(called)
 				// shutdown
-				conn.EXPECT().destroy(gomock.Any())
+				conn.EXPECT().closeWithTransportError(gomock.Any())
 				return conn
 			}
 

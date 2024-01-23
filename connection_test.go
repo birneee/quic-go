@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -464,7 +465,7 @@ var _ = Describe("Connection", func() {
 				}),
 				tracer.EXPECT().Close(),
 			)
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(areConnsRunning).Should(BeFalse())
 			Expect(conn.Context().Done()).To(BeClosed())
 		})
@@ -478,8 +479,8 @@ var _ = Describe("Connection", func() {
 			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
-			conn.shutdown()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
+			conn.CloseWithError(0, "")
 			Eventually(areConnsRunning).Should(BeFalse())
 			Expect(conn.Context().Done()).To(BeClosed())
 		})
@@ -548,29 +549,6 @@ var _ = Describe("Connection", func() {
 				ErrorCode:    qerr.InternalError,
 				ErrorMessage: testErr.Error(),
 			}
-		})
-
-		It("cancels the context when the run loop exists", func() {
-			runConn()
-			streamManager.EXPECT().CloseWithError(gomock.Any())
-			expectReplaceWithClosed()
-			cryptoSetup.EXPECT().Close()
-			packer.EXPECT().PackApplicationClose(gomock.Any(), gomock.Any(), conn.version).Return(&coalescedPacket{buffer: getPacketBuffer()}, nil)
-			returned := make(chan struct{})
-			go func() {
-				defer GinkgoRecover()
-				ctx := conn.Context()
-				<-ctx.Done()
-				Expect(ctx.Err()).To(MatchError(context.Canceled))
-				close(returned)
-			}()
-			Consistently(returned).ShouldNot(BeClosed())
-			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
-			tracer.EXPECT().ClosedConnection(gomock.Any())
-			tracer.EXPECT().Close()
-			conn.shutdown()
-			Eventually(returned).Should(BeClosed())
-			Expect(context.Cause(conn.Context())).To(MatchError(context.Canceled))
 		})
 
 		It("doesn't send any more packets after receiving a CONNECTION_CLOSE", func() {
@@ -963,7 +941,7 @@ var _ = Describe("Connection", func() {
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
 			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -1218,7 +1196,7 @@ var _ = Describe("Connection", func() {
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
 			sender.EXPECT().Close()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 			Eventually(connDone).Should(BeClosed())
 		})
@@ -1269,7 +1247,6 @@ var _ = Describe("Connection", func() {
 			sph.EXPECT().ECNMode(true).AnyTimes()
 			runConn()
 			packer.EXPECT().AppendPacket(gomock.Any(), gomock.Any(), conn.version).Return(shortHeaderPacket{}, errNothingToPack).AnyTimes()
-			conn.receivedPacketHandler.ReceivedPacket(0x035e, protocol.ECNNon, protocol.Encryption1RTT, time.Now(), true)
 			conn.scheduleSending()
 			time.Sleep(50 * time.Millisecond) // make sure there are no calls to mconn.Write()
 		})
@@ -1422,7 +1399,7 @@ var _ = Describe("Connection", func() {
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
 			sender.EXPECT().Close()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -1811,7 +1788,7 @@ var _ = Describe("Connection", func() {
 			sender.EXPECT().Close()
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -1937,7 +1914,7 @@ var _ = Describe("Connection", func() {
 		mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
 		tracer.EXPECT().ClosedConnection(gomock.Any())
 		tracer.EXPECT().Close()
-		conn.shutdown()
+		conn.CloseWithError(0, "")
 		Eventually(conn.Context().Done()).Should(BeClosed())
 	})
 
@@ -1946,7 +1923,7 @@ var _ = Describe("Connection", func() {
 		sph := mockackhandler.NewMockSentPacketHandler(mockCtrl)
 		conn.sentPacketHandler = sph
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
-		tracer.EXPECT().ChoseAlpn(gomock.Any())
+		tracer.EXPECT().ChoseALPN(gomock.Any())
 		sph.EXPECT().GetLossDetectionTimeout().AnyTimes()
 		sph.EXPECT().TimeUntilSend().AnyTimes()
 		sph.EXPECT().SendMode(gomock.Any()).AnyTimes()
@@ -1968,7 +1945,7 @@ var _ = Describe("Connection", func() {
 		connRunner.EXPECT().Retire(clientDestConnID)
 		conn.sentPacketHandler.DropPackets(protocol.EncryptionInitial)
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
-		tracer.EXPECT().ChoseAlpn(gomock.Any())
+		tracer.EXPECT().ChoseALPN(gomock.Any())
 		cryptoSetup.EXPECT().SetHandshakeConfirmed()
 		cryptoSetup.EXPECT().GetSessionTicket().Return(make([]byte, size), nil)
 		cryptoSetup.EXPECT().ConnectionState()
@@ -2025,7 +2002,7 @@ var _ = Describe("Connection", func() {
 		sph.EXPECT().SentPacket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 		mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
 		tracer.EXPECT().SentShortHeaderPacket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-		tracer.EXPECT().ChoseAlpn(gomock.Any())
+		tracer.EXPECT().ChoseALPN(gomock.Any())
 		conn.sentPacketHandler = sph
 		done := make(chan struct{})
 		connRunner.EXPECT().Retire(clientDestConnID)
@@ -2059,7 +2036,7 @@ var _ = Describe("Connection", func() {
 		cryptoSetup.EXPECT().Close()
 		tracer.EXPECT().ClosedConnection(gomock.Any())
 		tracer.EXPECT().Close()
-		conn.shutdown()
+		conn.CloseWithError(0, "")
 		Eventually(conn.Context().Done()).Should(BeClosed())
 	})
 
@@ -2073,13 +2050,11 @@ var _ = Describe("Connection", func() {
 			close(done)
 		}()
 		streamManager.EXPECT().CloseWithError(gomock.Any())
-		expectReplaceWithClosed()
-		packer.EXPECT().PackApplicationClose(gomock.Any(), gomock.Any(), conn.version).Return(&coalescedPacket{buffer: getPacketBuffer()}, nil)
 		cryptoSetup.EXPECT().Close()
-		mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
+		connRunner.EXPECT().Remove(gomock.Any()).AnyTimes()
 		tracer.EXPECT().ClosedConnection(gomock.Any())
 		tracer.EXPECT().Close()
-		conn.shutdown()
+		conn.destroy(nil)
 		Eventually(done).Should(BeClosed())
 		Expect(context.Cause(conn.Context())).To(MatchError(context.Canceled))
 	})
@@ -2165,7 +2140,7 @@ var _ = Describe("Connection", func() {
 			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -2316,7 +2291,7 @@ var _ = Describe("Connection", func() {
 			expectReplaceWithClosed()
 			cryptoSetup.EXPECT().Close()
 			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -2357,8 +2332,8 @@ var _ = Describe("Connection", func() {
 			)
 			cryptoSetup.EXPECT().Close()
 			gomock.InOrder(
+				tracer.EXPECT().ChoseALPN(gomock.Any()),
 				tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake),
-				tracer.EXPECT().ChoseAlpn(gomock.Any()),
 				tracer.EXPECT().ClosedConnection(gomock.Any()).Do(func(e error) {
 					Expect(e).To(MatchError(&IdleTimeoutError{}))
 				}),
@@ -2403,7 +2378,7 @@ var _ = Describe("Connection", func() {
 			mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
 			tracer.EXPECT().ClosedConnection(gomock.Any())
 			tracer.EXPECT().Close()
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 		})
 
@@ -2623,7 +2598,7 @@ var _ = Describe("Client Connection", func() {
 		mconn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1)
 		tracer.EXPECT().ClosedConnection(gomock.Any())
 		tracer.EXPECT().Close()
-		conn.shutdown()
+		conn.CloseWithError(0, "")
 		Eventually(conn.Context().Done()).Should(BeClosed())
 		time.Sleep(200 * time.Millisecond)
 	})
@@ -2660,11 +2635,9 @@ var _ = Describe("Client Connection", func() {
 		sph := mockackhandler.NewMockSentPacketHandler(mockCtrl)
 		conn.sentPacketHandler = sph
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
-		tracer.EXPECT().ChoseAlpn(gomock.Any())
 		sph.EXPECT().DropPackets(protocol.EncryptionHandshake)
 		sph.EXPECT().SetHandshakeConfirmed()
 		cryptoSetup.EXPECT().SetHandshakeConfirmed()
-		cryptoSetup.EXPECT().ConnectionState()
 		Expect(conn.handleHandshakeDoneFrame()).To(Succeed())
 	})
 
@@ -2674,13 +2647,11 @@ var _ = Describe("Client Connection", func() {
 		conn.sentPacketHandler = sph
 		ack := &wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: 1, Largest: 3}}}
 		tracer.EXPECT().DroppedEncryptionLevel(protocol.EncryptionHandshake)
-		tracer.EXPECT().ChoseAlpn(gomock.Any())
 		sph.EXPECT().ReceivedAck(ack, protocol.Encryption1RTT, gomock.Any()).Return(true, nil)
 		sph.EXPECT().DropPackets(protocol.EncryptionHandshake)
 		sph.EXPECT().SetHandshakeConfirmed()
 		cryptoSetup.EXPECT().SetLargest1RTTAcked(protocol.PacketNumber(3))
 		cryptoSetup.EXPECT().SetHandshakeConfirmed()
-		cryptoSetup.EXPECT().ConnectionState()
 		Expect(conn.handleAckFrame(ack, protocol.Encryption1RTT)).To(Succeed())
 	})
 
@@ -2908,6 +2879,8 @@ var _ = Describe("Client Connection", func() {
 					defer GinkgoRecover()
 					Expect(conn.handleHandshakeComplete()).To(Succeed())
 				})
+				tracer.EXPECT().ChoseALPN(gomock.Any()).MaxTimes(1)
+				cryptoSetup.EXPECT().ConnectionState().MaxTimes(1)
 				errChan <- conn.run()
 				close(errChan)
 			}()
@@ -2932,7 +2905,7 @@ var _ = Describe("Client Connection", func() {
 		}
 
 		AfterEach(func() {
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			Eventually(conn.Context().Done()).Should(BeClosed())
 			Eventually(errChan).Should(BeClosed())
 		})
@@ -2942,8 +2915,8 @@ var _ = Describe("Client Connection", func() {
 				OriginalDestinationConnectionID: destConnID,
 				InitialSourceConnectionID:       destConnID,
 				PreferredAddress: &wire.PreferredAddress{
-					IPv4:                net.IPv4(127, 0, 0, 1),
-					IPv6:                net.IP{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+					IPv4:                netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), 42),
+					IPv6:                netip.AddrPortFrom(netip.AddrFrom16([16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}), 13),
 					ConnectionID:        protocol.ParseConnectionID([]byte{1, 2, 3, 4}),
 					StatelessResetToken: protocol.StatelessResetToken{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
 				},
@@ -2976,7 +2949,7 @@ var _ = Describe("Client Connection", func() {
 			Eventually(processed).Should(BeClosed())
 			// close first
 			expectClose(true, false)
-			conn.shutdown()
+			conn.CloseWithError(0, "")
 			// then check. Avoids race condition when accessing idleTimeout
 			Expect(conn.idleTimeout).To(Equal(18 * time.Second))
 		})

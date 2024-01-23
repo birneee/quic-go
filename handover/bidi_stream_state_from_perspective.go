@@ -2,7 +2,6 @@ package handover
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
 )
 
 type BidiStreamStateFromPerspective struct {
@@ -78,7 +77,7 @@ func (s *BidiStreamStateFromPerspective) PendingOutgoingFrames() map[protocol.By
 
 func (s *BidiStreamStateFromPerspective) PutBack(offset protocol.ByteCount, data []byte) {
 	s.PendingIncomingFrames()[offset] = data
-	s.SetIncomingOffset(utils.Min(s.IncomingOffset(), offset))
+	s.SetIncomingOffset(min(s.IncomingOffset(), offset))
 }
 
 func (s *BidiStreamStateFromPerspective) SetOutgoingFinOffset(offset protocol.ByteCount) {

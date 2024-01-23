@@ -57,9 +57,6 @@ func populateServerConfig(config *Config) *Config {
 	if config.RequireAddressValidation == nil {
 		config.RequireAddressValidation = func(net.Addr) bool { return false }
 	}
-	if config.QlogLabel == "client" {
-		config.QlogLabel = "server"
-	}
 	return config
 }
 
@@ -113,10 +110,6 @@ func populateConfig(config *Config) *Config {
 	if initialCongestionWindow == 0 {
 		initialCongestionWindow = protocol.DefaultInitialCongestionWindow
 	}
-	qlogLabel := config.QlogLabel
-	if qlogLabel == "" {
-		qlogLabel = "client"
-	}
 	maxBandwidth := config.MaxBandwidth
 	if maxBandwidth == 0 {
 		maxBandwidth = congestion.InfBandwidth
@@ -143,8 +136,6 @@ func populateConfig(config *Config) *Config {
 		Tracer:                         config.Tracer,
 		ProxyConf:                      config.ProxyConf,
 		AllowEarlyHandover:             config.AllowEarlyHandover,
-		QlogLabel:                      qlogLabel,
-		DisableQlog:                    config.DisableQlog,
 		InitialCongestionWindow:        initialCongestionWindow,
 		MaxBandwidth:                   maxBandwidth,
 	}

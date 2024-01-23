@@ -1,6 +1,6 @@
 module github.com/quic-go/quic-go
 
-go 1.20
+go 1.21
 
 replace (
 	github.com/quic-go/qtls-go1-20 => github.com/birneee/qtls-go1-20 v0.0.0-20231205151535-000383df7d5a
@@ -13,7 +13,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.6
 	github.com/quic-go/qpack v0.4.0
-	github.com/quic-go/qtls-go1-20 v0.4.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tinylib/msgp v1.1.8
 	go.uber.org/mock v0.3.0

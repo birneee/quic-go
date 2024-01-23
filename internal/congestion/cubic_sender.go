@@ -179,7 +179,7 @@ func (c *cubicSender) OnPacketAcked(
 	priorInFlight protocol.ByteCount,
 	eventTime time.Time,
 ) {
-	c.largestAckedPacketNumber = utils.Max(ackedPacketNumber, c.largestAckedPacketNumber)
+	c.largestAckedPacketNumber = max(ackedPacketNumber, c.largestAckedPacketNumber)
 	if c.InRecovery() {
 		return
 	}
@@ -247,7 +247,7 @@ func (c *cubicSender) maybeIncreaseCwnd(
 			c.numAckedPackets = 0
 		}
 	} else {
-		c.congestionWindow = utils.Min(c.maxCongestionWindow(), c.cubic.CongestionWindowAfterAck(ackedBytes, c.congestionWindow, c.rttStats.MinRTT(), eventTime))
+		c.congestionWindow = min(c.maxCongestionWindow(), c.cubic.CongestionWindowAfterAck(ackedBytes, c.congestionWindow, c.rttStats.MinRTT(), eventTime))
 	}
 }
 
@@ -268,7 +268,7 @@ func (c *cubicSender) BandwidthEstimate() Bandwidth {
 		// If we haven't measured an rtt, the bandwidth estimate is unknown.
 		return c.maxBandwidth
 	}
-	return utils.Min(
+	return min(
 		BandwidthFromDelta(c.GetCongestionWindow(), srtt),
 		c.maxBandwidth,
 	)

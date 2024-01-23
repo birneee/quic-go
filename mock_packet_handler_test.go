@@ -12,6 +12,7 @@ import (
 	reflect "reflect"
 
 	protocol "github.com/quic-go/quic-go/internal/protocol"
+	qerr "github.com/quic-go/quic-go/internal/qerr"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,6 +37,42 @@ func NewMockPacketHandler(ctrl *gomock.Controller) *MockPacketHandler {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPacketHandler) EXPECT() *MockPacketHandlerMockRecorder {
 	return m.recorder
+}
+
+// closeWithTransportError mocks base method.
+func (m *MockPacketHandler) closeWithTransportError(arg0 qerr.TransportErrorCode) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "closeWithTransportError", arg0)
+}
+
+// closeWithTransportError indicates an expected call of closeWithTransportError.
+func (mr *MockPacketHandlerMockRecorder) closeWithTransportError(arg0 any) *PacketHandlercloseWithTransportErrorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "closeWithTransportError", reflect.TypeOf((*MockPacketHandler)(nil).closeWithTransportError), arg0)
+	return &PacketHandlercloseWithTransportErrorCall{Call: call}
+}
+
+// PacketHandlercloseWithTransportErrorCall wrap *gomock.Call
+type PacketHandlercloseWithTransportErrorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *PacketHandlercloseWithTransportErrorCall) Return() *PacketHandlercloseWithTransportErrorCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *PacketHandlercloseWithTransportErrorCall) Do(f func(qerr.TransportErrorCode)) *PacketHandlercloseWithTransportErrorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *PacketHandlercloseWithTransportErrorCall) DoAndReturn(f func(qerr.TransportErrorCode)) *PacketHandlercloseWithTransportErrorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // destroy mocks base method.
@@ -144,42 +181,6 @@ func (c *PacketHandlerhandlePacketCall) Do(f func(receivedPacket)) *PacketHandle
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *PacketHandlerhandlePacketCall) DoAndReturn(f func(receivedPacket)) *PacketHandlerhandlePacketCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// shutdown mocks base method.
-func (m *MockPacketHandler) shutdown() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "shutdown")
-}
-
-// shutdown indicates an expected call of shutdown.
-func (mr *MockPacketHandlerMockRecorder) shutdown() *PacketHandlershutdownCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "shutdown", reflect.TypeOf((*MockPacketHandler)(nil).shutdown))
-	return &PacketHandlershutdownCall{Call: call}
-}
-
-// PacketHandlershutdownCall wrap *gomock.Call
-type PacketHandlershutdownCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *PacketHandlershutdownCall) Return() *PacketHandlershutdownCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *PacketHandlershutdownCall) Do(f func()) *PacketHandlershutdownCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PacketHandlershutdownCall) DoAndReturn(f func()) *PacketHandlershutdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

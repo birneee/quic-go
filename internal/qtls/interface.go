@@ -8,9 +8,9 @@ import (
 type QUICConn interface {
 	SetTransportParameters(params []byte)
 	Start(ctx context.Context) error
-	NextEvent() QUICEvent
+	NextEvent() tls.QUICEvent
 	Close() error
-	HandleData(level QUICEncryptionLevel, data []byte) error
-	SendSessionTicket(earlyData bool) error
+	HandleData(level tls.QUICEncryptionLevel, data []byte) error
+	SendSessionTicket(opts tls.QUICSessionTicketOptions) error
 	ConnectionState() tls.ConnectionState
 }

@@ -3,10 +3,11 @@ package qlog
 import (
 	"errors"
 	"fmt"
-	"github.com/quic-go/quic-go/internal/qerr"
 	"net"
+	"net/netip"
 	"time"
 
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
@@ -113,12 +114,12 @@ func (e eventConnectionClosed) IsNil() bool        { return false }
 
 func (e eventConnectionClosed) MarshalJSONObject(enc *gojay.Encoder) {
 	var (
-		statelessResetErr     *qerr.StatelessResetError
-		handshakeTimeoutErr   *qerr.HandshakeTimeoutError
-		idleTimeoutErr        *qerr.IdleTimeoutError
-		applicationErr        *qerr.ApplicationError
-		transportErr          *qerr.TransportError
-		versionNegotiationErr *qerr.VersionNegotiationError
+		statelessResetErr     *quic.StatelessResetError
+		handshakeTimeoutErr   *quic.HandshakeTimeoutError
+		idleTimeoutErr        *quic.IdleTimeoutError
+		applicationErr        *quic.ApplicationError
+		transportErr          *quic.TransportError
+		versionNegotiationErr *quic.VersionNegotiationError
 	)
 	switch {
 	case errors.As(e.e, &statelessResetErr):
@@ -456,8 +457,7 @@ func (e eventTransportParameters) MarshalJSONObject(enc *gojay.Encoder) {
 }
 
 type preferredAddress struct {
-	IPv4, IPv6          net.IP
-	PortV4, PortV6      uint16
+	IPv4, IPv6          netip.AddrPort
 	ConnectionID        protocol.ConnectionID
 	StatelessResetToken protocol.StatelessResetToken
 }
@@ -466,10 +466,10 @@ var _ gojay.MarshalerJSONObject = &preferredAddress{}
 
 func (a preferredAddress) IsNil() bool { return false }
 func (a preferredAddress) MarshalJSONObject(enc *gojay.Encoder) {
-	enc.StringKey("ip_v4", a.IPv4.String())
-	enc.Uint16Key("port_v4", a.PortV4)
-	enc.StringKey("ip_v6", a.IPv6.String())
-	enc.Uint16Key("port_v6", a.PortV6)
+	enc.StringKey("ip_v4", a.IPv4.Addr().String())
+	enc.Uint16Key("port_v4", a.IPv4.Port())
+	enc.StringKey("ip_v6", a.IPv6.Addr().String())
+	enc.Uint16Key("port_v6", a.IPv6.Port())
 	enc.StringKey("connection_id", a.ConnectionID.String())
 	enc.StringKey("stateless_reset_token", fmt.Sprintf("%x", a.StatelessResetToken))
 }
@@ -555,16 +555,16 @@ func (e eventGeneric) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("details", e.msg)
 }
 
-type eventAlpnInformation struct {
-	chosenAlpn string
+type eventALPNInformation struct {
+	chosenALPN string
 }
 
-func (e eventAlpnInformation) Category() category { return categoryTransport }
-func (e eventAlpnInformation) Name() string       { return "alpn_information" }
-func (e eventAlpnInformation) IsNil() bool        { return false }
+func (e eventALPNInformation) Category() category { return categoryTransport }
+func (e eventALPNInformation) Name() string       { return "alpn_information" }
+func (e eventALPNInformation) IsNil() bool        { return false }
 
-func (e eventAlpnInformation) MarshalJSONObject(enc *gojay.Encoder) {
-	enc.StringKey("chosen_alpn", e.chosenAlpn)
+func (e eventALPNInformation) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.StringKey("chosen_alpn", e.chosenALPN)
 }
 
 type eventStreamDataMoved struct {

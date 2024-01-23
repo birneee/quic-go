@@ -8,6 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/path"
+	"io"
+	"net"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/quic-go/quic-go/internal/ackhandler"
 	"github.com/quic-go/quic-go/internal/flowcontrol"
 	"github.com/quic-go/quic-go/internal/handshake"
@@ -18,14 +26,6 @@ import (
 	sync2 "github.com/quic-go/quic-go/internal/utils/sync"
 	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/quic-go/quic-go/logging"
-	"github.com/quic-go/quic-go/path"
-	"github.com/quic-go/quic-go/qlog"
-	"io"
-	"net"
-	"reflect"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 type unpacker interface {
@@ -779,7 +779,7 @@ func (s *connection) ConnectionState() ConnectionState {
 
 // Time when the connection should time out
 func (s *connection) nextIdleTimeoutTime() time.Time {
-	idleTimeout := utils.Max(s.idleTimeout, s.rttStats.PTO(true)*3)
+	idleTimeout := max(s.idleTimeout, s.rttStats.PTO(true)*3)
 	return s.idleTimeoutStartTime().Add(idleTimeout)
 }
 
@@ -789,7 +789,7 @@ func (s *connection) nextKeepAliveTime() time.Time {
 	if s.config.KeepAlivePeriod == 0 || s.keepAlivePingSent || !s.firstAckElicitingPacketAfterIdleSentTime.IsZero() {
 		return time.Time{}
 	}
-	keepAliveInterval := utils.Max(s.keepAliveInterval, s.rttStats.PTO(true)*3/2)
+	keepAliveInterval := max(s.keepAliveInterval, s.rttStats.PTO(true)*3/2)
 	return s.lastPacketReceivedTime.Add(keepAliveInterval)
 }
 
@@ -828,6 +828,10 @@ func (s *connection) handleHandshakeComplete() error {
 
 	s.connIDManager.SetHandshakeComplete()
 	s.connIDGenerator.SetHandshakeComplete()
+
+	if s.tracer != nil && s.tracer.ChoseALPN != nil {
+		s.tracer.ChoseALPN(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
+	}
 
 	s.maybeHandleHandoverStateRequests()
 
@@ -876,14 +880,9 @@ func (s *connection) handleHandshakeConfirmed() error {
 		if maxPacketSize == 0 {
 			maxPacketSize = protocol.MaxByteCount
 		}
-		s.mtuDiscoverer.Start(utils.Min(maxPacketSize, protocol.MaxPacketBufferSize))
+		s.mtuDiscoverer.Start(min(maxPacketSize, protocol.MaxPacketBufferSize))
 	}
 	s.maybeHandleHandoverStateRequests()
-
-	// do not log earlier to not applying additional pressure on the handshake mutex
-	if s.tracer != nil && s.tracer.ChoseAlpn != nil {
-		s.tracer.ChoseAlpn(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
-	}
 
 	return nil
 }
@@ -1744,13 +1743,6 @@ func (s *connection) closeRemote(e error) {
 	})
 }
 
-// Close the connection. It sends a NO_ERROR application error.
-// It waits until the run loop has stopped before returning
-func (s *connection) shutdown() {
-	s.closeLocal(nil)
-	<-s.ctx.Done()
-}
-
 func (s *connection) CloseWithError(code ApplicationErrorCode, desc string) error {
 	s.closeLocal(&qerr.ApplicationError{
 		ErrorCode:    code,
@@ -1758,6 +1750,11 @@ func (s *connection) CloseWithError(code ApplicationErrorCode, desc string) erro
 	})
 	<-s.ctx.Done()
 	return nil
+}
+
+func (s *connection) closeWithTransportError(code TransportErrorCode) {
+	s.closeLocal(&qerr.TransportError{ErrorCode: code})
+	<-s.ctx.Done()
 }
 
 func (s *connection) handleCloseError(closeErr *closeError) {
@@ -1927,7 +1924,7 @@ func (s *connection) applyTransportParameters() {
 	params := s.peerParams
 	// Our local idle timeout will always be > 0.
 	s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
-	s.keepAliveInterval = utils.Min(s.config.KeepAlivePeriod, utils.Min(s.idleTimeout/2, protocol.MaxKeepAliveInterval))
+	s.keepAliveInterval = min(s.config.KeepAlivePeriod, min(s.idleTimeout/2, protocol.MaxKeepAliveInterval))
 	s.streamsMap.UpdateLimits(params)
 	s.frameParser.SetAckDelayExponent(params.AckDelayExponent)
 	s.connFlowController.UpdateSendWindow(params.InitialMaxData)
@@ -2548,7 +2545,7 @@ func (s *connection) SendDatagram(p []byte) error {
 	}
 	f.Data = make([]byte, len(p))
 	copy(f.Data, p)
-	return s.datagramQueue.AddAndWait(f)
+	return s.datagramQueue.Add(f)
 }
 
 func (s *connection) ReceiveDatagram(ctx context.Context) ([]byte, error) {
@@ -2801,18 +2798,6 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 			perspective,
 			oDCID,
 		))
-	}
-
-	if qlog.QlogDir != "" {
-		var label string
-		if perspective == logging.PerspectiveClient {
-			label = "restored_client"
-		} else {
-			label = "restored_server"
-		}
-		tracer, err := qlog.NewQlogDirTracer(oDCID, label, protocol.PerspectiveServer)
-		logger.Errorf("failed to create qlog: %s", err)
-		tracers = append(tracers, tracer)
 	}
 
 	var tokenGenerator *handshake.TokenGenerator
