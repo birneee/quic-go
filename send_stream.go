@@ -24,7 +24,7 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (frame ackhandler.StreamFrame, ok, hasMore bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf)
 	restoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
 }
 
@@ -155,6 +155,7 @@ func (s *sendStream) Write(p []byte) (int, error) {
 			if !deadline.IsZero() {
 				if !time.Now().Before(deadline) {
 					s.dataForWriting = nil
+					s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 					return bytesWritten, errDeadline
 				}
 				if deadlineTimer == nil {
@@ -189,16 +190,18 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		s.mutex.Lock()
 	}
 
-	s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
-
 	if bytesWritten == len(p) {
+		s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 		return bytesWritten, nil
 	}
 	if s.closeForShutdownErr != nil {
+		//TODO call onStreamDataWrittenByApplication but the tracer might be closed already
 		return bytesWritten, s.closeForShutdownErr
 	} else if s.cancelWriteErr != nil {
+		s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 		return bytesWritten, s.cancelWriteErr
 	}
+	s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 	return bytesWritten, nil
 }
 
@@ -529,7 +532,7 @@ func (s *sendStream) pendingSendFrames() map[protocol.ByteCount][]byte {
 	return pendingFrames
 }
 
-func (s *sendStream) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf) {
+func (s *sendStream) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf) {
 	sfp := state.SendStreamFromPerspective(perspective)
 
 	pendingFrames := s.pendingSendFrames()

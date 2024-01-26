@@ -313,7 +313,7 @@ func (h *sentPacketHandler) ReceivedAck(ack *wire.AckFrame, encLevel protocol.En
 	if largestAcked > pnSpace.largestSent {
 		return false, &qerr.TransportError{
 			ErrorCode:    qerr.ProtocolViolation,
-			ErrorMessage: "received ACK for an unsent packet",
+			ErrorMessage: fmt.Sprintf("received ACK for an unsent packet: %d", largestAcked),
 		}
 	}
 
@@ -932,7 +932,7 @@ func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
 	return h.appDataPackets.pns.Peek() - 1
 }
 
-func (h *sentPacketHandler) SetHighest1RTTPacketNumber(pn protocol.PacketNumber) {
+func (h *sentPacketHandler) setHighest1RTTPacketNumber(pn protocol.PacketNumber) {
 	h.appDataPackets.pns.SetNext(pn + 1)
 	h.appDataPackets.history.highestPacketNumber = pn
 	// validate peer address
@@ -957,25 +957,48 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 	return streamFrames
 }
 
-func (h *sentPacketHandler) StoreState(s *handover.State) {
-	sfp := s.FromPerspective(h.perspective)
+func (h *sentPacketHandler) StoreState(s *handover.StateFromPerspective) {
 	rtt := h.rttStats.SmoothedRTT() / time.Millisecond
-	sfp.SetRTT((*int64)(&rtt))
+	s.SetRTT((*int64)(&rtt))
 	cw := h.congestion.GetCongestionWindow()
-	sfp.SetCongestionWindow((*int64)(&cw))
+	s.SetCongestionWindow((*int64)(&cw))
 }
 
-func (h *sentPacketHandler) RestoreState(s *handover.State) {
-	sfp := s.FromPerspective(h.perspective)
-	rtt := sfp.RTT()
+var RestorePacketNumberSkip protocol.PacketNumber = 10000
+
+func restoreSendPacketHandler(s *handover.StateFromPerspective,
+	initialMaxDatagramSize protocol.ByteCount,
+	rttStats *utils.RTTStats,
+	enableECN bool,
+	tracer *logging.ConnectionTracer,
+	logger utils.Logger) *sentPacketHandler {
+	h := newSentPacketHandler(
+		0,
+		initialMaxDatagramSize,
+		rttStats,
+		true, // TODO path challenge
+		enableECN,
+		s.Perspective(),
+		tracer,
+		logger)
+	h.DropPackets(protocol.EncryptionInitial)
+	h.DropPackets(protocol.EncryptionHandshake)
+	// skip some packets for two reasons:
+	//  - this number might be an estimate from the opposite perspective
+	//  - some packets might be sent during the handshake
+	h.setHighest1RTTPacketNumber(s.HighestSentPacketNumber() + RestorePacketNumberSkip)
+
+	rtt := s.RTT()
 	if rtt != nil && *rtt != 0 {
 		h.rttStats.SetInitialRTT(time.Duration(*rtt) * time.Millisecond)
 	}
-	cw := sfp.CongestionWindow()
+	cw := s.CongestionWindow()
 	if cw != nil && *cw != 0 {
 		h.congestion.SetCongestionWindow(protocol.ByteCount((*cw) / 2))
 		// divide by 2, to apply congestion window carefully
 	}
+
+	return h
 }
 
 func (h *sentPacketHandler) SetMaxBandwidth(bandwidth congestion.Bandwidth) {

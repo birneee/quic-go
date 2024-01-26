@@ -37,8 +37,8 @@ type StreamFlowController interface {
 type ConnectionFlowController interface {
 	flowController
 	Reset() error
-	StoreState(state *handover.State, perspective protocol.Perspective)
-	RestoreState(state *handover.State, perspective protocol.Perspective)
+	StoreState(state *handover.StateFromPerspective)
+	RestoreState(state *handover.StateFromPerspective)
 }
 
 type connectionFlowControllerI interface {

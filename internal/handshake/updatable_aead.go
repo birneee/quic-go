@@ -346,6 +346,7 @@ func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
 }
 
 func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+	spf := state.FromPerspective(perspective)
 	a := newUpdatableAEAD(
 		rttStats,
 		tracer,
@@ -354,7 +355,7 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 	)
 
 	a.keyPhase = state.KeyPhase
-	a.highestRcvdPN = state.HighestSentPacketNumber(perspective.Opposite())
+	a.highestRcvdPN = spf.HighestReceivedPacketNumber()
 	suite := getCipherSuite(state.CipherSuiteId)
 
 	a.rcvAEAD = NewRecreatableAEAD(suite, state.ReceiveTrafficSecret(perspective), a.version)
@@ -375,6 +376,7 @@ func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective
 }
 
 func restoreUpdatableAEADReducedAllocstate(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
+	sfp := state.FromPerspective(perspective)
 	a := newUpdatableAEAD(
 		rttStats,
 		tracer,
@@ -383,7 +385,7 @@ func restoreUpdatableAEADReducedAllocstate(state handover.State, perspective pro
 	)
 
 	a.keyPhase = state.KeyPhase
-	a.highestRcvdPN = state.HighestSentPacketNumber(perspective.Opposite())
+	a.highestRcvdPN = sfp.HighestReceivedPacketNumber()
 	suite := getCipherSuite(state.CipherSuiteId)
 
 	bufs := buffers[[16]byte, [12]byte, [32]byte]{} //TODO make dynamic

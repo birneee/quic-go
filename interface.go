@@ -207,7 +207,7 @@ type Connection interface {
 	// Handover creates H-QUIC state.
 	// Session is silently destroyed when destroy is set.
 	// Session no longer sends and ignores incoming packets from the current path when ignoreCurrentPath is set.
-	Handover(destroy bool, config *ConnectionStateStoreConf) HandoverStateResponse
+	Handover(destroy bool, config *handover.ConnectionStateStoreConf) HandoverStateResponse
 	// QueueHandshakeDoneFrame is required by H-QUIC proxy
 	QueueHandshakeDoneFrame() error
 	// OriginalDestinationConnectionID is used for connection identification e.g. for qlog.

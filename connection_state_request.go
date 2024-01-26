@@ -5,7 +5,7 @@ import "github.com/quic-go/quic-go/handover"
 type HandoverStateRequest struct {
 	Destroy bool
 	Return  chan HandoverStateResponse
-	Config  *ConnectionStateStoreConf
+	Config  *handover.ConnectionStateStoreConf
 }
 
 type HandoverStateResponse struct {

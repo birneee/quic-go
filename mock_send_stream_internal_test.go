@@ -496,7 +496,7 @@ func (c *SendStreamIrestoreSendStateCall) DoAndReturn(f func(handover.SendStream
 }
 
 // storeSendState mocks base method.
-func (m *MockSendStreamI) storeSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective, arg2 *ConnectionStateStoreConf) {
+func (m *MockSendStreamI) storeSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective, arg2 *handover.ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "storeSendState", arg0, arg1, arg2)
 }
@@ -520,13 +520,13 @@ func (c *SendStreamIstoreSendStateCall) Return() *SendStreamIstoreSendStateCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendStreamIstoreSendStateCall) Do(f func(handover.SendStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
+func (c *SendStreamIstoreSendStateCall) Do(f func(handover.SendStreamState, protocol.Perspective, *handover.ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendStreamIstoreSendStateCall) DoAndReturn(f func(handover.SendStreamState, protocol.Perspective, *ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
+func (c *SendStreamIstoreSendStateCall) DoAndReturn(f func(handover.SendStreamState, protocol.Perspective, *handover.ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

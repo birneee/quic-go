@@ -459,42 +459,6 @@ func (c *SentPacketHandlerResetForRetryCall) DoAndReturn(f func(time.Time) error
 	return c
 }
 
-// RestoreState mocks base method.
-func (m *MockSentPacketHandler) RestoreState(arg0 *handover.State) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RestoreState", arg0)
-}
-
-// RestoreState indicates an expected call of RestoreState.
-func (mr *MockSentPacketHandlerMockRecorder) RestoreState(arg0 any) *SentPacketHandlerRestoreStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).RestoreState), arg0)
-	return &SentPacketHandlerRestoreStateCall{Call: call}
-}
-
-// SentPacketHandlerRestoreStateCall wrap *gomock.Call
-type SentPacketHandlerRestoreStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerRestoreStateCall) Return() *SentPacketHandlerRestoreStateCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerRestoreStateCall) Do(f func(*handover.State)) *SentPacketHandlerRestoreStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerRestoreStateCall) DoAndReturn(f func(*handover.State)) *SentPacketHandlerRestoreStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SendMode mocks base method.
 func (m *MockSentPacketHandler) SendMode(arg0 time.Time) ackhandler.SendMode {
 	m.ctrl.T.Helper()
@@ -601,42 +565,6 @@ func (c *SentPacketHandlerSetHandshakeConfirmedCall) Do(f func()) *SentPacketHan
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *SentPacketHandlerSetHandshakeConfirmedCall) DoAndReturn(f func()) *SentPacketHandlerSetHandshakeConfirmedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetHighest1RTTPacketNumber mocks base method.
-func (m *MockSentPacketHandler) SetHighest1RTTPacketNumber(arg0 protocol.PacketNumber) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetHighest1RTTPacketNumber", arg0)
-}
-
-// SetHighest1RTTPacketNumber indicates an expected call of SetHighest1RTTPacketNumber.
-func (mr *MockSentPacketHandlerMockRecorder) SetHighest1RTTPacketNumber(arg0 any) *SentPacketHandlerSetHighest1RTTPacketNumberCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHighest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).SetHighest1RTTPacketNumber), arg0)
-	return &SentPacketHandlerSetHighest1RTTPacketNumberCall{Call: call}
-}
-
-// SentPacketHandlerSetHighest1RTTPacketNumberCall wrap *gomock.Call
-type SentPacketHandlerSetHighest1RTTPacketNumberCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerSetHighest1RTTPacketNumberCall) Return() *SentPacketHandlerSetHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerSetHighest1RTTPacketNumberCall) Do(f func(protocol.PacketNumber)) *SentPacketHandlerSetHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerSetHighest1RTTPacketNumberCall) DoAndReturn(f func(protocol.PacketNumber)) *SentPacketHandlerSetHighest1RTTPacketNumberCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -750,7 +678,7 @@ func (c *SentPacketHandlerSetMaxDatagramSizeCall) DoAndReturn(f func(protocol.By
 }
 
 // StoreState mocks base method.
-func (m *MockSentPacketHandler) StoreState(arg0 *handover.State) {
+func (m *MockSentPacketHandler) StoreState(arg0 *handover.StateFromPerspective) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StoreState", arg0)
 }
@@ -774,13 +702,13 @@ func (c *SentPacketHandlerStoreStateCall) Return() *SentPacketHandlerStoreStateC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStoreStateCall) Do(f func(*handover.State)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) Do(f func(*handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(*handover.State)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(*handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

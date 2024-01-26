@@ -13,6 +13,7 @@ import (
 	net "net"
 	reflect "reflect"
 
+	handover "github.com/quic-go/quic-go/handover"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	qerr "github.com/quic-go/quic-go/internal/qerr"
 	sync "github.com/quic-go/quic-go/internal/utils/sync"
@@ -459,7 +460,7 @@ func (c *QUICConnHandlePacketCall) DoAndReturn(f func(ReceivedPacket)) *QUICConn
 }
 
 // Handover mocks base method.
-func (m *MockQUICConn) Handover(arg0 bool, arg1 *ConnectionStateStoreConf) HandoverStateResponse {
+func (m *MockQUICConn) Handover(arg0 bool, arg1 *handover.ConnectionStateStoreConf) HandoverStateResponse {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handover", arg0, arg1)
 	ret0, _ := ret[0].(HandoverStateResponse)
@@ -485,13 +486,13 @@ func (c *QUICConnHandoverCall) Return(arg0 HandoverStateResponse) *QUICConnHando
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnHandoverCall) Do(f func(bool, *ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
+func (c *QUICConnHandoverCall) Do(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnHandoverCall) DoAndReturn(f func(bool, *ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
+func (c *QUICConnHandoverCall) DoAndReturn(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

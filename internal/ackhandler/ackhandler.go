@@ -24,7 +24,13 @@ func NewAckHandler(
 	return sph, newReceivedPacketHandler(sph, rttStats, logger)
 }
 
-var RestorePacketNumberSkip protocol.PacketNumber = 10000
+func StoreAckHandler(state *handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
+	state.SetHighestSentPacketNumber(sph.Highest1RTTPacketNumber())
+	state.SetHighestReceivedPacketNumber(rph.Highest1RTTPacketNumber()) // higher packet numbers might be in flight
+	if config.IncludeCongestionState {
+		sph.StoreState(state)
+	}
+}
 
 func RestoreAckHandler(
 	state *handover.StateFromPerspective,
@@ -34,23 +40,8 @@ func RestoreAckHandler(
 	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph, rph := NewAckHandler(
-		0,
-		initialMaxDatagramSize,
-		rttStats,
-		true, // TODO path challenge
-		enableECN,
-		state.Perspective(),
-		tracer,
-		logger,
-	)
-	sph.DropPackets(protocol.EncryptionInitial)
-	sph.DropPackets(protocol.EncryptionHandshake)
-
-	// skip some packets for two reasons:
-	//  - this number might be an estimate from the opposite perspective
-	//  - some packets might be sent during the handshake
-	sph.SetHighest1RTTPacketNumber(state.HighestSentPacketNumber() + RestorePacketNumberSkip)
+	sph := restoreSendPacketHandler(state, initialMaxDatagramSize, rttStats, enableECN, tracer, logger)
+	rph := newReceivedPacketHandler(sph, rttStats, logger)
 
 	return sph, rph
 }

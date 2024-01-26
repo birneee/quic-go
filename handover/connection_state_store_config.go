@@ -1,4 +1,4 @@
-package quic
+package handover
 
 type ConnectionStateStoreConf struct {
 	IncludePendingOutgoingFrames bool

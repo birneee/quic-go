@@ -578,7 +578,7 @@ func (c *StreamManagerRestoreCall) DoAndReturn(f func(*handover.State) (*Restore
 }
 
 // StoreState mocks base method.
-func (m *MockStreamManager) StoreState(arg0 *handover.State, arg1 *ConnectionStateStoreConf) {
+func (m *MockStreamManager) StoreState(arg0 *handover.State, arg1 *handover.ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StoreState", arg0, arg1)
 }
@@ -602,13 +602,13 @@ func (c *StreamManagerStoreStateCall) Return() *StreamManagerStoreStateCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamManagerStoreStateCall) Do(f func(*handover.State, *ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
+func (c *StreamManagerStoreStateCall) Do(f func(*handover.State, *handover.ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamManagerStoreStateCall) DoAndReturn(f func(*handover.State, *ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
+func (c *StreamManagerStoreStateCall) DoAndReturn(f func(*handover.State, *handover.ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

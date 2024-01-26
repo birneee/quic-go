@@ -96,9 +96,9 @@ func (s *StateFromPerspective) Perspective() protocol.Perspective {
 
 func (s *StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
 	if s.perspective == protocol.PerspectiveClient {
-		return s.state.ServerHighestSentPacketNumber
-	} else {
 		return s.state.ClientHighestSentPacketNumber
+	} else {
+		return s.state.ServerHighestSentPacketNumber
 	}
 }
 
@@ -202,5 +202,93 @@ func (s *StateFromPerspective) CongestionWindow() *int64 {
 		return s.state.ClientCongestionWindow
 	} else {
 		return s.state.ServerCongestionWindow
+	}
+}
+
+func (s *StateFromPerspective) IncomingMaxData() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientDirectionMaxData
+	} else {
+		return s.state.ServerDirectionMaxData
+	}
+}
+
+func (s *StateFromPerspective) SetIncomingMaxData(maxData protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionMaxData = maxData
+	} else {
+		s.state.ServerDirectionMaxData = maxData
+	}
+}
+
+func (s *StateFromPerspective) OutgoingMaxData() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ServerDirectionMaxData
+	} else {
+		return s.state.ClientDirectionMaxData
+	}
+}
+
+func (s *StateFromPerspective) SetOutgoingMaxData(maxData protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ServerDirectionMaxData = maxData
+	} else {
+		s.state.ClientDirectionMaxData = maxData
+	}
+}
+
+func (s *StateFromPerspective) BytesRead() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientDirectionBytes
+	} else {
+		return s.state.ServerDirectionBytes
+	}
+}
+
+func (s *StateFromPerspective) SetBytesRead(read protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientDirectionBytes = read
+	} else {
+		s.state.ServerDirectionBytes = read
+	}
+}
+
+func (s *StateFromPerspective) BytesSent() protocol.ByteCount {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ServerDirectionBytes
+	} else {
+		return s.state.ClientDirectionBytes
+	}
+}
+
+func (s *StateFromPerspective) SetBytesSent(sent protocol.ByteCount) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ServerDirectionBytes = sent
+	} else {
+		s.state.ClientDirectionBytes = sent
+	}
+}
+
+func (s *StateFromPerspective) SetHighestSentPacketNumber(pn protocol.PacketNumber) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientHighestSentPacketNumber = pn
+	} else {
+		s.state.ServerHighestSentPacketNumber = pn
+	}
+}
+
+func (s *StateFromPerspective) HighestReceivedPacketNumber() protocol.PacketNumber {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ServerHighestSentPacketNumber
+	} else {
+		return s.state.ClientHighestSentPacketNumber
+	}
+}
+
+func (s *StateFromPerspective) SetHighestReceivedPacketNumber(pn protocol.PacketNumber) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ServerHighestSentPacketNumber = pn
+	} else {
+		s.state.ClientHighestSentPacketNumber = pn
 	}
 }

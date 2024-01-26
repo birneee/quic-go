@@ -77,7 +77,7 @@ func BenchmarkHandover(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 1; n <= b.N; n++ {
-		resp := server.Handover(true, &ConnectionStateStoreConf{IncludePendingOutgoingFrames: true})
+		resp := server.Handover(true, &handover.ConnectionStateStoreConf{IncludePendingOutgoingFrames: true})
 		require.NoError(b, resp.Error)
 		serializedState, err := resp.State.SerializeMsgp()
 		require.NoError(b, err)

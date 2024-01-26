@@ -404,6 +404,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks after the deadline", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				str.SetWriteDeadline(deadline)
 				n, err := strWithTimeout.Write(getData(5000))
@@ -414,6 +415,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks when the deadline is changed to the past", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				str.SetWriteDeadline(time.Now().Add(time.Hour))
 				done := make(chan struct{})
 				go func() {
@@ -438,6 +440,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(writeReturned)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					var err error
 					n, err = strWithTimeout.Write(getData(5000))
 					Expect(err).To(MatchError(errDeadline))
@@ -462,6 +465,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(writeReturned)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					_, err := strWithTimeout.Write(getData(5000))
 					Expect(err).To(MatchError(errDeadline))
 				}()
@@ -478,6 +482,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("doesn't unblock if the deadline is changed before the first one expires", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline1 := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				deadline2 := time.Now().Add(scaleDuration(100 * time.Millisecond))
 				str.SetWriteDeadline(deadline1)
@@ -500,6 +505,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks earlier, when a new deadline is set", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline1 := time.Now().Add(scaleDuration(200 * time.Millisecond))
 				deadline2 := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				done := make(chan struct{})
@@ -521,7 +527,6 @@ var _ = Describe("Send Stream", func() {
 
 			It("doesn't unblock if the deadline is removed", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
-				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				str.SetWriteDeadline(deadline)
 				deadlineUnset := make(chan struct{})
@@ -661,7 +666,6 @@ var _ = Describe("Send Stream", func() {
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 				mockFC.EXPECT().AddBytesSent(gomock.Any())
 				mockSender.EXPECT().onHasStreamData(streamID)
-				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()

@@ -55,7 +55,7 @@ type streamManager interface {
 	UseResetMaps()
 	// error if not open yet
 	OpenedBidiStream(id StreamID) (Stream, error)
-	StoreState(state *handover.State, config *ConnectionStateStoreConf)
+	StoreState(state *handover.State, config *handover.ConnectionStateStoreConf)
 	Restore(state *handover.State) (*RestoredStreams, error)
 }
 
@@ -2602,7 +2602,7 @@ func (s *connection) maybeHandleHandoverStateRequests() {
 
 // Handover waits until handshake is confirmed
 // if AllowEarlyHandover is set, waits until handshake is completed
-func (s *connection) Handover(destroy bool, config *ConnectionStateStoreConf) HandoverStateResponse {
+func (s *connection) Handover(destroy bool, config *handover.ConnectionStateStoreConf) HandoverStateResponse {
 	rc := make(chan HandoverStateResponse, 1)
 	s.handoverStateRequests <- HandoverStateRequest{
 		Destroy: destroy,
@@ -2615,7 +2615,7 @@ func (s *connection) Handover(destroy bool, config *ConnectionStateStoreConf) Ha
 
 // handover must be called after handshake is confirmed
 // if AllowEarlyHandover is set, it can be called after handshake is completed
-func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (handover.State, error) {
+func (s *connection) handover(destroy bool, config *handover.ConnectionStateStoreConf) (handover.State, error) {
 	//TODO validate supported options
 	if !s.handshakeComplete {
 		panic("illegal handover state: handshake must be completed")
@@ -2641,7 +2641,6 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 	state.Version = s.version
 	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
 	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
-	//state.SetHighest1RTTPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber()) //TODO
 	s.cryptoStreamHandler.StoreHandoverState(&state, s.perspective)
 	state.ALPN = s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol
 
@@ -2677,8 +2676,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 		//state.ServerHighestConnectionIDSequenceNumber = s.connIDGenerator.highestSeq //TODO
 	}
 
-	state.SetHighestSentPacketNumber(s.perspective, s.sentPacketHandler.Highest1RTTPacketNumber())
-	state.SetHighestSentPacketNumber(s.perspective.Opposite(), s.receivedPacketHandler.Highest1RTTPacketNumber()) // this is an estimate
+	ackhandler.StoreAckHandler(state.FromPerspective(s.perspective), config, s.sentPacketHandler, s.receivedPacketHandler)
 
 	if s.tracer != nil {
 		s.tracer.Debug("hquic_handover_state_created", "")
@@ -2686,11 +2684,7 @@ func (s *connection) handover(destroy bool, config *ConnectionStateStoreConf) (h
 
 	s.streamsMap.StoreState(&state, config)
 
-	s.connFlowController.StoreState(&state, s.perspective)
-
-	if config.IncludeCongestionState {
-		s.sentPacketHandler.StoreState(&state)
-	}
+	s.connFlowController.StoreState(state.FromPerspective(s.perspective))
 
 	if s.logger.Debug() {
 		b, err := state.Serialize()
@@ -2790,16 +2784,6 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 
 	tracingID := nextConnTracingID()
 
-	var tracers []*logging.ConnectionTracer
-
-	if conf.QuicConf.Tracer != nil {
-		tracers = append(tracers, conf.QuicConf.Tracer(
-			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
-			perspective,
-			oDCID,
-		))
-	}
-
 	var tokenGenerator *handshake.TokenGenerator
 	if perspective == protocol.PerspectiveServer {
 		var err error
@@ -2816,12 +2800,20 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		perspective:       perspective,
 		logID:             oDCID.String(),
 		logger:            logger,
-		tracer:            logging.NewMultiplexedConnectionTracer(tracers...),
 		versionNegotiated: false,
 		version:           state.Version,
 		runner:            packetHandlerManager,
 		tokenGenerator:    tokenGenerator,
 		cloned:            true,
+		sentFirstPacket:   true,
+	}
+
+	if conf.QuicConf.Tracer != nil {
+		s.tracer = conf.QuicConf.Tracer(
+			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
+			perspective,
+			oDCID,
+		)
 	}
 
 	s.connIDManager = newConnIDManager(
@@ -2917,7 +2909,9 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 
 	for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
 		s.runner.Add(protocol.ParseConnectionID(activeConnID.ConnectionID), s)
-		//TODO restore stateless reset tokens
+		if activeConnID.StatelessResetToken != nil {
+			s.runner.AddResetToken(protocol.StatelessResetToken(activeConnID.StatelessResetToken), s)
+		}
 	}
 
 	if s.tracer != nil && s.tracer.RestoredTransportParameters != nil {
@@ -2962,6 +2956,10 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		close(s.earlyConnReadyChan)
 	}
 
+	if s.tracer != nil && s.tracer.ChoseALPN != nil {
+		s.tracer.ChoseALPN(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
+	}
+
 	s.receivedFirstPacket = true
 
 	restoredStreams, err := s.streamsMap.Restore(&state)
@@ -2969,9 +2967,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		return nil, nil, err
 	}
 
-	s.connFlowController.RestoreState(&state, perspective)
-
-	s.sentPacketHandler.RestoreState(&state)
+	s.connFlowController.RestoreState(sfp)
 
 	//TODO send PATH_CHALLENGE instead of PING
 	err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
@@ -3008,7 +3004,7 @@ func (s *connection) AddProxy(config *ProxyConfig) ProxySetupResponse {
 	s.handoverStateRequests <- HandoverStateRequest{
 		Destroy: false,
 		Return:  responseChan,
-		Config: &ConnectionStateStoreConf{
+		Config: &handover.ConnectionStateStoreConf{
 			IgnoreCurrentPath:            true,
 			IncludePendingOutgoingFrames: false,
 			IncludePendingIncomingFrames: false,

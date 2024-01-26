@@ -356,14 +356,14 @@ func (m *streamsMap) RestoreReceiveStream(streamID StreamID, state *handover.Uni
 	return RestoreIncomingUniStream(m.incomingUniStreams, streamID.StreamNum(), state, m.perspective)
 }
 
-func streamIToBidiStreamState(s streamI, perspective logging.Perspective, config *ConnectionStateStoreConf) handover.BidiStreamState {
+func streamIToBidiStreamState(s streamI, perspective logging.Perspective, config *handover.ConnectionStateStoreConf) handover.BidiStreamState {
 	ss := handover.BidiStreamState{}
 	s.storeReceiveState(ss.FromPerspective(perspective), config)
 	s.storeSendState(&ss, perspective, config)
 	return ss
 }
 
-func (m *streamsMap) BidiStreamStates(config *ConnectionStateStoreConf) map[StreamID]*handover.BidiStreamState {
+func (m *streamsMap) BidiStreamStates(config *handover.ConnectionStateStoreConf) map[StreamID]*handover.BidiStreamState {
 	states := make(map[protocol.StreamID]*handover.BidiStreamState)
 	for _, stream := range m.outgoingBidiStreams.streams {
 		state := streamIToBidiStreamState(stream, m.perspective, config)
@@ -385,7 +385,7 @@ func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
 	}
 }
 
-func (m *streamsMap) UniStreamStates(config *ConnectionStateStoreConf) map[protocol.StreamID]*handover.UniStreamState {
+func (m *streamsMap) UniStreamStates(config *handover.ConnectionStateStoreConf) map[protocol.StreamID]*handover.UniStreamState {
 	ss := make(map[protocol.StreamID]*handover.UniStreamState)
 	for _, stream := range m.outgoingUniStreams.streams {
 		s := &handover.UniStreamState{}
@@ -401,7 +401,7 @@ func (m *streamsMap) UniStreamStates(config *ConnectionStateStoreConf) map[proto
 	return ss
 }
 
-func (m *streamsMap) StoreState(state *handover.State, config *ConnectionStateStoreConf) {
+func (m *streamsMap) StoreState(state *handover.State, config *handover.ConnectionStateStoreConf) {
 	state.UniStreams = m.UniStreamStates(config)
 	state.BidiStreams = m.BidiStreamStates(config)
 	sfp := state.FromPerspective(m.perspective)

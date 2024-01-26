@@ -23,7 +23,7 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf)
+	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf)
 	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 }
 
@@ -359,7 +359,7 @@ func (s *receiveStream) pendingReceivedFrames() map[protocol.ByteCount][]byte {
 	return data
 }
 
-func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf) {
+func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf) {
 	state.SetIncomingOffset(s.readOffset())
 	state.SetIncomingAcknowledgedOffset(s.readOffset())
 	state.SetIncomingFinOffset(s.finalOffset)

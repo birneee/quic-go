@@ -39,12 +39,8 @@ type SentPacketHandler interface {
 	OnLossDetectionTimeout() error
 
 	Highest1RTTPacketNumber() protocol.PacketNumber
-	// SetHighest1RTTPacketNumber is used for connection handover.
-	// Also validates peer address
-	SetHighest1RTTPacketNumber(pn protocol.PacketNumber)
 	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
-	StoreState(h *handover.State)
-	RestoreState(h *handover.State)
+	StoreState(h *handover.StateFromPerspective)
 	SetMaxBandwidth(bandwidth congestion.Bandwidth)
 	SetInitialCongestionWindow(window uint32)
 }

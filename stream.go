@@ -60,14 +60,14 @@ type streamI interface {
 	handleStreamFrame(*wire.StreamFrame) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *ConnectionStateStoreConf)
+	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf)
 	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
 	// for sending
 	hasData() bool
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount, v protocol.VersionNumber) (ackhandler.StreamFrame, bool, bool)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *ConnectionStateStoreConf)
+	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf)
 	restoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
 }
 

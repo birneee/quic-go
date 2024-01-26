@@ -293,66 +293,10 @@ func (s *State) SrcConnectionIDLength(perspective protocol.Perspective) int {
 	panic("no connection ids")
 }
 
-func (s *State) HighestSentPacketNumber(perspective protocol.Perspective) protocol.PacketNumber {
-	if perspective == protocol.PerspectiveClient {
-		return s.ServerHighestSentPacketNumber
-	} else {
-		return s.ClientHighestSentPacketNumber
-	}
-}
-
-func (s *State) SetHighestSentPacketNumber(perspective protocol.Perspective, pn protocol.PacketNumber) {
-	if perspective == protocol.PerspectiveClient {
-		s.ServerHighestSentPacketNumber = pn
-	} else {
-		s.ClientHighestSentPacketNumber = pn
-	}
-}
-
-func (s *State) IncomingMaxData(perspective protocol.Perspective) protocol.ByteCount {
-	if perspective == protocol.PerspectiveClient {
-		return s.ClientDirectionMaxData
-	} else {
-		return s.ServerDirectionMaxData
-	}
-}
-
-func (s *State) OutgoingMaxData(perspective protocol.Perspective) protocol.ByteCount {
-	return s.IncomingMaxData(perspective.Opposite())
-}
-
-func (s *State) SetIncomingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
-	if perspective == protocol.PerspectiveClient {
-		s.ClientDirectionMaxData = maxData
-	} else {
-		s.ServerDirectionMaxData = maxData
-	}
-}
-
-func (s *State) SetOutgoingMaxData(perspective protocol.Perspective, maxData protocol.ByteCount) {
-	s.SetIncomingMaxData(perspective.Opposite(), maxData)
-}
-
 // Clone
 // TODO deep copy
 func (s *State) Clone() *State {
 	return &*s
-}
-
-func (s *State) BytesSent(perspective protocol.Perspective) protocol.ByteCount {
-	if perspective == protocol.PerspectiveClient {
-		return s.ServerDirectionBytes
-	} else {
-		return s.ClientDirectionBytes
-	}
-}
-
-func (s *State) SetBytesSent(perspective protocol.Perspective, sent protocol.ByteCount) {
-	if perspective == protocol.PerspectiveClient {
-		s.ServerDirectionBytes = sent
-	} else {
-		s.ClientDirectionBytes = sent
-	}
 }
 
 func (s *State) Serialize() ([]byte, error) {

@@ -112,19 +112,17 @@ func (c *connectionFlowController) Reset() error {
 	return nil
 }
 
-func (c *connectionFlowController) StoreState(state *handover.State, perspective protocol.Perspective) {
-	state.SetIncomingMaxData(perspective, c.receiveWindow)
-	state.SetOutgoingMaxData(perspective, c.sendWindow)
-	//TODO store bytes received
-	state.SetBytesSent(perspective, c.bytesSent)
+func (c *connectionFlowController) StoreState(state *handover.StateFromPerspective) {
+	state.SetIncomingMaxData(c.receiveWindow)
+	state.SetOutgoingMaxData(c.sendWindow)
+	state.SetBytesRead(c.bytesRead)
+	state.SetBytesSent(c.bytesSent)
 }
 
-// TODO restore bytesRead and bytesSent
-func (c *connectionFlowController) RestoreState(state *handover.State, perspective protocol.Perspective) {
-	c.receiveWindow = state.IncomingMaxData(perspective)
-	c.bytesRead = c.receiveWindow
-	c.sendWindow = state.OutgoingMaxData(perspective)
-	//TODO restore bytes received
-	c.bytesSent = state.BytesSent(perspective)
+func (c *connectionFlowController) RestoreState(state *handover.StateFromPerspective) {
+	c.receiveWindow = state.IncomingMaxData()
+	c.bytesRead = state.BytesRead()
+	c.sendWindow = state.OutgoingMaxData()
+	c.bytesSent = state.BytesSent()
 	c.queueWindowUpdate()
 }

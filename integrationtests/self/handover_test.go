@@ -1,4 +1,4 @@
-package quic
+package self
 
 import (
 	"context"
@@ -8,10 +8,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/testdata"
+	"github.com/quic-go/quic-go/internal/testutils"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/qlog"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net"
@@ -46,20 +49,20 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	message2 := "hquic"
 
 	go func() { // server 1
-		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+		server, err := quic.ListenAddr("127.0.0.1:0", serverTlsConf, &quic.Config{MaxIdleTimeout: MaxIdleTimeout})
 		require.NoError(t, err)
 		defer server.Close()
 		server1AddrChan <- server.Addr()
 		conn, err := server.Accept(context.Background())
 		require.NoError(t, err)
-		defer conn.(*connection).destroyImpl(nil)
+		defer conn.Destroy()
 		// transfer data
 		err = acceptAndReceive(conn, message1, false)
 		require.NoError(t, err)
 		err = openAndSend(conn, message1, false)
 		require.NoError(t, err)
 		// state handover
-		res := conn.Handover(true, &ConnectionStateStoreConf{
+		res := conn.Handover(true, &handover.ConnectionStateStoreConf{
 			IncludePendingOutgoingFrames: true,
 			IncludePendingIncomingFrames: true,
 		})
@@ -73,9 +76,9 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	go func() { // server 2
 		defer GinkgoRecover()
 		serverState := <-serverStateChan
-		conn, restoredStreams, err := Restore(nil, serverState, &ConnectionRestoreConfig{
+		conn, restoredStreams, err := quic.Restore(nil, serverState, &quic.ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveServer,
-			QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
+			QuicConf:    &quic.Config{MaxIdleTimeout: MaxIdleTimeout},
 		})
 		bidiStreams := restoredStreams.BidiStreams
 		sendStreams := restoredStreams.SendStreams
@@ -84,7 +87,7 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 		require.Equal(t, 2, len(bidiStreams))
 		require.Empty(t, sendStreams)
 		require.Empty(t, receiveStreams)
-		defer conn.(*connection).destroyImpl(nil)
+		defer conn.Destroy()
 		server2AddrChan <- conn.LocalAddr()
 		// transfer
 		err = receiveMessage(bidiStreams[0], message2, true)
@@ -96,7 +99,7 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	}()
 
 	originalServerAddr := <-server1AddrChan
-	clientConn, err := DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+	clientConn, err := quic.DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &quic.Config{MaxIdleTimeout: MaxIdleTimeout})
 	require.NoError(t, err)
 	// transfer
 	err = openAndSend(clientConn, message1+message2, true)
@@ -115,7 +118,7 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 		return true
 	}, time.Second, 100*time.Millisecond)
 	// destroy sessions
-	clientConn.(*connection).destroyImpl(nil)
+	clientConn.Destroy()
 }
 
 var _ = Describe("Handover", func() {
@@ -142,8 +145,8 @@ var _ = Describe("Handover", func() {
 	})
 
 	AfterEach(func() {
-		Eventually(areConnsRunning).Should(BeFalse())
-		Eventually(areServersRunning).Should(BeFalse())
+		Eventually(testutils.AreConnsRunning).Should(BeFalse())
+		Eventually(testutils.AreServersRunning).Should(BeFalse())
 	})
 
 	It("server to server handover", func() {
@@ -151,17 +154,21 @@ var _ = Describe("Handover", func() {
 		server1AddrChan := make(chan net.Addr, 1)
 		server2AddrChan := make(chan net.Addr, 1)
 		serverStateChan := make(chan handover.State, 1)
+		server2DoneChan := make(chan struct{})
 
 		go func() { // server 1
 			defer GinkgoRecover()
-			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+			server, err := quic.ListenAddr("127.0.0.1:0", serverTlsConf, &quic.Config{
+				MaxIdleTimeout: MaxIdleTimeout,
+				Tracer:         qlog.DefaultTracerWithLabel("server"),
+			})
 			Expect(err).ToNot(HaveOccurred())
 			defer server.Close()
 			server1AddrChan <- server.Addr()
 			conn, err := server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			defer conn.(*connection).destroyImpl(nil)
-			res := conn.Handover(true, &ConnectionStateStoreConf{})
+			defer conn.Destroy()
+			res := conn.Handover(true, &handover.ConnectionStateStoreConf{})
 			serverState := res.State
 			err = res.Error
 			Expect(err).ToNot(HaveOccurred())
@@ -171,23 +178,29 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
-			conn, _, err := Restore(nil, serverState, &ConnectionRestoreConfig{
+			conn, _, err := quic.Restore(nil, serverState, &quic.ConnectionRestoreConfig{
 				Perspective: logging.PerspectiveServer,
-				QuicConf:    &Config{MaxIdleTimeout: MaxIdleTimeout},
+				QuicConf: &quic.Config{
+					MaxIdleTimeout: MaxIdleTimeout,
+					Tracer:         qlog.DefaultTracerWithLabel("restored_server"),
+				},
 			})
 			Expect(err).ToNot(HaveOccurred())
-			defer conn.(*connection).destroyImpl(nil)
+			defer conn.Destroy()
 			server2AddrChan <- conn.LocalAddr()
 			// transfer
 			err = openAndSend(conn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
 			err = acceptAndReceive(conn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
-			<-conn.Context().Done()
+			close(server2DoneChan)
 		}()
 
 		originalServerAddr := <-server1AddrChan
-		clientConn, err := DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: MaxIdleTimeout})
+		clientConn, err := quic.DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &quic.Config{
+			MaxIdleTimeout: MaxIdleTimeout,
+			Tracer:         qlog.DefaultTracerWithLabel("client"),
+		})
 		Expect(err).ToNot(HaveOccurred())
 		// transfer
 		err = acceptAndReceive(clientConn, message1, true)
@@ -196,15 +209,13 @@ var _ = Describe("Handover", func() {
 		Expect(err).ToNot(HaveOccurred())
 		migratedServerAddr := clientConn.RemoteAddr()
 		Expect(originalServerAddr.String()).ToNot(Equal(migratedServerAddr.String())) // check if migrated
-		<-clientConn.Context().Done()
-
-		// destroy sessions
-		clientConn.(*connection).destroyImpl(nil)
+		<-server2DoneChan
+		clientConn.CloseWithError(0, "")
 	})
 
 	It("client to client handover", func() {
-		server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: 100 * time.Millisecond})
-		var serverSession Connection
+		server, err := quic.ListenAddr("127.0.0.1:0", serverTlsConf, &quic.Config{MaxIdleTimeout: 100 * time.Millisecond})
+		var serverSession quic.Connection
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			defer GinkgoRecover()
@@ -222,17 +233,17 @@ var _ = Describe("Handover", func() {
 			migratedClientAddr := serverSession.RemoteAddr()
 			Expect(originalClientAddr.(*net.UDPAddr).Port).ToNot(Equal(migratedClientAddr.(*net.UDPAddr).Port)) // check if migrated
 		}()
-		clientSession, err := DialAddr(context.Background(), server.Addr().String(), clientTlsConf, &Config{MaxIdleTimeout: 100 * time.Millisecond})
+		clientSession, err := quic.DialAddr(context.Background(), server.Addr().String(), clientTlsConf, &quic.Config{MaxIdleTimeout: 100 * time.Millisecond})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientSession.Handover(true, &ConnectionStateStoreConf{
+		res := clientSession.Handover(true, &handover.ConnectionStateStoreConf{
 			IncludePendingOutgoingFrames: false,
 		})
 		handoverState := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		migratedClientSession, _, err := Restore(nil, handoverState, &ConnectionRestoreConfig{
+		migratedClientSession, _, err := quic.Restore(nil, handoverState, &quic.ConnectionRestoreConfig{
 			Perspective: protocol.PerspectiveClient,
-			QuicConf:    &Config{},
+			QuicConf:    &quic.Config{},
 		})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -243,9 +254,9 @@ var _ = Describe("Handover", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// destroy sessions
-		clientSession.(*connection).destroyImpl(nil)
-		migratedClientSession.(*connection).destroyImpl(nil)
-		serverSession.(*connection).destroyImpl(nil)
+		clientSession.Destroy()
+		migratedClientSession.Destroy()
+		serverSession.Destroy()
 		Expect(server.Close()).ToNot(HaveOccurred())
 	})
 
@@ -253,7 +264,7 @@ var _ = Describe("Handover", func() {
 		originalServerAddrChan := make(chan net.Addr, 1)
 		go func() {
 			defer GinkgoRecover()
-			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: idleTimeout})
+			server, err := quic.ListenAddr("127.0.0.1:0", serverTlsConf, &quic.Config{MaxIdleTimeout: idleTimeout})
 			Expect(err).ToNot(HaveOccurred())
 			defer server.Close()
 			originalServerAddrChan <- server.Addr()
@@ -263,9 +274,9 @@ var _ = Describe("Handover", func() {
 		}()
 
 		originalServerAddr := <-originalServerAddrChan
-		clientConn, err := DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: idleTimeout})
+		clientConn, err := quic.DialAddr(context.Background(), originalServerAddr.String(), clientTlsConf, &quic.Config{MaxIdleTimeout: idleTimeout})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientConn.Handover(false, &ConnectionStateStoreConf{
+		res := clientConn.Handover(false, &handover.ConnectionStateStoreConf{
 			IgnoreCurrentPath: true,
 		})
 		handoverState := res.State
@@ -275,9 +286,9 @@ var _ = Describe("Handover", func() {
 		restoredServerAddrChan := make(chan net.Addr, 1)
 		go func() {
 			defer GinkgoRecover()
-			restoredServerConn, _, err := Restore(nil, handoverState, &ConnectionRestoreConfig{
+			restoredServerConn, _, err := quic.Restore(nil, handoverState, &quic.ConnectionRestoreConfig{
 				Perspective: logging.PerspectiveServer,
-				QuicConf:    &Config{MaxIdleTimeout: idleTimeout},
+				QuicConf:    &quic.Config{MaxIdleTimeout: idleTimeout},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			restoredServerAddrChan <- restoredServerConn.LocalAddr()
@@ -299,7 +310,7 @@ var _ = Describe("Handover", func() {
 		Expect(clientConn.RemoteAddr().(*net.UDPAddr).Port).To(Equal(restoredServerAddr.(*net.UDPAddr).Port))
 
 		// destroy sessions
-		clientConn.(*connection).destroyImpl(nil)
+		clientConn.Destroy()
 	})
 
 	It("client handover twice", func() {
@@ -311,13 +322,13 @@ var _ = Describe("Handover", func() {
 		go func() {
 			defer GinkgoRecover()
 			defer wg.Done()
-			server, err := ListenAddr("127.0.0.1:0", serverTlsConf, &Config{MaxIdleTimeout: 100 * time.Millisecond})
+			server, err := quic.ListenAddr("127.0.0.1:0", serverTlsConf, &quic.Config{MaxIdleTimeout: 100 * time.Millisecond})
 			Expect(err).ToNot(HaveOccurred())
 			defer server.Close()
 			serverAddrChan <- server.Addr()
 			serverConn, err := server.Accept(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			defer serverConn.(*connection).destroy(nil)
+			defer serverConn.Destroy()
 			// transfer
 			err = acceptAndReceive(serverConn, message1, true)
 			Expect(err).ToNot(HaveOccurred())
@@ -327,27 +338,27 @@ var _ = Describe("Handover", func() {
 			<-serverConn.Context().Done()
 		}()
 		serverAddr := <-serverAddrChan
-		clientConn1, err := DialAddr(context.Background(), serverAddr.String(), clientTlsConf, &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout})
+		clientConn1, err := quic.DialAddr(context.Background(), serverAddr.String(), clientTlsConf, &quic.Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, Tracer: qlog.DefaultTracerWithLabel("client")})
 		Expect(err).ToNot(HaveOccurred())
-		res := clientConn1.Handover(true, &ConnectionStateStoreConf{})
+		res := clientConn1.Handover(true, &handover.ConnectionStateStoreConf{})
 		clientState1 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn2, _, err := Restore(nil, clientState1, &ConnectionRestoreConfig{
+		clientConn2, _, err := quic.Restore(nil, clientState1, &quic.ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveClient,
-			QuicConf:    &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout},
+			QuicConf:    &quic.Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, Tracer: qlog.DefaultTracerWithLabel("restored_client")},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		res = clientConn2.Handover(true, &ConnectionStateStoreConf{})
+		res = clientConn2.Handover(true, &handover.ConnectionStateStoreConf{})
 		clientState2 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		clientConn3, _, err := Restore(nil, clientState2, &ConnectionRestoreConfig{
+		clientConn3, _, err := quic.Restore(nil, clientState2, &quic.ConnectionRestoreConfig{
 			Perspective: logging.PerspectiveClient,
-			QuicConf:    &Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout},
+			QuicConf:    &quic.Config{MaxIdleTimeout: protocol.MinRemoteIdleTimeout, Tracer: qlog.DefaultTracerWithLabel("restored_client_2")},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		defer clientConn3.(*connection).destroy(nil)
+		defer clientConn3.Destroy()
 		// compare handover states
 		clientState1.ClientAddress = ""                               // ignore changed client address
 		clientState2.ClientAddress = ""                               // ignore changed client address
@@ -373,7 +384,7 @@ var _ = Describe("Handover", func() {
 	})
 })
 
-func receiveMessage(stream Stream, msg string, checkEOF bool) error {
+func receiveMessage(stream quic.Stream, msg string, checkEOF bool) error {
 	buf := make([]byte, len(msg))
 	n, err := io.ReadAtLeast(stream, buf, len(msg))
 	if err != nil && err != io.EOF {
@@ -391,7 +402,7 @@ func receiveMessage(stream Stream, msg string, checkEOF bool) error {
 	return nil
 }
 
-func checkStreamEOF(stream ReceiveStream) error {
+func checkStreamEOF(stream quic.ReceiveStream) error {
 	buf := make([]byte, 1)
 	n, err := stream.Read(buf)
 	if err != io.EOF || n != 0 {
@@ -400,7 +411,7 @@ func checkStreamEOF(stream ReceiveStream) error {
 	return nil
 }
 
-func sendMessage(stream Stream, msg string, closeStreamAfterWrite bool) error {
+func sendMessage(stream quic.Stream, msg string, closeStreamAfterWrite bool) error {
 	buf := []byte(msg)
 	n, err := stream.Write(buf)
 	if err != nil {
@@ -418,7 +429,7 @@ func sendMessage(stream Stream, msg string, closeStreamAfterWrite bool) error {
 	return nil
 }
 
-func openAndSend(conn Connection, msg string, closeStreamAfterWrite bool) error {
+func openAndSend(conn quic.Connection, msg string, closeStreamAfterWrite bool) error {
 	stream, err := conn.OpenStream()
 	if err != nil {
 		return err
@@ -430,7 +441,7 @@ func openAndSend(conn Connection, msg string, closeStreamAfterWrite bool) error 
 	return nil
 }
 
-func acceptAndReceive(conn Connection, msg string, checkEOF bool) error {
+func acceptAndReceive(conn quic.Connection, msg string, checkEOF bool) error {
 	stream, err := conn.AcceptStream(context.Background())
 	if err != nil {
 		return err
