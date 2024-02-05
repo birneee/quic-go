@@ -42,7 +42,7 @@ type quicConn interface {
 	EarlyConnection
 	earlyConnReady() <-chan struct{}
 	handlePacket(receivedPacket)
-	GetVersion() protocol.VersionNumber
+	GetVersion() protocol.Version
 	getPerspective() protocol.Perspective
 	run() error
 	destroy(error)
@@ -99,7 +99,7 @@ type baseServer struct {
 		*logging.ConnectionTracer,
 		uint64,
 		utils.Logger,
-		protocol.VersionNumber,
+		protocol.Version,
 	) quicConn
 
 	closeOnce sync.Once
@@ -737,10 +737,6 @@ func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error
 			conn.closeWithTransportError(ConnectionRefused)
 		}
 	}()
-	if conn == nil {
-		p.buffer.Release()
-		return nil
-	}
 	return nil
 }
 

@@ -54,7 +54,8 @@ type Transport struct {
 	Conn net.PacketConn
 
 	// The length of the connection ID in bytes.
-	// It can be 0, or any value between 4 and 18.
+	// It can be any value between 1 and 20.
+	// Due to the increased risk of collisions, it is not recommended to use connection IDs shorter than 4 bytes.
 	// If unset, a 4 byte connection ID will be used.
 	ConnectionIDLength int
 
@@ -110,6 +111,7 @@ type Transport struct {
 	MaxHandshakes int
 
 	// A Tracer traces events that don't belong to a single QUIC connection.
+	// Tracer.Close is called when the transport is closed.
 	Tracer *logging.Tracer
 
 	handlerMap packetHandlerManager
@@ -382,6 +384,9 @@ func (t *Transport) close(e error) {
 	}
 	if t.server != nil {
 		t.server.close(e, false)
+	}
+	if t.Tracer != nil && t.Tracer.Close != nil {
+		t.Tracer.Close()
 	}
 	t.closed = true
 }

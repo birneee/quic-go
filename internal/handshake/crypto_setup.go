@@ -33,7 +33,7 @@ type cryptoSetup struct {
 
 	events []Event
 
-	version protocol.VersionNumber
+	version protocol.Version
 
 	ourParams  *wire.TransportParameters
 	peerParams *wire.TransportParameters
@@ -77,7 +77,7 @@ func NewCryptoSetupClient(
 	rttStats *utils.RTTStats,
 	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
-	version protocol.VersionNumber,
+	version protocol.Version,
 ) CryptoSetup {
 	cs := newCryptoSetup(
 		connID,
@@ -112,7 +112,7 @@ func NewCryptoSetupServer(
 	rttStats *utils.RTTStats,
 	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
-	version protocol.VersionNumber,
+	version protocol.Version,
 ) CryptoSetup {
 	cs := newCryptoSetup(
 		connID,
@@ -170,7 +170,7 @@ func newCryptoSetup(
 	tracer *logging.ConnectionTracer,
 	logger utils.Logger,
 	perspective protocol.Perspective,
-	version protocol.VersionNumber,
+	version protocol.Version,
 ) *cryptoSetup {
 	initialSealer, initialOpener := NewInitialAEAD(connID, perspective, version)
 	if tracer != nil && tracer.UpdatedKeyFromTLS != nil {

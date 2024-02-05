@@ -69,7 +69,7 @@ var _ = Describe("Config", func() {
 				"HandleUnknownConnectionPacket", "CustomSend", "HandleNonQUICPacket":
 				// Can't compare functions.
 			case "Versions":
-				f.Set(reflect.ValueOf([]VersionNumber{1, 2, 3}))
+				f.Set(reflect.ValueOf([]Version{1, 2, 3}))
 			case "ConnectionIDLength":
 				f.Set(reflect.ValueOf(8))
 			case "ConnectionIDGenerator":

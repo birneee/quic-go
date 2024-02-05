@@ -125,8 +125,8 @@ var _ = Describe("Server", func() {
 	})
 
 	It("errors when the Config contains an invalid version", func() {
-		version := protocol.VersionNumber(0x1234)
-		_, err := Listen(nil, tlsConf, &Config{Versions: []protocol.VersionNumber{version}})
+		version := protocol.Version(0x1234)
+		_, err := Listen(nil, tlsConf, &Config{Versions: []protocol.Version{version}})
 		Expect(err).To(MatchError("invalid QUIC version: 0x1234"))
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("Server", func() {
 	})
 
 	It("setups with the right values", func() {
-		supportedVersions := []protocol.VersionNumber{protocol.Version1}
+		supportedVersions := []protocol.Version{protocol.Version1}
 		config := Config{
 			Versions:             supportedVersions,
 			HandshakeIdleTimeout: 1337 * time.Hour,
@@ -203,6 +203,7 @@ var _ = Describe("Server", func() {
 		})
 
 		AfterEach(func() {
+			tracer.EXPECT().Close()
 			tr.Close()
 		})
 
@@ -310,7 +311,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					Expect(origDestConnID).To(Equal(protocol.ParseConnectionID([]byte{0xde, 0xad, 0xc0, 0xde})))
 					Expect(*retrySrcConnID).To(Equal(protocol.ParseConnectionID([]byte{0xde, 0xca, 0xfb, 0xad})))
@@ -355,7 +356,7 @@ var _ = Describe("Server", func() {
 				}, make([]byte, protocol.MinUnknownVersionPacketSize))
 				raddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1337}
 				packet.remoteAddr = raddr
-				tracer.EXPECT().SentVersionNegotiationPacket(packet.remoteAddr, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ net.Addr, src, dest protocol.ArbitraryLenConnectionID, _ []protocol.VersionNumber) {
+				tracer.EXPECT().SentVersionNegotiationPacket(packet.remoteAddr, gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ net.Addr, src, dest protocol.ArbitraryLenConnectionID, _ []protocol.Version) {
 					Expect(src).To(Equal(protocol.ArbitraryLenConnectionID(destConnID.Bytes())))
 					Expect(dest).To(Equal(protocol.ArbitraryLenConnectionID(srcConnID.Bytes())))
 				})
@@ -367,7 +368,7 @@ var _ = Describe("Server", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dest).To(Equal(protocol.ArbitraryLenConnectionID(srcConnID.Bytes())))
 					Expect(src).To(Equal(protocol.ArbitraryLenConnectionID(destConnID.Bytes())))
-					Expect(versions).ToNot(ContainElement(protocol.VersionNumber(0x42)))
+					Expect(versions).ToNot(ContainElement(protocol.Version(0x42)))
 					return len(b), nil
 				})
 				serv.handlePacket(packet)
@@ -395,7 +396,7 @@ var _ = Describe("Server", func() {
 				data := wire.ComposeVersionNegotiation(
 					protocol.ArbitraryLenConnectionID{1, 2, 3, 4},
 					protocol.ArbitraryLenConnectionID{4, 3, 2, 1},
-					[]protocol.VersionNumber{1, 2, 3},
+					[]protocol.Version{1, 2, 3},
 				)
 				raddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1337}
 				done := make(chan struct{})
@@ -513,7 +514,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					Expect(origDestConnID).To(Equal(hdr.DestConnectionID))
 					Expect(retrySrcConnID).To(BeNil())
@@ -577,7 +578,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					<-acceptConn
 					counter.Add(1)
@@ -632,7 +633,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					createdConn = true
 					return NewMockQUICConn(mockCtrl)
@@ -664,6 +665,8 @@ var _ = Describe("Server", func() {
 
 				handshakeChan := make(chan struct{})
 				connChan := make(chan *MockQUICConn, 1)
+				var wg sync.WaitGroup
+				wg.Add(2 * limit)
 				serv.newConn = func(
 					_ sendConn,
 					runner connRunner,
@@ -681,13 +684,13 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					conn := <-connChan
 					conn.EXPECT().handlePacket(gomock.Any())
 					conn.EXPECT().run()
 					conn.EXPECT().Context().Return(context.Background())
-					conn.EXPECT().HandshakeComplete().Return(handshakeChan)
+					conn.EXPECT().HandshakeComplete().Return(handshakeChan).Do(func() <-chan struct{} { wg.Done(); return nil })
 					return conn
 				}
 
@@ -727,6 +730,7 @@ var _ = Describe("Server", func() {
 					connChan <- conn
 					serv.handlePacket(getInitialWithRandomDestConnID())
 				}
+				wg.Wait()
 			})
 
 			It("limits the number of total handshakes", func() {
@@ -760,7 +764,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					conn := <-connChan
 					conn.EXPECT().handlePacket(gomock.Any())
@@ -807,11 +811,16 @@ var _ = Describe("Server", func() {
 					_, err := serv.Accept(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 				}
+				// make sure we can enqueue and accept more connections after that
 				for i := 0; i < limit; i++ {
 					conn := NewMockQUICConn(mockCtrl)
 					conn.EXPECT().closeWithTransportError(gomock.Any()).MaxTimes(1) // called when the server is closed
 					connChan <- conn
 					serv.handlePacket(getInitialWithRandomDestConnID())
+				}
+				for i := 0; i < limit; i++ {
+					_, err := serv.Accept(context.Background())
+					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 		})
@@ -1039,7 +1048,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					conn := NewMockQUICConn(mockCtrl)
 					conn.EXPECT().handlePacket(gomock.Any())
@@ -1109,7 +1118,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					Expect(conf.MaxIncomingStreams).To(BeEquivalentTo(1234))
 					conn.EXPECT().handlePacket(gomock.Any())
@@ -1186,7 +1195,7 @@ var _ = Describe("Server", func() {
 					_ *logging.ConnectionTracer,
 					_ uint64,
 					_ utils.Logger,
-					_ protocol.VersionNumber,
+					_ protocol.Version,
 				) quicConn {
 					conn.EXPECT().handlePacket(gomock.Any())
 					conn.EXPECT().HandshakeComplete().Return(handshakeChan)
@@ -1259,7 +1268,7 @@ var _ = Describe("Server", func() {
 				_ *logging.ConnectionTracer,
 				_ uint64,
 				_ utils.Logger,
-				_ protocol.VersionNumber,
+				_ protocol.Version,
 			) quicConn {
 				conn.EXPECT().handlePacket(gomock.Any())
 				conn.EXPECT().run()
@@ -1284,6 +1293,8 @@ var _ = Describe("Server", func() {
 
 		It("rejects new connection attempts if the accept queue is full", func() {
 			connChan := make(chan *MockQUICConn, 1)
+			var wg sync.WaitGroup // to make sure the test fully completes
+			wg.Add(protocol.MaxAcceptQueueSize + 1)
 			serv.baseServer.newConn = func(
 				_ sendConn,
 				runner connRunner,
@@ -1301,8 +1312,9 @@ var _ = Describe("Server", func() {
 				_ *logging.ConnectionTracer,
 				_ uint64,
 				_ utils.Logger,
-				_ protocol.VersionNumber,
+				_ protocol.Version,
 			) quicConn {
+				defer wg.Done()
 				ready := make(chan struct{})
 				close(ready)
 				conn := <-connChan
@@ -1336,6 +1348,7 @@ var _ = Describe("Server", func() {
 			conn.EXPECT().closeWithTransportError(ConnectionRefused)
 			connChan <- conn
 			serv.baseServer.handlePacket(getInitialWithRandomDestConnID())
+			wg.Wait()
 		})
 
 		It("doesn't accept new connections if they were closed in the mean time", func() {
@@ -1360,7 +1373,7 @@ var _ = Describe("Server", func() {
 				_ *logging.ConnectionTracer,
 				_ uint64,
 				_ utils.Logger,
-				_ protocol.VersionNumber,
+				_ protocol.Version,
 			) quicConn {
 				conn.EXPECT().handlePacket(p)
 				conn.EXPECT().run()
@@ -1417,7 +1430,10 @@ var _ = Describe("Server", func() {
 			serv.connHandler = phm
 		})
 
-		AfterEach(func() { tr.Close() })
+		AfterEach(func() {
+			tracer.EXPECT().Close()
+			tr.Close()
+		})
 
 		It("passes packets to existing connections", func() {
 			connID := protocol.ParseConnectionID([]byte{1, 2, 3, 4, 5, 6, 7, 8})
@@ -1483,7 +1499,7 @@ var _ = Describe("Server", func() {
 				_ *logging.ConnectionTracer,
 				_ uint64,
 				_ utils.Logger,
-				_ protocol.VersionNumber,
+				_ protocol.Version,
 			) quicConn {
 				conn := NewMockQUICConn(mockCtrl)
 				var calls []any

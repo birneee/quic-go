@@ -1,3 +1,6 @@
+// Package testutils contains utilities for simulating packet injection and man-in-the-middle (MITM) attacker tests.
+// It is not supposed to be used for non-testing purposes.
+// The API is not guaranteed to be stable.
 package testutils
 
 import (
@@ -11,9 +14,6 @@ import (
 	"github.com/quic-go/quic-go/internal/wire"
 )
 
-// Utilities for simulating packet injection and man-in-the-middle (MITM) attacker tests.
-// Do not use for non-testing purposes.
-
 // writePacket returns a new raw packet with the specified header and payload
 func writePacket(hdr *wire.ExtendedHeader, data []byte) []byte {
 	b, err := hdr.Append(nil, hdr.Version)
@@ -24,7 +24,7 @@ func writePacket(hdr *wire.ExtendedHeader, data []byte) []byte {
 }
 
 // packRawPayload returns a new raw payload containing given frames
-func packRawPayload(version protocol.VersionNumber, frames []wire.Frame) []byte {
+func packRawPayload(version protocol.Version, frames []wire.Frame) []byte {
 	var b []byte
 	for _, cf := range frames {
 		var err error
@@ -36,10 +36,15 @@ func packRawPayload(version protocol.VersionNumber, frames []wire.Frame) []byte 
 	return b
 }
 
-// ComposeInitialPacket returns an Initial packet encrypted under key
-// (the original destination connection ID) containing specified frames
-func ComposeInitialPacket(srcConnID protocol.ConnectionID, destConnID protocol.ConnectionID, version protocol.VersionNumber, key protocol.ConnectionID, frames []wire.Frame) []byte {
-	sealer, _ := handshake.NewInitialAEAD(key, protocol.PerspectiveServer, version)
+// ComposeInitialPacket returns an Initial packet encrypted under key (the original destination connection ID)
+// containing specified frames.
+func ComposeInitialPacket(
+	srcConnID, destConnID, key protocol.ConnectionID,
+	frames []wire.Frame,
+	sentBy protocol.Perspective,
+	version protocol.Version,
+) []byte {
+	sealer, _ := handshake.NewInitialAEAD(key, sentBy, version)
 
 	// compose payload
 	var payload []byte
@@ -51,7 +56,7 @@ func ComposeInitialPacket(srcConnID protocol.ConnectionID, destConnID protocol.C
 
 	// compose Initial header
 	payloadSize := len(payload)
-	pnLength := protocol.PacketNumberLen4
+	const pnLength = protocol.PacketNumberLen4
 	length := payloadSize + int(pnLength) + sealer.Overhead()
 	hdr := &wire.ExtendedHeader{
 		Header: wire.Header{
@@ -88,7 +93,7 @@ func ComposeRetryPacket(
 	destConnID protocol.ConnectionID,
 	origDestConnID protocol.ConnectionID,
 	token []byte,
-	version protocol.VersionNumber,
+	version protocol.Version,
 ) []byte {
 	hdr := &wire.ExtendedHeader{
 		Header: wire.Header{

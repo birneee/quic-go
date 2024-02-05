@@ -21,7 +21,7 @@ func NewAckHandler(
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
 	sph := newSentPacketHandler(initialPacketNumber, initialMaxDatagramSize, rttStats, clientAddressValidated, enableECN, pers, tracer, logger)
-	return sph, newReceivedPacketHandler(sph, rttStats, logger)
+	return sph, newReceivedPacketHandler(sph, logger)
 }
 
 func StoreAckHandler(state handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
