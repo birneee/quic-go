@@ -112,14 +112,14 @@ func (c *connectionFlowController) Reset() error {
 	return nil
 }
 
-func (c *connectionFlowController) StoreState(state *handover.StateFromPerspective) {
+func (c *connectionFlowController) StoreState(state handover.StateFromPerspective) {
 	state.SetIncomingMaxData(c.receiveWindow)
 	state.SetOutgoingMaxData(c.sendWindow)
 	state.SetBytesRead(c.bytesRead)
 	state.SetBytesSent(c.bytesSent)
 }
 
-func (c *connectionFlowController) RestoreState(state *handover.StateFromPerspective) {
+func (c *connectionFlowController) RestoreState(state handover.StateFromPerspective) {
 	c.receiveWindow = state.IncomingMaxData()
 	c.bytesRead = state.BytesRead()
 	c.sendWindow = state.OutgoingMaxData()

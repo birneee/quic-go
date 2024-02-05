@@ -9,7 +9,7 @@ type StateFromPerspective struct {
 	perspective protocol.Perspective
 }
 
-func (s *StateFromPerspective) NextIncomingBidiStream() protocol.StreamID {
+func (s StateFromPerspective) NextIncomingBidiStream() protocol.StreamID {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ServerNextBidiStream
 	} else {
@@ -17,7 +17,7 @@ func (s *StateFromPerspective) NextIncomingBidiStream() protocol.StreamID {
 	}
 }
 
-func (s *StateFromPerspective) NextOutgoingBidiStream() protocol.StreamID {
+func (s StateFromPerspective) NextOutgoingBidiStream() protocol.StreamID {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientNextBidiStream
 	} else {
@@ -25,7 +25,7 @@ func (s *StateFromPerspective) NextOutgoingBidiStream() protocol.StreamID {
 	}
 }
 
-func (s *StateFromPerspective) NextIncomingUniStream() protocol.StreamID {
+func (s StateFromPerspective) NextIncomingUniStream() protocol.StreamID {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ServerNextUniStream
 	} else {
@@ -33,7 +33,7 @@ func (s *StateFromPerspective) NextIncomingUniStream() protocol.StreamID {
 	}
 }
 
-func (s *StateFromPerspective) NextOutgoingUniStream() protocol.StreamID {
+func (s StateFromPerspective) NextOutgoingUniStream() protocol.StreamID {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientNextUniStream
 	} else {
@@ -41,7 +41,7 @@ func (s *StateFromPerspective) NextOutgoingUniStream() protocol.StreamID {
 	}
 }
 
-func (s *StateFromPerspective) SetNextIncomingBidiStream(value protocol.StreamID) {
+func (s StateFromPerspective) SetNextIncomingBidiStream(value protocol.StreamID) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ServerNextBidiStream = value
 	} else {
@@ -49,7 +49,7 @@ func (s *StateFromPerspective) SetNextIncomingBidiStream(value protocol.StreamID
 	}
 }
 
-func (s *StateFromPerspective) SetNextOutgoingBidiStream(value protocol.StreamID) {
+func (s StateFromPerspective) SetNextOutgoingBidiStream(value protocol.StreamID) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientNextBidiStream = value
 	} else {
@@ -57,7 +57,7 @@ func (s *StateFromPerspective) SetNextOutgoingBidiStream(value protocol.StreamID
 	}
 }
 
-func (s *StateFromPerspective) SetNextIncomingUniStream(value protocol.StreamID) {
+func (s StateFromPerspective) SetNextIncomingUniStream(value protocol.StreamID) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ServerNextUniStream = value
 	} else {
@@ -65,7 +65,7 @@ func (s *StateFromPerspective) SetNextIncomingUniStream(value protocol.StreamID)
 	}
 }
 
-func (s *StateFromPerspective) SetNextOutgoingUniStream(value protocol.StreamID) {
+func (s StateFromPerspective) SetNextOutgoingUniStream(value protocol.StreamID) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientNextUniStream = value
 	} else {
@@ -73,7 +73,7 @@ func (s *StateFromPerspective) SetNextOutgoingUniStream(value protocol.StreamID)
 	}
 }
 
-func (s *StateFromPerspective) PutBack(streamID protocol.StreamID, offset protocol.ByteCount, data []byte) {
+func (s StateFromPerspective) PutBack(streamID protocol.StreamID, offset protocol.ByteCount, data []byte) {
 	if streamID.Type() == protocol.StreamTypeBidi {
 		stream := s.state.BidiStreams[streamID].FromPerspective(s.perspective)
 		stream.PutBack(offset, data)
@@ -82,19 +82,19 @@ func (s *StateFromPerspective) PutBack(streamID protocol.StreamID, offset protoc
 	}
 }
 
-func (s *StateFromPerspective) Version() protocol.VersionNumber {
+func (s StateFromPerspective) Version() protocol.VersionNumber {
 	return s.state.Version
 }
 
-func (s *StateFromPerspective) SetVersion(version protocol.VersionNumber) {
+func (s StateFromPerspective) SetVersion(version protocol.VersionNumber) {
 	s.state.Version = version
 }
 
-func (s *StateFromPerspective) Perspective() protocol.Perspective {
+func (s StateFromPerspective) Perspective() protocol.Perspective {
 	return s.perspective
 }
 
-func (s *StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
+func (s StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientHighestSentPacketNumber
 	} else {
@@ -102,14 +102,14 @@ func (s *StateFromPerspective) HighestSentPacketNumber() protocol.PacketNumber {
 	}
 }
 
-func (s *StateFromPerspective) Opposite() *StateFromPerspective {
-	return &StateFromPerspective{
+func (s StateFromPerspective) Opposite() StateFromPerspective {
+	return StateFromPerspective{
 		state:       s.state,
 		perspective: s.perspective.Opposite(),
 	}
 }
 
-func (s *StateFromPerspective) OwnTransportParameters() *TransportParameters {
+func (s StateFromPerspective) OwnTransportParameters() *TransportParameters {
 	if s.perspective == protocol.PerspectiveClient {
 		return &s.state.ClientTransportParameters
 	} else {
@@ -117,11 +117,11 @@ func (s *StateFromPerspective) OwnTransportParameters() *TransportParameters {
 	}
 }
 
-func (s *StateFromPerspective) PeerTransportParameters() *TransportParameters {
+func (s StateFromPerspective) PeerTransportParameters() *TransportParameters {
 	return s.Opposite().OwnTransportParameters()
 }
 
-func (s *StateFromPerspective) SetOwnTransportParameters(params TransportParameters) {
+func (s StateFromPerspective) SetOwnTransportParameters(params TransportParameters) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientTransportParameters = params
 	} else {
@@ -129,11 +129,11 @@ func (s *StateFromPerspective) SetOwnTransportParameters(params TransportParamet
 	}
 }
 
-func (s *StateFromPerspective) SetPeerTransportParameters(params TransportParameters) {
+func (s StateFromPerspective) SetPeerTransportParameters(params TransportParameters) {
 	s.Opposite().SetOwnTransportParameters(params)
 }
 
-func (s *StateFromPerspective) MaxOutgoingUniStream() int64 {
+func (s StateFromPerspective) MaxOutgoingUniStream() int64 {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.MaxClientUniStream
 	} else {
@@ -141,7 +141,7 @@ func (s *StateFromPerspective) MaxOutgoingUniStream() int64 {
 	}
 }
 
-func (s *StateFromPerspective) MaxOutgoingBidiStream() int64 {
+func (s StateFromPerspective) MaxOutgoingBidiStream() int64 {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.MaxClientBidiStream
 	} else {
@@ -149,15 +149,15 @@ func (s *StateFromPerspective) MaxOutgoingBidiStream() int64 {
 	}
 }
 
-func (s *StateFromPerspective) MaxIncomingUniStream() int64 {
+func (s StateFromPerspective) MaxIncomingUniStream() int64 {
 	return s.Opposite().MaxOutgoingUniStream()
 }
 
-func (s *StateFromPerspective) MaxIncomingBidiStream() int64 {
+func (s StateFromPerspective) MaxIncomingBidiStream() int64 {
 	return s.Opposite().MaxOutgoingBidiStream()
 }
 
-func (s *StateFromPerspective) SetMaxOutgoingUniStream(i int64) {
+func (s StateFromPerspective) SetMaxOutgoingUniStream(i int64) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.MaxClientUniStream = i
 	} else {
@@ -165,7 +165,7 @@ func (s *StateFromPerspective) SetMaxOutgoingUniStream(i int64) {
 	}
 }
 
-func (s *StateFromPerspective) SetMaxOutgoingBidiStream(i int64) {
+func (s StateFromPerspective) SetMaxOutgoingBidiStream(i int64) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.MaxClientBidiStream = i
 	} else {
@@ -173,19 +173,19 @@ func (s *StateFromPerspective) SetMaxOutgoingBidiStream(i int64) {
 	}
 }
 
-func (s *StateFromPerspective) SetMaxIncomingUniStream(i int64) {
+func (s StateFromPerspective) SetMaxIncomingUniStream(i int64) {
 	s.Opposite().SetMaxOutgoingUniStream(i)
 }
 
-func (s *StateFromPerspective) SetMaxIncomingBidiStream(i int64) {
+func (s StateFromPerspective) SetMaxIncomingBidiStream(i int64) {
 	s.Opposite().SetMaxOutgoingBidiStream(i)
 }
 
-func (s *StateFromPerspective) SetRTT(rtt *int64) {
+func (s StateFromPerspective) SetRTT(rtt *int64) {
 	s.state.RTT = rtt
 }
 
-func (s *StateFromPerspective) SetCongestionWindow(cw *int64) {
+func (s StateFromPerspective) SetCongestionWindow(cw *int64) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientCongestionWindow = cw
 	} else {
@@ -193,11 +193,11 @@ func (s *StateFromPerspective) SetCongestionWindow(cw *int64) {
 	}
 }
 
-func (s *StateFromPerspective) RTT() *int64 {
+func (s StateFromPerspective) RTT() *int64 {
 	return s.state.RTT
 }
 
-func (s *StateFromPerspective) CongestionWindow() *int64 {
+func (s StateFromPerspective) CongestionWindow() *int64 {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientCongestionWindow
 	} else {
@@ -205,7 +205,7 @@ func (s *StateFromPerspective) CongestionWindow() *int64 {
 	}
 }
 
-func (s *StateFromPerspective) IncomingMaxData() protocol.ByteCount {
+func (s StateFromPerspective) IncomingMaxData() protocol.ByteCount {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientDirectionMaxData
 	} else {
@@ -213,7 +213,7 @@ func (s *StateFromPerspective) IncomingMaxData() protocol.ByteCount {
 	}
 }
 
-func (s *StateFromPerspective) SetIncomingMaxData(maxData protocol.ByteCount) {
+func (s StateFromPerspective) SetIncomingMaxData(maxData protocol.ByteCount) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientDirectionMaxData = maxData
 	} else {
@@ -221,7 +221,7 @@ func (s *StateFromPerspective) SetIncomingMaxData(maxData protocol.ByteCount) {
 	}
 }
 
-func (s *StateFromPerspective) OutgoingMaxData() protocol.ByteCount {
+func (s StateFromPerspective) OutgoingMaxData() protocol.ByteCount {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ServerDirectionMaxData
 	} else {
@@ -229,7 +229,7 @@ func (s *StateFromPerspective) OutgoingMaxData() protocol.ByteCount {
 	}
 }
 
-func (s *StateFromPerspective) SetOutgoingMaxData(maxData protocol.ByteCount) {
+func (s StateFromPerspective) SetOutgoingMaxData(maxData protocol.ByteCount) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ServerDirectionMaxData = maxData
 	} else {
@@ -237,7 +237,7 @@ func (s *StateFromPerspective) SetOutgoingMaxData(maxData protocol.ByteCount) {
 	}
 }
 
-func (s *StateFromPerspective) BytesRead() protocol.ByteCount {
+func (s StateFromPerspective) BytesRead() protocol.ByteCount {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ClientDirectionBytes
 	} else {
@@ -245,7 +245,7 @@ func (s *StateFromPerspective) BytesRead() protocol.ByteCount {
 	}
 }
 
-func (s *StateFromPerspective) SetBytesRead(read protocol.ByteCount) {
+func (s StateFromPerspective) SetBytesRead(read protocol.ByteCount) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientDirectionBytes = read
 	} else {
@@ -253,7 +253,7 @@ func (s *StateFromPerspective) SetBytesRead(read protocol.ByteCount) {
 	}
 }
 
-func (s *StateFromPerspective) BytesSent() protocol.ByteCount {
+func (s StateFromPerspective) BytesSent() protocol.ByteCount {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ServerDirectionBytes
 	} else {
@@ -261,7 +261,7 @@ func (s *StateFromPerspective) BytesSent() protocol.ByteCount {
 	}
 }
 
-func (s *StateFromPerspective) SetBytesSent(sent protocol.ByteCount) {
+func (s StateFromPerspective) SetBytesSent(sent protocol.ByteCount) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ServerDirectionBytes = sent
 	} else {
@@ -269,7 +269,7 @@ func (s *StateFromPerspective) SetBytesSent(sent protocol.ByteCount) {
 	}
 }
 
-func (s *StateFromPerspective) SetHighestSentPacketNumber(pn protocol.PacketNumber) {
+func (s StateFromPerspective) SetHighestSentPacketNumber(pn protocol.PacketNumber) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ClientHighestSentPacketNumber = pn
 	} else {
@@ -277,7 +277,7 @@ func (s *StateFromPerspective) SetHighestSentPacketNumber(pn protocol.PacketNumb
 	}
 }
 
-func (s *StateFromPerspective) HighestReceivedPacketNumber() protocol.PacketNumber {
+func (s StateFromPerspective) HighestReceivedPacketNumber() protocol.PacketNumber {
 	if s.perspective == protocol.PerspectiveClient {
 		return s.state.ServerHighestSentPacketNumber
 	} else {
@@ -285,10 +285,19 @@ func (s *StateFromPerspective) HighestReceivedPacketNumber() protocol.PacketNumb
 	}
 }
 
-func (s *StateFromPerspective) SetHighestReceivedPacketNumber(pn protocol.PacketNumber) {
+func (s StateFromPerspective) SetHighestReceivedPacketNumber(pn protocol.PacketNumber) {
 	if s.perspective == protocol.PerspectiveClient {
 		s.state.ServerHighestSentPacketNumber = pn
 	} else {
 		s.state.ClientHighestSentPacketNumber = pn
 	}
+}
+
+func (s StateFromPerspective) SetReceivedRanges(ackSkipList [][2]int64) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientReceivedRanges = ackSkipList
+	} else {
+		s.state.ServerReceivedRanges = ackSkipList
+	}
+
 }

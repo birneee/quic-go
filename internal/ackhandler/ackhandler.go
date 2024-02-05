@@ -24,16 +24,17 @@ func NewAckHandler(
 	return sph, newReceivedPacketHandler(sph, rttStats, logger)
 }
 
-func StoreAckHandler(state *handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
+func StoreAckHandler(state handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
 	state.SetHighestSentPacketNumber(sph.Highest1RTTPacketNumber())
 	state.SetHighestReceivedPacketNumber(rph.Highest1RTTPacketNumber()) // higher packet numbers might be in flight
 	if config.IncludeCongestionState {
 		sph.StoreState(state)
 	}
+	rph.Store(state)
 }
 
 func RestoreAckHandler(
-	state *handover.StateFromPerspective,
+	state handover.StateFromPerspective,
 	initialMaxDatagramSize protocol.ByteCount,
 	rttStats *utils.RTTStats,
 	enableECN bool,

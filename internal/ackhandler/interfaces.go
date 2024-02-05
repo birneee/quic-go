@@ -40,7 +40,7 @@ type SentPacketHandler interface {
 
 	Highest1RTTPacketNumber() protocol.PacketNumber
 	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
-	StoreState(h *handover.StateFromPerspective)
+	StoreState(h handover.StateFromPerspective)
 	SetMaxBandwidth(bandwidth congestion.Bandwidth)
 	SetInitialCongestionWindow(window uint32)
 }
@@ -59,4 +59,5 @@ type ReceivedPacketHandler interface {
 	GetAlarmTimeout() time.Time
 	GetAckFrame(encLevel protocol.EncryptionLevel, onlyIfQueued bool) *wire.AckFrame
 	Highest1RTTPacketNumber() protocol.PacketNumber
+	Store(state handover.StateFromPerspective)
 }

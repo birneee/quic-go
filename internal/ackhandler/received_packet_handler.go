@@ -2,6 +2,7 @@ package ackhandler
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/handover"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -146,4 +147,9 @@ func (h *receivedPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber 
 		return protocol.InvalidPacketNumber
 	}
 	return h.appDataPackets.largestObserved
+}
+
+func (h *receivedPacketHandler) Store(s handover.StateFromPerspective) {
+	ranges := h.appDataPackets.packetHistory.AppendAckRanges(nil)
+	s.SetReceivedRanges(wire.AckRangesTo2DList(ranges))
 }

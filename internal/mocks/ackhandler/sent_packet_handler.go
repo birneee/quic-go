@@ -678,7 +678,7 @@ func (c *SentPacketHandlerSetMaxDatagramSizeCall) DoAndReturn(f func(protocol.By
 }
 
 // StoreState mocks base method.
-func (m *MockSentPacketHandler) StoreState(arg0 *handover.StateFromPerspective) {
+func (m *MockSentPacketHandler) StoreState(arg0 handover.StateFromPerspective) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StoreState", arg0)
 }
@@ -702,13 +702,13 @@ func (c *SentPacketHandlerStoreStateCall) Return() *SentPacketHandlerStoreStateC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStoreStateCall) Do(f func(*handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) Do(f func(handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(*handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -12,6 +12,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	handover "github.com/quic-go/quic-go/handover"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
 	gomock "go.uber.org/mock/gomock"
@@ -262,6 +263,42 @@ func (c *ReceivedPacketHandlerReceivedPacketCall) Do(f func(protocol.PacketNumbe
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *ReceivedPacketHandlerReceivedPacketCall) DoAndReturn(f func(protocol.PacketNumber, protocol.ECN, protocol.EncryptionLevel, time.Time, bool) error) *ReceivedPacketHandlerReceivedPacketCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Store mocks base method.
+func (m *MockReceivedPacketHandler) Store(arg0 handover.StateFromPerspective) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Store", arg0)
+}
+
+// Store indicates an expected call of Store.
+func (mr *MockReceivedPacketHandlerMockRecorder) Store(arg0 any) *ReceivedPacketHandlerStoreCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockReceivedPacketHandler)(nil).Store), arg0)
+	return &ReceivedPacketHandlerStoreCall{Call: call}
+}
+
+// ReceivedPacketHandlerStoreCall wrap *gomock.Call
+type ReceivedPacketHandlerStoreCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *ReceivedPacketHandlerStoreCall) Return() *ReceivedPacketHandlerStoreCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *ReceivedPacketHandlerStoreCall) Do(f func(handover.StateFromPerspective)) *ReceivedPacketHandlerStoreCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *ReceivedPacketHandlerStoreCall) DoAndReturn(f func(handover.StateFromPerspective)) *ReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

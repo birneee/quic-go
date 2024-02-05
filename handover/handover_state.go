@@ -91,8 +91,10 @@ type State struct {
 	// max stream id
 	MaxClientBidiStream int64
 	// max stream id
-	MaxServerBidiStream int64
-	ALPN                string
+	MaxServerBidiStream  int64
+	ALPN                 string
+	ClientReceivedRanges [][2]int64
+	ServerReceivedRanges [][2]int64
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {
@@ -367,8 +369,8 @@ func (s *State) ConnIDLen(p protocol.Perspective) int {
 	panic("unexpected empty set")
 }
 
-func (s *State) FromPerspective(perspective protocol.Perspective) *StateFromPerspective {
-	return &StateFromPerspective{
+func (s *State) FromPerspective(perspective protocol.Perspective) StateFromPerspective {
+	return StateFromPerspective{
 		state:       s,
 		perspective: perspective,
 	}
