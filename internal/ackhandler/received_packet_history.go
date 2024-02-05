@@ -149,3 +149,13 @@ func (h *receivedPacketHistory) IsPotentiallyDuplicate(p protocol.PacketNumber) 
 	}
 	return false
 }
+
+func (h *receivedPacketHistory) SetRanges(ranges [][2]int64) {
+	h.ranges = list.NewWithPool[interval](&intervalElementPool)
+	for _, v := range ranges {
+		h.ranges.PushBack(interval{
+			Start: protocol.PacketNumber(v[0]),
+			End:   protocol.PacketNumber(v[1]),
+		})
+	}
+}

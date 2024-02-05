@@ -110,9 +110,7 @@ func NewConnectionTracer(w io.WriteCloser, p logging.Perspective, odcid protocol
 			t.recordEvent(time.Now(), eventALPNInformation{chosenALPN: protocol})
 		},
 		StreamDataMoved: func(id logging.StreamID, offset uint64, n int, from string, to string) {
-			t.mutex.Lock()
 			t.recordEvent(time.Now(), eventStreamDataMoved{streamID: id, offset: offset, length: uint64(n), from: from, to: to})
-			t.mutex.Unlock()
 		},
 		Debug: func(name, msg string) {
 			t.Debug(name, msg)

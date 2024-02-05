@@ -92,7 +92,7 @@ func (o *longHeaderOpener) DecryptHeader(sample []byte, firstByte *byte, pnBytes
 	o.headerProtector.DecryptHeader(sample, firstByte, pnBytes)
 }
 
-func createAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, v protocol.VersionNumber, key []byte, iv []byte, tmp []byte) cipher.AEAD {
+func createAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, v protocol.Version, key []byte, iv []byte, tmp []byte) cipher.AEAD {
 	keyLabel := hkdfLabelKeyV1
 	ivLabel := hkdfLabelIVV1
 	if v == protocol.Version2 {

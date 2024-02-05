@@ -45,7 +45,7 @@ type State struct {
 	ClientConnectionIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken
 	// active server connection IDs
 	ServerConnectionIDs map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken
-	Version             protocol.VersionNumber
+	Version             protocol.Version
 	KeyPhase            protocol.KeyPhase
 	// id of the used TLS 1.3 cipher suites.
 	// see RFC 8446 Appendix B.4. Cipher Suites.

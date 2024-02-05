@@ -7,7 +7,7 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
-func (z *VersionNumber) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *Version) DecodeMsg(dc *msgp.Reader) (err error) {
 	{
 		var zb0001 uint32
 		zb0001, err = dc.ReadUint32()
@@ -15,13 +15,13 @@ func (z *VersionNumber) DecodeMsg(dc *msgp.Reader) (err error) {
 			err = msgp.WrapError(err)
 			return
 		}
-		(*z) = VersionNumber(zb0001)
+		(*z) = Version(zb0001)
 	}
 	return
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z VersionNumber) EncodeMsg(en *msgp.Writer) (err error) {
+func (z Version) EncodeMsg(en *msgp.Writer) (err error) {
 	err = en.WriteUint32(uint32(z))
 	if err != nil {
 		err = msgp.WrapError(err)
@@ -31,14 +31,14 @@ func (z VersionNumber) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z VersionNumber) MarshalMsg(b []byte) (o []byte, err error) {
+func (z Version) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	o = msgp.AppendUint32(o, uint32(z))
 	return
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *VersionNumber) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *Version) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	{
 		var zb0001 uint32
 		zb0001, bts, err = msgp.ReadUint32Bytes(bts)
@@ -46,14 +46,14 @@ func (z *VersionNumber) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			err = msgp.WrapError(err)
 			return
 		}
-		(*z) = VersionNumber(zb0001)
+		(*z) = Version(zb0001)
 	}
 	o = bts
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z VersionNumber) Msgsize() (s int) {
+func (z Version) Msgsize() (s int) {
 	s = msgp.Uint32Size
 	return
 }

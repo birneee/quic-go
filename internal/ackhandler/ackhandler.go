@@ -42,7 +42,7 @@ func RestoreAckHandler(
 	logger utils.Logger,
 ) (SentPacketHandler, ReceivedPacketHandler) {
 	sph := restoreSendPacketHandler(state, initialMaxDatagramSize, rttStats, enableECN, tracer, logger)
-	rph := newReceivedPacketHandler(sph, rttStats, logger)
+	rph := restoreReceivedPacketHandler(state, sph, logger)
 
 	return sph, rph
 }

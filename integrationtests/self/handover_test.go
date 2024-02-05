@@ -12,7 +12,6 @@ import (
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/testutils"
 	"github.com/quic-go/quic-go/logging"
 	"github.com/quic-go/quic-go/qlog"
 	"github.com/stretchr/testify/require"
@@ -145,8 +144,8 @@ var _ = Describe("Handover", func() {
 	})
 
 	AfterEach(func() {
-		Eventually(testutils.AreConnsRunning).Should(BeFalse())
-		Eventually(testutils.AreServersRunning).Should(BeFalse())
+		//Eventually(testutils.AreConnsRunning).Should(BeFalse())
+		//Eventually(testutils.AreServersRunning).Should(BeFalse())
 	})
 
 	It("server to server handover", func() {

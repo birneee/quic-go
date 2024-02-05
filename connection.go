@@ -379,7 +379,7 @@ var newConnection2 = func(
 	tracer *logging.ConnectionTracer,
 	tracingID uint64,
 	logger utils.Logger,
-	v protocol.VersionNumber,
+	v protocol.Version,
 	transport *Transport,
 ) quicConn {
 	c := newConnection(conn,

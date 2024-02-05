@@ -9,19 +9,19 @@ type RecreatableAEAD interface {
 	cipher.AEAD
 	Suite() *cipherSuite
 	TrafficSecret() []byte
-	Version() protocol.VersionNumber
+	Version() protocol.Version
 }
 
 type recreatableAEAD struct {
 	inner         cipher.AEAD
 	suite         *cipherSuite
 	trafficSecret []byte
-	version       protocol.VersionNumber
+	version       protocol.Version
 }
 
 var _ RecreatableAEAD = &recreatableAEAD{}
 
-func NewRecreatableAEAD(suite *cipherSuite, trafficSecret []byte, version protocol.VersionNumber) RecreatableAEAD {
+func NewRecreatableAEAD(suite *cipherSuite, trafficSecret []byte, version protocol.Version) RecreatableAEAD {
 	return &recreatableAEAD{
 		inner:         createAEAD(suite, trafficSecret, version),
 		suite:         suite,
@@ -30,7 +30,7 @@ func NewRecreatableAEAD(suite *cipherSuite, trafficSecret []byte, version protoc
 	}
 }
 
-func NewRecreatableAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, version protocol.VersionNumber, key []byte, iv []byte, tmp []byte) RecreatableAEAD {
+func NewRecreatableAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, version protocol.Version, key []byte, iv []byte, tmp []byte) RecreatableAEAD {
 	return &recreatableAEAD{
 		inner:         createAEADNoAlloc(suite, trafficSecret, version, key, iv, tmp),
 		suite:         suite,
@@ -63,6 +63,6 @@ func (r *recreatableAEAD) TrafficSecret() []byte {
 	return r.trafficSecret
 }
 
-func (r *recreatableAEAD) Version() protocol.VersionNumber {
+func (r *recreatableAEAD) Version() protocol.Version {
 	return r.version
 }

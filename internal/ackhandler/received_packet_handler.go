@@ -136,3 +136,9 @@ func (h *receivedPacketHandler) Store(s handover.StateFromPerspective) {
 	ranges := h.appDataPackets.packetHistory.AppendAckRanges(nil)
 	s.SetReceivedRanges(wire.AckRangesTo2DList(ranges))
 }
+
+func restoreReceivedPacketHandler(s handover.StateFromPerspective, spt sentPacketTracker, logger utils.Logger) ReceivedPacketHandler {
+	rph := newReceivedPacketHandler(spt, logger).(*receivedPacketHandler)
+	rph.appDataPackets.packetHistory.SetRanges(s.ReceivedRanges())
+	return rph
+}

@@ -16,7 +16,7 @@ func (r AckRange) Len() protocol.PacketNumber {
 }
 
 func AckRangesTo2DList(ackRanges []AckRange) [][2]int64 {
-	list := make([][2]int64, len(ackRanges)*2)
+	list := make([][2]int64, len(ackRanges))
 	for i, v := range ackRanges {
 		list[i][0] = int64(v.Smallest)
 		list[i][1] = int64(v.Largest)

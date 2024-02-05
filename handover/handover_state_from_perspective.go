@@ -82,11 +82,11 @@ func (s StateFromPerspective) PutBack(streamID protocol.StreamID, offset protoco
 	}
 }
 
-func (s StateFromPerspective) Version() protocol.VersionNumber {
+func (s StateFromPerspective) Version() protocol.Version {
 	return s.state.Version
 }
 
-func (s StateFromPerspective) SetVersion(version protocol.VersionNumber) {
+func (s StateFromPerspective) SetVersion(version protocol.Version) {
 	s.state.Version = version
 }
 
@@ -300,4 +300,12 @@ func (s StateFromPerspective) SetReceivedRanges(ackSkipList [][2]int64) {
 		s.state.ServerReceivedRanges = ackSkipList
 	}
 
+}
+
+func (s StateFromPerspective) ReceivedRanges() [][2]int64 {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ClientReceivedRanges
+	} else {
+		return s.state.ServerReceivedRanges
+	}
 }
