@@ -722,6 +722,7 @@ var _ = Describe("Send Stream", func() {
 		It("doesn't say it has data for sending if the MAX_STREAM_DATA frame was reordered", func() {
 			mockFC.EXPECT().UpdateSendWindow(gomock.Any()).Return(false) // reordered frame
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()

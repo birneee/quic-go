@@ -385,44 +385,6 @@ func (c *QUICConnExtensionValuesCall) DoAndReturn(f func() *sync.Map[string, int
 	return c
 }
 
-// GetVersion mocks base method.
-func (m *MockQUICConn) GetVersion() protocol.Version {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVersion")
-	ret0, _ := ret[0].(protocol.Version)
-	return ret0
-}
-
-// GetVersion indicates an expected call of GetVersion.
-func (mr *MockQUICConnMockRecorder) GetVersion() *QUICConnGetVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockQUICConn)(nil).GetVersion))
-	return &QUICConnGetVersionCall{Call: call}
-}
-
-// QUICConnGetVersionCall wrap *gomock.Call
-type QUICConnGetVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *QUICConnGetVersionCall) Return(arg0 protocol.Version) *QUICConnGetVersionCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *QUICConnGetVersionCall) Do(f func() protocol.Version) *QUICConnGetVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnGetVersionCall) DoAndReturn(f func() protocol.Version) *QUICConnGetVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // HandlePacket mocks base method.
 func (m *MockQUICConn) HandlePacket(arg0 ReceivedPacket) {
 	m.ctrl.T.Helper()
@@ -1102,44 +1064,6 @@ func (c *QUICConnearlyConnReadyCall) Do(f func() <-chan struct{}) *QUICConnearly
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *QUICConnearlyConnReadyCall) DoAndReturn(f func() <-chan struct{}) *QUICConnearlyConnReadyCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// getPerspective mocks base method.
-func (m *MockQUICConn) getPerspective() protocol.Perspective {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "getPerspective")
-	ret0, _ := ret[0].(protocol.Perspective)
-	return ret0
-}
-
-// getPerspective indicates an expected call of getPerspective.
-func (mr *MockQUICConnMockRecorder) getPerspective() *QUICConngetPerspectiveCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getPerspective", reflect.TypeOf((*MockQUICConn)(nil).getPerspective))
-	return &QUICConngetPerspectiveCall{Call: call}
-}
-
-// QUICConngetPerspectiveCall wrap *gomock.Call
-type QUICConngetPerspectiveCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *QUICConngetPerspectiveCall) Return(arg0 protocol.Perspective) *QUICConngetPerspectiveCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *QUICConngetPerspectiveCall) Do(f func() protocol.Perspective) *QUICConngetPerspectiveCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConngetPerspectiveCall) DoAndReturn(f func() protocol.Perspective) *QUICConngetPerspectiveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

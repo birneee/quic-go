@@ -243,7 +243,7 @@ var _ = Describe("SentPacketHandler", func() {
 				_, err := handler.ReceivedAck(ack, protocol.Encryption1RTT, time.Now())
 				Expect(err).To(MatchError(&qerr.TransportError{
 					ErrorCode:    qerr.ProtocolViolation,
-					ErrorMessage: "received ACK for an unsent packet",
+					ErrorMessage: "received ACK for an unsent packet: 9999",
 				}))
 				Expect(handler.bytesInFlight).To(Equal(protocol.ByteCount(10)))
 			})
@@ -1218,7 +1218,7 @@ var _ = Describe("SentPacketHandler", func() {
 			_, err := handler.ReceivedAck(ack, protocol.EncryptionHandshake, time.Now())
 			Expect(err).To(MatchError(&qerr.TransportError{
 				ErrorCode:    qerr.ProtocolViolation,
-				ErrorMessage: "received ACK for an unsent packet",
+				ErrorMessage: "received ACK for an unsent packet: 13",
 			}))
 		})
 
