@@ -678,15 +678,15 @@ func (c *SentPacketHandlerSetMaxDatagramSizeCall) DoAndReturn(f func(protocol.By
 }
 
 // StoreState mocks base method.
-func (m *MockSentPacketHandler) StoreState(arg0 handover.StateFromPerspective) {
+func (m *MockSentPacketHandler) StoreState(arg0 handover.StateFromPerspective, arg1 *handover.ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreState", arg0)
+	m.ctrl.Call(m, "StoreState", arg0, arg1)
 }
 
 // StoreState indicates an expected call of StoreState.
-func (mr *MockSentPacketHandlerMockRecorder) StoreState(arg0 any) *SentPacketHandlerStoreStateCall {
+func (mr *MockSentPacketHandlerMockRecorder) StoreState(arg0, arg1 any) *SentPacketHandlerStoreStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).StoreState), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).StoreState), arg0, arg1)
 	return &SentPacketHandlerStoreStateCall{Call: call}
 }
 
@@ -702,13 +702,13 @@ func (c *SentPacketHandlerStoreStateCall) Return() *SentPacketHandlerStoreStateC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStoreStateCall) Do(f func(handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) Do(f func(handover.StateFromPerspective, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(handover.StateFromPerspective)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(handover.StateFromPerspective, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

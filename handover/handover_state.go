@@ -95,6 +95,8 @@ type State struct {
 	ALPN                 string
 	ClientReceivedRanges [][2]int64
 	ServerReceivedRanges [][2]int64
+	ClientAckPending     []PacketState
+	ServerAckPending     []PacketState
 }
 
 func parseAddress(stringAddr string) (*net.UDPAddr, error) {

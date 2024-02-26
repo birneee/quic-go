@@ -27,9 +27,7 @@ func NewAckHandler(
 func StoreAckHandler(state handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
 	state.SetHighestSentPacketNumber(sph.Highest1RTTPacketNumber())
 	state.SetHighestReceivedPacketNumber(rph.Highest1RTTPacketNumber()) // higher packet numbers might be in flight
-	if config.IncludeCongestionState {
-		sph.StoreState(state)
-	}
+	sph.StoreState(state, config)
 	rph.Store(state)
 }
 

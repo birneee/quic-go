@@ -675,8 +675,8 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 		panic("illegal handover state")
 	}
 	sfp := s.FromPerspective(p)
-	sfp.SetOwnTransportParameters(h.ourParams.StoreForHandover())
-	sfp.SetPeerTransportParameters(h.peerParams.StoreForHandover())
+	sfp.SetOwnTransportParameters(handover.ToHandoverTransportParameters(h.ourParams))
+	sfp.SetPeerTransportParameters(handover.ToHandoverTransportParameters(h.peerParams))
 	s.ALPN = connectionState.NegotiatedProtocol
 	h.aead.store(s, p)
 }

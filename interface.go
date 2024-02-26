@@ -9,6 +9,7 @@ import (
 	"github.com/quic-go/quic-go/internal/utils/sync"
 	"io"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/handshake"
@@ -426,6 +427,10 @@ func (p ReceivedPacket) RemoteAddr() net.Addr {
 
 func (p ReceivedPacket) Info() packetInfo {
 	return p.receivedPacket.info
+}
+
+func (p ReceivedPacket) InfoAddr() netip.Addr {
+	return p.receivedPacket.info.addr
 }
 
 func (p ReceivedPacket) SetRemoteAddr(addr net.Addr) {

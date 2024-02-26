@@ -1062,7 +1062,7 @@ func (s *connection) handleShortHeaderPacket(p receivedPacket, destConnID protoc
 	// TODO re-validate ECN capability
 	if err != handshake.ErrDecryptionFailed &&
 		s.handshakeConfirmed &&
-		isAddrMigrated(s.conn.RemoteAddr(), p.remoteAddr) &&
+		path.IsAddrMigrated(s.conn.RemoteAddr(), p.remoteAddr) &&
 		!s.pathManager.IsIgnoreMigrateTo(p.remoteAddr) {
 		s.updatePath(p.remoteAddr)
 	}
@@ -2697,24 +2697,6 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 	return state, nil
 }
 
-func isAddrMigrated(a net.Addr, b net.Addr) bool {
-	aUdp, ok := a.(*net.UDPAddr)
-	if !ok {
-		return false
-	}
-	bUdp, ok := b.(*net.UDPAddr)
-	if !ok {
-		return false
-	}
-	if aUdp.IP == nil {
-		return false
-	}
-	if bUdp.IP == nil {
-		return false
-	}
-	return !aUdp.IP.Equal(bUdp.IP) || aUdp.Port != bUdp.Port
-}
-
 // update path to peer
 // migrate to new remote address
 // TODO check if path is validated
@@ -2747,15 +2729,15 @@ func (s *connection) awaitHandshakeConfirmed() error {
 }
 
 // Restore session from H-QUIC state
-func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
-	conf = conf.Populate(&state)
-	perspective := conf.Perspective
+func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
+	conf, state := restoreConf.GenerateQuicConf(state)
+	perspective := restoreConf.Perspective
 	sfp := state.FromPerspective(perspective)
 
 	logger := utils.DefaultLogger.WithPrefix("clone")
 	remoteAddr := state.RemoteAddress(perspective)
 
-	err := conf.Validate()
+	err := restoreConf.Validate()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2775,7 +2757,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		panic(err)
 	}
 	packetHandlerManager := t.handlerMap
-	sendConn := newSendConn(t.conn, remoteAddr, packetInfo{}, logger)
+	sendConn := newSendConn(t.conn, remoteAddr, packetInfo{addr: restoreConf.LocalAddr}, logger)
 
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
@@ -2795,7 +2777,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 
 	s := &connection{
 		conn:              sendConn,
-		config:            conf.QuicConf,
+		config:            conf,
 		srcConnIDLen:      state.SrcConnectionIDLength(perspective),
 		perspective:       perspective,
 		logID:             oDCID.String(),
@@ -2808,8 +2790,8 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 		sentFirstPacket:   true,
 	}
 
-	if conf.QuicConf.Tracer != nil {
-		s.tracer = conf.QuicConf.Tracer(
+	if conf.Tracer != nil {
+		s.tracer = conf.Tracer(
 			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
 			oDCID,
@@ -2852,7 +2834,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.RestoreAckHandler(
 		state.FromPerspective(perspective),
 		getMaxPacketSize(s.conn.RemoteAddr()),
-		s.rttStats,
+		s.rttStats, // available after preSetup
 		s.conn.capabilities().ECN,
 		s.tracer,
 		s.logger,
@@ -2862,10 +2844,8 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 
-	ownParams := &wire.TransportParameters{}
-	ownParams.RestoreFromHandover(sfp.OwnTransportParameters())
-	s.peerParams = &wire.TransportParameters{}
-	s.peerParams.RestoreFromHandover(sfp.PeerTransportParameters())
+	ownParams := handover.RestoreTransportParameters(sfp.OwnTransportParameters())
+	s.peerParams = handover.RestoreTransportParameters(sfp.PeerTransportParameters())
 
 	if s.config.EnableDatagrams {
 		ownParams.MaxDatagramFrameSize = wire.MaxDatagramSize
@@ -2875,7 +2855,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 	}
 
 	// s.peerParams must be restored
-	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, perspective, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
+	cs, err := handshake.RestoreCryptoSetupFromHandoverState(*state, perspective, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2962,7 +2942,7 @@ func Restore(t *Transport, state handover.State, conf *ConnectionRestoreConfig) 
 
 	s.receivedFirstPacket = true
 
-	restoredStreams, err := s.streamsMap.Restore(&state)
+	restoredStreams, err := s.streamsMap.Restore(state)
 	if err != nil {
 		return nil, nil, err
 	}

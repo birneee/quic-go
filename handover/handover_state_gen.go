@@ -7,8 +7,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-var _ msgp.NonStrMapKey = new(ConnectionIDSequenceNumber)
 var _ msgp.NonStrMapKey = new(protocol.StreamID)
+var _ msgp.NonStrMapKey = new(ConnectionIDSequenceNumber)
 
 // DecodeMsg implements msgp.Decodable
 func (z *ConnectionIDSequenceNumber) DecodeMsg(dc *msgp.Reader) (err error) {
@@ -706,6 +706,44 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 					}
 				}
 			}
+		case "ClientAckPending":
+			var zb0012 uint32
+			zb0012, err = dc.ReadArrayHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "ClientAckPending")
+				return
+			}
+			if cap(z.ClientAckPending) >= int(zb0012) {
+				z.ClientAckPending = (z.ClientAckPending)[:zb0012]
+			} else {
+				z.ClientAckPending = make([]PacketState, zb0012)
+			}
+			for za0013 := range z.ClientAckPending {
+				err = z.ClientAckPending[za0013].DecodeMsg(dc)
+				if err != nil {
+					err = msgp.WrapError(err, "ClientAckPending", za0013)
+					return
+				}
+			}
+		case "ServerAckPending":
+			var zb0013 uint32
+			zb0013, err = dc.ReadArrayHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "ServerAckPending")
+				return
+			}
+			if cap(z.ServerAckPending) >= int(zb0013) {
+				z.ServerAckPending = (z.ServerAckPending)[:zb0013]
+			} else {
+				z.ServerAckPending = make([]PacketState, zb0013)
+			}
+			for za0014 := range z.ServerAckPending {
+				err = z.ServerAckPending[za0014].DecodeMsg(dc)
+				if err != nil {
+					err = msgp.WrapError(err, "ServerAckPending", za0014)
+					return
+				}
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -719,9 +757,9 @@ func (z *State) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 35
+	// map header, size 37
 	// write "ClientConnectionIDs"
-	err = en.Append(0xde, 0x0, 0x23, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	err = en.Append(0xde, 0x0, 0x25, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	if err != nil {
 		return
 	}
@@ -1227,15 +1265,49 @@ func (z *State) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
+	// write "ClientAckPending"
+	err = en.Append(0xb0, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x41, 0x63, 0x6b, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67)
+	if err != nil {
+		return
+	}
+	err = en.WriteArrayHeader(uint32(len(z.ClientAckPending)))
+	if err != nil {
+		err = msgp.WrapError(err, "ClientAckPending")
+		return
+	}
+	for za0013 := range z.ClientAckPending {
+		err = z.ClientAckPending[za0013].EncodeMsg(en)
+		if err != nil {
+			err = msgp.WrapError(err, "ClientAckPending", za0013)
+			return
+		}
+	}
+	// write "ServerAckPending"
+	err = en.Append(0xb0, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x41, 0x63, 0x6b, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67)
+	if err != nil {
+		return
+	}
+	err = en.WriteArrayHeader(uint32(len(z.ServerAckPending)))
+	if err != nil {
+		err = msgp.WrapError(err, "ServerAckPending")
+		return
+	}
+	for za0014 := range z.ServerAckPending {
+		err = z.ServerAckPending[za0014].EncodeMsg(en)
+		if err != nil {
+			err = msgp.WrapError(err, "ServerAckPending", za0014)
+			return
+		}
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
 func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 35
+	// map header, size 37
 	// string "ClientConnectionIDs"
-	o = append(o, 0xde, 0x0, 0x23, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
+	o = append(o, 0xde, 0x0, 0x25, 0xb3, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x73)
 	o = msgp.AppendMapHeader(o, uint32(len(z.ClientConnectionIDs)))
 	for za0001, za0002 := range z.ClientConnectionIDs {
 		o = msgp.AppendString(o, za0001.MsgpStrMapKey())
@@ -1469,6 +1541,26 @@ func (z *State) MarshalMsg(b []byte) (o []byte, err error) {
 		o = msgp.AppendArrayHeader(o, uint32(2))
 		for za0012 := range z.ServerReceivedRanges[za0011] {
 			o = msgp.AppendInt64(o, z.ServerReceivedRanges[za0011][za0012])
+		}
+	}
+	// string "ClientAckPending"
+	o = append(o, 0xb0, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x41, 0x63, 0x6b, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67)
+	o = msgp.AppendArrayHeader(o, uint32(len(z.ClientAckPending)))
+	for za0013 := range z.ClientAckPending {
+		o, err = z.ClientAckPending[za0013].MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "ClientAckPending", za0013)
+			return
+		}
+	}
+	// string "ServerAckPending"
+	o = append(o, 0xb0, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x41, 0x63, 0x6b, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67)
+	o = msgp.AppendArrayHeader(o, uint32(len(z.ServerAckPending)))
+	for za0014 := range z.ServerAckPending {
+		o, err = z.ServerAckPending[za0014].MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "ServerAckPending", za0014)
+			return
 		}
 	}
 	return
@@ -1983,6 +2075,44 @@ func (z *State) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					}
 				}
 			}
+		case "ClientAckPending":
+			var zb0012 uint32
+			zb0012, bts, err = msgp.ReadArrayHeaderBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "ClientAckPending")
+				return
+			}
+			if cap(z.ClientAckPending) >= int(zb0012) {
+				z.ClientAckPending = (z.ClientAckPending)[:zb0012]
+			} else {
+				z.ClientAckPending = make([]PacketState, zb0012)
+			}
+			for za0013 := range z.ClientAckPending {
+				bts, err = z.ClientAckPending[za0013].UnmarshalMsg(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "ClientAckPending", za0013)
+					return
+				}
+			}
+		case "ServerAckPending":
+			var zb0013 uint32
+			zb0013, bts, err = msgp.ReadArrayHeaderBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "ServerAckPending")
+				return
+			}
+			if cap(z.ServerAckPending) >= int(zb0013) {
+				z.ServerAckPending = (z.ServerAckPending)[:zb0013]
+			} else {
+				z.ServerAckPending = make([]PacketState, zb0013)
+			}
+			for za0014 := range z.ServerAckPending {
+				bts, err = z.ServerAckPending[za0014].UnmarshalMsg(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "ServerAckPending", za0014)
+					return
+				}
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -2063,6 +2193,13 @@ func (z *State) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 19 + msgp.Int64Size + 19 + msgp.Int64Size + 20 + msgp.Int64Size + 20 + msgp.Int64Size + 5 + msgp.StringPrefixSize + len(z.ALPN) + 21 + msgp.ArrayHeaderSize + (len(z.ClientReceivedRanges) * (2 * (msgp.Int64Size))) + 21 + msgp.ArrayHeaderSize + (len(z.ServerReceivedRanges) * (2 * (msgp.Int64Size)))
+	s += 19 + msgp.Int64Size + 19 + msgp.Int64Size + 20 + msgp.Int64Size + 20 + msgp.Int64Size + 5 + msgp.StringPrefixSize + len(z.ALPN) + 21 + msgp.ArrayHeaderSize + (len(z.ClientReceivedRanges) * (2 * (msgp.Int64Size))) + 21 + msgp.ArrayHeaderSize + (len(z.ServerReceivedRanges) * (2 * (msgp.Int64Size))) + 17 + msgp.ArrayHeaderSize
+	for za0013 := range z.ClientAckPending {
+		s += z.ClientAckPending[za0013].Msgsize()
+	}
+	s += 17 + msgp.ArrayHeaderSize
+	for za0014 := range z.ServerAckPending {
+		s += z.ServerAckPending[za0014].Msgsize()
+	}
 	return
 }

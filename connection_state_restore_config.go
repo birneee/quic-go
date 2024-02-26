@@ -1,37 +1,61 @@
 package quic
 
 import (
+	"context"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
+	"net/netip"
+	"time"
 )
 
 // for connection restore from H-QUIC state
 type ConnectionRestoreConfig struct {
-	Perspective logging.Perspective
-	QuicConf    *Config
+	Perspective                    logging.Perspective
+	LocalAddr                      netip.Addr
+	Tracer                         func(context.Context, logging.Perspective, ConnectionID) *logging.ConnectionTracer
+	InitialCongestionWindow        uint32
+	InitialConnectionReceiveWindow uint64
+	InitialStreamReceiveWindow     uint64
+	MaxConnectionReceiveWindow     uint64
+	MaxIncomingStreams             int64
+	MaxStreamReceiveWindow         uint64
+	// DefaultRTT is set when state does not contain RTT
+	DefaultRTT     *time.Duration
+	MaxIdleTimeout time.Duration
 }
 
-func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRestoreConfig {
-	if c == nil {
-		c = &ConnectionRestoreConfig{}
+func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *handover.State) (*Config, *handover.State) {
+	if state.RTT == nil && restoreConf.DefaultRTT != nil {
+		ms := restoreConf.DefaultRTT.Milliseconds()
+		state.RTT = &ms
 	}
-	if c.QuicConf == nil {
-		c.QuicConf = &Config{}
+	if restoreConf == nil {
+		restoreConf = &ConnectionRestoreConfig{}
 	}
-
-	c.QuicConf = populateConfig(c.QuicConf)
-	ownTransportParams := state.FromPerspective(c.Perspective).OwnTransportParameters()
-	c.QuicConf.MaxStreamReceiveWindow = utils.MaxV(
-		c.QuicConf.MaxStreamReceiveWindow,
+	ownTransportParams := state.FromPerspective(restoreConf.Perspective).OwnTransportParameters()
+	quicConf := &Config{
+		InitialCongestionWindow:        restoreConf.InitialCongestionWindow,
+		InitialConnectionReceiveWindow: restoreConf.InitialConnectionReceiveWindow,
+		InitialStreamReceiveWindow:     restoreConf.InitialStreamReceiveWindow,
+		MaxConnectionReceiveWindow:     restoreConf.MaxConnectionReceiveWindow,
+		MaxIncomingStreams:             restoreConf.MaxIncomingStreams,
+		MaxStreamReceiveWindow:         restoreConf.MaxStreamReceiveWindow,
+		Tracer:                         restoreConf.Tracer,
+		EnableDatagrams:                ownTransportParams.MaxDatagramFrameSize != nil && *ownTransportParams.MaxDatagramFrameSize != 0,
+		MaxIdleTimeout:                 restoreConf.MaxIdleTimeout,
+	}
+	quicConf = populateConfig(quicConf)
+	quicConf.MaxStreamReceiveWindow = utils.MaxV(
+		quicConf.MaxStreamReceiveWindow,
 		uint64(*ownTransportParams.InitialMaxStreamDataBidiLocal),
 		uint64(*ownTransportParams.InitialMaxStreamDataBidiRemote),
 		uint64(*ownTransportParams.InitialMaxStreamDataUni),
 	)
 
-	c.QuicConf.MaxConnectionReceiveWindow = utils.MaxV(
-		c.QuicConf.MaxConnectionReceiveWindow,
-		c.QuicConf.MaxStreamReceiveWindow,
+	quicConf.MaxConnectionReceiveWindow = utils.MaxV(
+		quicConf.MaxConnectionReceiveWindow,
+		quicConf.MaxStreamReceiveWindow,
 	)
 	//if c.PacketConn == nil {
 	//	if c.PacketHandlerManager == nil {
@@ -52,12 +76,18 @@ func (c *ConnectionRestoreConfig) Populate(state *handover.State) *ConnectionRes
 	//	}
 	//	c.PacketHandlerManager = tr.handlerMap
 	//}
-	c.QuicConf.EnableDatagrams = ownTransportParams.MaxDatagramFrameSize != nil && *ownTransportParams.MaxDatagramFrameSize != 0
-	return c
+	return quicConf, state
 }
 
 func (c *ConnectionRestoreConfig) Validate() error {
 	return nil
+}
+
+func (restoreConf *ConnectionRestoreConfig) Populate() *ConnectionRestoreConfig {
+	if restoreConf == nil {
+		restoreConf = &ConnectionRestoreConfig{}
+	}
+	return restoreConf
 }
 
 type RestoredStreams struct {

@@ -2,7 +2,7 @@ package ackhandler
 
 import (
 	"fmt"
-
+	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 )
 
@@ -174,4 +174,35 @@ func (h *sentPacketHistory) DeclareLost(pn protocol.PacketNumber) {
 	if idx == 0 {
 		h.cleanupStart()
 	}
+}
+
+func (h *sentPacketHistory) Ranges() [][2]int64 {
+	ranges := make([][2]int64, 0)
+	i := -1
+	_ = h.Iterate(func(p *packet) (cont bool, err error) {
+		pn := int64(p.PacketNumber)
+		if i != -1 && ranges[i][1]+1 == pn {
+			ranges[i][1] = pn
+			return true, nil
+		}
+		ranges = append(ranges, [2]int64{pn, pn})
+		i++
+		return true, nil
+	})
+	return ranges
+}
+
+func (h *sentPacketHistory) PacketState() []handover.PacketState {
+	packetStates := make([]handover.PacketState, 0)
+	for _, packet := range h.packets {
+		if packet == nil {
+			continue
+		}
+		ps := packet.PacketState()
+		if len(ps.Frames) == 0 {
+			continue // do not include empty packets
+		}
+		packetStates = append(packetStates, packet.PacketState())
+	}
+	return packetStates
 }

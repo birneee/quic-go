@@ -48,7 +48,10 @@ func (q *windowUpdateQueue) QueueAll() {
 	q.mutex.Lock()
 	// queue a connection-level window update
 	if q.queuedConn {
-		q.callback(&wire.MaxDataFrame{MaximumData: q.connFlowController.GetWindowUpdate()})
+		maxData := q.connFlowController.GetWindowUpdate()
+		if maxData != 0 { // is 0 after state restore, which should not be sent
+			q.callback(&wire.MaxDataFrame{MaximumData: maxData})
+		}
 		q.queuedConn = false
 	}
 	// queue all stream-level window updates

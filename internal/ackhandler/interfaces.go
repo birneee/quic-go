@@ -40,7 +40,7 @@ type SentPacketHandler interface {
 
 	Highest1RTTPacketNumber() protocol.PacketNumber
 	StreamFramesInFlight(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame
-	StoreState(h handover.StateFromPerspective)
+	StoreState(h handover.StateFromPerspective, config *handover.ConnectionStateStoreConf)
 	SetMaxBandwidth(bandwidth congestion.Bandwidth)
 	SetInitialCongestionWindow(window uint32)
 }

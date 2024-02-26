@@ -309,3 +309,27 @@ func (s StateFromPerspective) ReceivedRanges() [][2]int64 {
 		return s.state.ServerReceivedRanges
 	}
 }
+
+func (s StateFromPerspective) SentRanges() [][2]int64 {
+	if s.perspective == protocol.PerspectiveClient {
+		return s.state.ServerReceivedRanges
+	} else {
+		return s.state.ClientReceivedRanges
+	}
+}
+
+func (s StateFromPerspective) SetSentRanges(ranges [][2]int64) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ServerReceivedRanges = ranges
+	} else {
+		s.state.ClientReceivedRanges = ranges
+	}
+}
+
+func (s StateFromPerspective) SetAckPending(packets []PacketState) {
+	if s.perspective == protocol.PerspectiveClient {
+		s.state.ClientAckPending = packets
+	} else {
+		s.state.ServerAckPending = packets
+	}
+}

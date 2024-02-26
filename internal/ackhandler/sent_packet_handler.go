@@ -957,12 +957,17 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 	return streamFrames
 }
 
-func (h *sentPacketHandler) StoreState(s handover.StateFromPerspective) {
-	rtt := h.rttStats.SmoothedRTT() / time.Millisecond
-	s.SetRTT((*int64)(&rtt))
-	cw := h.congestion.GetCongestionWindow()
-	s.SetCongestionWindow((*int64)(&cw))
-	//s.SetSentRanges(h.appDataPackets.history)
+func (h *sentPacketHandler) StoreState(s handover.StateFromPerspective, config *handover.ConnectionStateStoreConf) {
+	if config.IncludeCongestionState {
+		rtt := h.rttStats.SmoothedRTT() / time.Millisecond
+		s.SetRTT((*int64)(&rtt))
+		cw := h.congestion.GetCongestionWindow()
+		s.SetCongestionWindow((*int64)(&cw))
+	}
+	s.SetSentRanges(h.appDataPackets.history.Ranges())
+	s.SetAckPending(h.appDataPackets.history.PacketState())
+	//TODO relate pending acks with stream ranges
+	//TODO relate pending acks with control frames
 }
 
 var RestorePacketNumberSkip protocol.PacketNumber = 10000

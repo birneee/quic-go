@@ -1,6 +1,10 @@
 package ackhandler
 
 import (
+	"bytes"
+	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/quicvarint"
 	"sync"
 	"time"
 
@@ -52,4 +56,32 @@ func putPacket(p *packet) {
 	p.Frames = nil
 	p.StreamFrames = nil
 	packetPool.Put(p)
+}
+
+func (p *packet) PacketState() handover.PacketState {
+	frameTypes := make([]uint64, 0)
+	for _, frame := range p.Frames {
+		frameTypes = append(frameTypes, TypeOfFrame(frame.Frame))
+	}
+	//TODO add stream frames in more compact form
+	//for _ = range p.StreamFrames {
+	//	frameTypes = append(frameTypes, 8)
+	//}
+	return handover.PacketState{
+		Number: p.PacketNumber,
+		Frames: frameTypes,
+	}
+}
+
+func TypeOfFrame(f wire.Frame) uint64 {
+	buf := make([]byte, 0, 2000)
+	buf2, err := f.Append(buf, protocol.Version2) //TODO use actual version
+	if err != nil {
+		panic(err)
+	}
+	typ, err := quicvarint.Read(bytes.NewReader(buf2))
+	if err != nil {
+		panic(err)
+	}
+	return typ
 }
