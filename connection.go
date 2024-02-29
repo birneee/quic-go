@@ -236,6 +236,8 @@ type connection struct {
 	extensionValues sync2.Map[string, interface{}]
 	// set for server connections only
 	transport *Transport
+	// queued UpdateRemoteAddr calls to be handeled in run loop
+	remoteAddrUpdates chan net.UDPAddr
 }
 
 var (
@@ -275,6 +277,7 @@ var newConnection = func(
 		logger:              logger,
 		version:             v,
 		runner:              runner,
+		remoteAddrUpdates:   make(chan net.UDPAddr, 2),
 	}
 	if origDestConnID.Len() > 0 {
 		s.logID = origDestConnID.String()
@@ -432,6 +435,7 @@ var newClientConnection = func(
 		versionNegotiated:   hasNegotiatedVersion,
 		version:             v,
 		runner:              runner,
+		remoteAddrUpdates:   make(chan net.UDPAddr, 2),
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -614,6 +618,8 @@ runLoop:
 		select {
 		case closeErr = <-s.closeChan:
 			break runLoop
+		case addr := <-s.remoteAddrUpdates:
+			s.updatePath(&addr)
 		default:
 		}
 
@@ -2758,6 +2764,9 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	}
 	packetHandlerManager := t.handlerMap
 	sendConn := newSendConn(t.conn, remoteAddr, packetInfo{addr: restoreConf.LocalAddr}, logger)
+	if t.connIDLen != sfp.LocalConnIDLen() {
+		panic(fmt.Sprintf("transport connection ID length %d does not match state connection ID length %d", t.connIDLen, sfp.LocalConnIDLen()))
+	}
 
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
@@ -2788,6 +2797,7 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 		tokenGenerator:    tokenGenerator,
 		cloned:            true,
 		sentFirstPacket:   true,
+		remoteAddrUpdates: make(chan net.UDPAddr, 2),
 	}
 
 	if conf.Tracer != nil {
@@ -3059,7 +3069,7 @@ func (s *connection) UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFro
 	if ignoreMigrationToCurrentPath {
 		s.pathManager.IgnoreMigrateTo(s.RemoteAddr())
 	}
-	s.updatePath(&addr)
+	s.remoteAddrUpdates <- addr
 	return nil
 }
 

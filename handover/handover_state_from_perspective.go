@@ -333,3 +333,7 @@ func (s StateFromPerspective) SetAckPending(packets []PacketState) {
 		s.state.ServerAckPending = packets
 	}
 }
+
+func (s StateFromPerspective) LocalConnIDLen() int {
+	return s.state.ConnIDLen(s.perspective)
+}
