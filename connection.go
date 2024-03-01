@@ -2735,6 +2735,7 @@ func (s *connection) awaitHandshakeConfirmed() error {
 }
 
 // Restore session from H-QUIC state
+// if t is nil, a new transport on a new socket will be created
 func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
 	conf, state := restoreConf.GenerateQuicConf(state)
 	perspective := restoreConf.Perspective
