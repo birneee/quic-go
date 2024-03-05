@@ -59,18 +59,27 @@ func putPacket(p *packet) {
 }
 
 func (p *packet) PacketState() handover.PacketState {
-	frameTypes := make([]uint64, 0)
+	ps := handover.PacketState{
+		PacketNumber: int64(p.PacketNumber),
+	}
 	for _, frame := range p.Frames {
-		frameTypes = append(frameTypes, TypeOfFrame(frame.Frame))
+		switch f := frame.Frame.(type) {
+		case *wire.HandshakeDoneFrame:
+			ps.Frames = append(ps.Frames, handover.Frame{Type: "handshake_done"})
+		case *wire.NewTokenFrame:
+			ps.Frames = append(ps.Frames, handover.Frame{Type: "new_token", Token: f.Token})
+		case *wire.CryptoFrame:
+			ps.Frames = append(ps.Frames, handover.Frame{Type: "crypto", Offset: f.Offset, Data: f.Data})
+		case *wire.PingFrame:
+			ps.Frames = append(ps.Frames, handover.Frame{Type: "ping"})
+		default:
+			panic("unexpected frame")
+		}
 	}
-	//TODO add stream frames in more compact form
-	//for _ = range p.StreamFrames {
-	//	frameTypes = append(frameTypes, 8)
-	//}
-	return handover.PacketState{
-		Number: p.PacketNumber,
-		Frames: frameTypes,
+	for _, f := range p.StreamFrames {
+		ps.Frames = append(ps.Frames, handover.Frame{Type: "stream", StreamID: f.Frame.StreamID, Offset: f.Frame.Offset, Length: f.Frame.DataLen()})
 	}
+	return ps
 }
 
 func TypeOfFrame(f wire.Frame) uint64 {

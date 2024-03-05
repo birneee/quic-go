@@ -5,6 +5,10 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/klauspost/compress/zstd"
+	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 	"testing"
 )
 
@@ -18,19 +22,37 @@ func nonDefaultState() State {
 		},
 		Version:                   1,
 		ServerHeaderProtectionKey: []byte{1, 2, 3},
+		BidiStreams: map[protocol.StreamID]*BidiStreamState{
+			0: {
+				ServerDirectionMaxData: 10_000,
+			},
+		},
+	}
+	// append pending stream frames
+	for i := 0; i < 20; i++ {
+		s.ClientAckPending = append(s.ClientAckPending, PacketState{
+			PacketNumber: int64(100 + i),
+			Frames: []Frame{
+				{Type: "stream", StreamID: 0, Offset: protocol.ByteCount(i * 1000), Length: 1000},
+			},
+		})
 	}
 	return s
 }
 
 func benchmarkBaseSerialize(b *testing.B, serialize func(State) ([]byte, error)) {
 	s := nonDefaultState()
+	var buf []byte
+	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := serialize(s)
+		buf, err = serialize(s)
 		if err != nil {
 			b.Error(err)
 		}
 	}
+	b.StopTimer()
+	b.ReportMetric(float64(len(buf)), "bytes")
 }
 
 func benchmarkBaseParse(b *testing.B, serialize func(State) ([]byte, error), parse func([]byte) (State, error)) {
@@ -119,9 +141,10 @@ func BenchmarkGobParse(b *testing.B) {
 }
 
 func BenchmarkMsgpSerialize(b *testing.B) {
+	buf := make([]byte, 0, 100_000)
 	benchmarkBaseSerialize(b,
 		func(s State) ([]byte, error) {
-			buf, err := s.MarshalMsg(nil)
+			buf, err := s.MarshalMsg(buf[:0])
 			return buf, err
 		},
 	)
@@ -137,6 +160,33 @@ func BenchmarkMsgpParse(b *testing.B) {
 			s := State{}
 			_, err := s.UnmarshalMsg(buf)
 			return s, err
+		},
+	)
+}
+
+func BenchmarkMsgpJsonSerialize(b *testing.B) {
+	msgpBuf := make([]byte, 0, 100_000)
+	jsonBuf := bytes.NewBuffer(make([]byte, 0, 100_000))
+	benchmarkBaseSerialize(b,
+		func(s State) ([]byte, error) {
+			msgpBuf, err := s.MarshalMsg(msgpBuf[:0])
+			jsonBuf.Reset()
+			_, err = msgp.UnmarshalAsJSON(jsonBuf, msgpBuf)
+			return jsonBuf.Bytes(), err
+		},
+	)
+}
+
+func BenchmarkMsgpZstdSerialize(b *testing.B) {
+	msgpBuf := make([]byte, 0, 100_000)
+	zstdBuf := make([]byte, 0, 100_000)
+	zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+	require.NoError(b, err)
+	benchmarkBaseSerialize(b,
+		func(s State) ([]byte, error) {
+			msgpBuf, err = s.MarshalMsg(msgpBuf[:0])
+			zstdBuf = zstdWriter.EncodeAll(msgpBuf, zstdBuf[:0])
+			return zstdBuf, err
 		},
 	)
 }

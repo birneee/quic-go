@@ -202,7 +202,7 @@ func (h *sentPacketHistory) PacketState() []handover.PacketState {
 		if len(ps.Frames) == 0 {
 			continue // do not include empty packets
 		}
-		packetStates = append(packetStates, packet.PacketState())
+		packetStates = append(packetStates, ps)
 	}
 	return packetStates
 }

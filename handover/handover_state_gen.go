@@ -7,8 +7,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-var _ msgp.NonStrMapKey = new(protocol.StreamID)
 var _ msgp.NonStrMapKey = new(ConnectionIDSequenceNumber)
+var _ msgp.NonStrMapKey = new(protocol.StreamID)
 
 // DecodeMsg implements msgp.Decodable
 func (z *ConnectionIDSequenceNumber) DecodeMsg(dc *msgp.Reader) (err error) {
