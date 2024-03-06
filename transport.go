@@ -148,6 +148,8 @@ type Transport struct {
 	// Handler for short header packets with an unknown connection id.
 	HandleUnknownConnectionPacket func(ConnectionID, ReceivedPacket)
 	restoredHQUIC                 bool
+	// CustomHandleNonQuicPacket
+	// must release the buffer if no longer needed
 	//TODO move to transport config
 	CustomHandleNonQuicPacket func(p ReceivedPacket)
 	// e.g. to reduce size to allow for extension headers.
@@ -156,6 +158,11 @@ type Transport struct {
 	MaxAcceptedQuicPacketSize int
 	//TODO move to transport config
 	CustomSend func(data []byte, size uint16, remoteAddr net.Addr, oob []byte, conn Connection, ecn logging.ECN)
+	// FilterHandlePacket is called for every received packet.
+	// if function returns false, the packet is dropped.
+	// must release the buffer if no longer needed.
+	//TODO move to transport config
+	FilterHandlePacket func(p ReceivedPacket) bool
 }
 
 // Listen starts listening for incoming QUIC connections.
@@ -430,6 +437,12 @@ func (t *Transport) handlePacket(p receivedPacket) {
 	if len(p.data) == 0 {
 		return
 	}
+	if t.FilterHandlePacket != nil {
+		ok := t.FilterHandlePacket(ReceivedPacket{&p})
+		if !ok {
+			return // ignore
+		}
+	}
 	if !wire.IsPotentialQUICPacket(p.data[0]) && !wire.IsLongHeaderPacket(p.data[0]) {
 		if t.CustomHandleNonQuicPacket != nil {
 			t.CustomHandleNonQuicPacket(ReceivedPacket{&p})
@@ -439,6 +452,7 @@ func (t *Transport) handlePacket(p receivedPacket) {
 		return
 	}
 	if t.MaxAcceptedQuicPacketSize != 0 && len(p.data) > t.MaxAcceptedQuicPacketSize {
+		p.buffer.MaybeRelease()
 		return //ignore
 	}
 	connID, err := wire.ParseConnectionID(p.data, t.connIDLen)
