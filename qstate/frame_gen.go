@@ -85,13 +85,13 @@ func (z *Frame) DecodeMsg(dc *msgp.Reader) (err error) {
 				}
 			}
 		case "token":
-			z.Token, err = dc.ReadBytes(z.Token)
+			err = z.Token.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "Token")
 				return
 			}
 		case "data":
-			z.Data, err = dc.ReadBytes(z.Data)
+			err = z.Data.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -142,14 +142,6 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 	if z.Length == nil {
 		zb0001Len--
 		zb0001Mask |= 0x8
-	}
-	if z.Token == nil {
-		zb0001Len--
-		zb0001Mask |= 0x10
-	}
-	if z.Data == nil {
-		zb0001Len--
-		zb0001Mask |= 0x20
 	}
 	if z.SequenceNumber == nil {
 		zb0001Len--
@@ -230,29 +222,25 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
-	if (zb0001Mask & 0x10) == 0 { // if not empty
-		// write "token"
-		err = en.Append(0xa5, 0x74, 0x6f, 0x6b, 0x65, 0x6e)
-		if err != nil {
-			return
-		}
-		err = en.WriteBytes(z.Token)
-		if err != nil {
-			err = msgp.WrapError(err, "Token")
-			return
-		}
+	// write "token"
+	err = en.Append(0xa5, 0x74, 0x6f, 0x6b, 0x65, 0x6e)
+	if err != nil {
+		return
 	}
-	if (zb0001Mask & 0x20) == 0 { // if not empty
-		// write "data"
-		err = en.Append(0xa4, 0x64, 0x61, 0x74, 0x61)
-		if err != nil {
-			return
-		}
-		err = en.WriteBytes(z.Data)
-		if err != nil {
-			err = msgp.WrapError(err, "Data")
-			return
-		}
+	err = z.Token.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Token")
+		return
+	}
+	// write "data"
+	err = en.Append(0xa4, 0x64, 0x61, 0x74, 0x61)
+	if err != nil {
+		return
+	}
+	err = z.Data.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Data")
+		return
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
 		// write "sequence_number"
@@ -295,14 +283,6 @@ func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 		zb0001Len--
 		zb0001Mask |= 0x8
 	}
-	if z.Token == nil {
-		zb0001Len--
-		zb0001Mask |= 0x10
-	}
-	if z.Data == nil {
-		zb0001Len--
-		zb0001Mask |= 0x20
-	}
 	if z.SequenceNumber == nil {
 		zb0001Len--
 		zb0001Mask |= 0x40
@@ -342,15 +322,19 @@ func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 			o = msgp.AppendInt64(o, *z.Length)
 		}
 	}
-	if (zb0001Mask & 0x10) == 0 { // if not empty
-		// string "token"
-		o = append(o, 0xa5, 0x74, 0x6f, 0x6b, 0x65, 0x6e)
-		o = msgp.AppendBytes(o, z.Token)
+	// string "token"
+	o = append(o, 0xa5, 0x74, 0x6f, 0x6b, 0x65, 0x6e)
+	o, err = z.Token.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "Token")
+		return
 	}
-	if (zb0001Mask & 0x20) == 0 { // if not empty
-		// string "data"
-		o = append(o, 0xa4, 0x64, 0x61, 0x74, 0x61)
-		o = msgp.AppendBytes(o, z.Data)
+	// string "data"
+	o = append(o, 0xa4, 0x64, 0x61, 0x74, 0x61)
+	o, err = z.Data.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "Data")
+		return
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
 		// string "sequence_number"
@@ -440,13 +424,13 @@ func (z *Frame) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				}
 			}
 		case "token":
-			z.Token, bts, err = msgp.ReadBytesBytes(bts, z.Token)
+			bts, err = z.Token.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "Token")
 				return
 			}
 		case "data":
-			z.Data, bts, err = msgp.ReadBytesBytes(bts, z.Data)
+			bts, err = z.Data.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -500,7 +484,7 @@ func (z *Frame) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 6 + msgp.BytesPrefixSize + len(z.Token) + 5 + msgp.BytesPrefixSize + len(z.Data) + 16
+	s += 6 + z.Token.Msgsize() + 5 + z.Data.Msgsize() + 16
 	if z.SequenceNumber == nil {
 		s += msgp.NilSize
 	} else {

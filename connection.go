@@ -2657,7 +2657,7 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 		state.Transport.ConnectionIDs = append(state.Transport.ConnectionIDs, qstate.ConnectionID{
 			SequenceNumber:      sn,
 			ConnectionID:        connID.Bytes(),
-			StatelessResetToken: (*[16]byte)(&statelessResetToken),
+			StatelessResetToken: (*qstate.StatelessResetToken)(&statelessResetToken),
 		})
 	}
 
@@ -2665,13 +2665,13 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 	state.Transport.RemoteConnectionIDs = append(state.Transport.RemoteConnectionIDs, qstate.ConnectionID{
 		SequenceNumber:      s.connIDManager.activeSequenceNumber,
 		ConnectionID:        s.connIDManager.activeConnectionID.Bytes(),
-		StatelessResetToken: (*[16]byte)(s.connIDManager.activeStatelessResetToken),
+		StatelessResetToken: (*qstate.StatelessResetToken)(s.connIDManager.activeStatelessResetToken),
 	})
 	for destConnID := s.connIDManager.queue.Front(); destConnID != nil; destConnID = destConnID.Next() {
 		state.Transport.RemoteConnectionIDs = append(state.Transport.RemoteConnectionIDs, qstate.ConnectionID{
 			SequenceNumber:      destConnID.Value.SequenceNumber,
 			ConnectionID:        destConnID.Value.ConnectionID.Bytes(),
-			StatelessResetToken: (*[16]byte)(utils.New(destConnID.Value.StatelessResetToken)),
+			StatelessResetToken: (*qstate.StatelessResetToken)(utils.New(destConnID.Value.StatelessResetToken)),
 		})
 	}
 

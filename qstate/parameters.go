@@ -26,7 +26,7 @@ type Parameters struct {
 	// nil if default
 	MaxIdleTimeout *int64 `msg:"max_idle_timeout,omitempty" json:"max_idle_timeout,omitempty"`
 	// nil if client perspective
-	OriginalDestinationConnectionID *[]byte
+	OriginalDestinationConnectionID *ByteSlice
 	ActiveConnectionIDLimit         uint64 `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
 	// nil if default
 	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty"`
@@ -63,7 +63,7 @@ func ToQStateParameters(p *wire.TransportParameters) Parameters {
 		s.MaxIdleTimeout = &ms
 	}
 	if p.OriginalDestinationConnectionID.Len() > 0 {
-		b := p.OriginalDestinationConnectionID.Bytes()
+		b := ByteSlice(p.OriginalDestinationConnectionID.Bytes())
 		s.OriginalDestinationConnectionID = &b
 	}
 	if p.MaxDatagramFrameSize > 0 {

@@ -33,7 +33,7 @@ func nonDefaultState() qstate.Connection {
 				ActiveConnectionIDLimit: 4,
 			},
 			RemoteParameters: qstate.Parameters{
-				OriginalDestinationConnectionID: utils.New(randomByteSlice(20)),
+				OriginalDestinationConnectionID: (*qstate.ByteSlice)(utils.New(randomByteSlice(20))),
 			},
 			MaxData:       100_000,
 			RemoteMaxData: 20_000,
@@ -55,7 +55,7 @@ func nonDefaultState() qstate.Connection {
 		s.Transport.ConnectionIDs = append(s.Transport.ConnectionIDs, qstate.ConnectionID{
 			SequenceNumber:      uint64(i),
 			ConnectionID:        randomByteSlice(4),
-			StatelessResetToken: (*[16]byte)(randomByteSlice(16)),
+			StatelessResetToken: (*qstate.StatelessResetToken)(randomByteSlice(16)),
 		})
 	}
 
@@ -64,7 +64,7 @@ func nonDefaultState() qstate.Connection {
 		s.Transport.RemoteConnectionIDs = append(s.Transport.RemoteConnectionIDs, qstate.ConnectionID{
 			SequenceNumber:      uint64(i),
 			ConnectionID:        randomByteSlice(20),
-			StatelessResetToken: (*[16]byte)(randomByteSlice(16)),
+			StatelessResetToken: (*qstate.StatelessResetToken)(randomByteSlice(16)),
 		})
 	}
 

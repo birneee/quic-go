@@ -37,25 +37,25 @@ func (z *Crypto) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "remote_header_protection_key":
-			z.RemoteHeaderProtectionKey, err = dc.ReadBytes(z.RemoteHeaderProtectionKey)
+			err = z.RemoteHeaderProtectionKey.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
 				return
 			}
 		case "header_protection_key":
-			z.HeaderProtectionKey, err = dc.ReadBytes(z.HeaderProtectionKey)
+			err = z.HeaderProtectionKey.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "HeaderProtectionKey")
 				return
 			}
 		case "remote_traffic_secret":
-			z.RemoteTrafficSecret, err = dc.ReadBytes(z.RemoteTrafficSecret)
+			err = z.RemoteTrafficSecret.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "RemoteTrafficSecret")
 				return
 			}
 		case "traffic_secret":
-			z.TrafficSecret, err = dc.ReadBytes(z.TrafficSecret)
+			err = z.TrafficSecret.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "TrafficSecret")
 				return
@@ -99,7 +99,7 @@ func (z *Crypto) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.RemoteHeaderProtectionKey)
+	err = z.RemoteHeaderProtectionKey.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
 		return
@@ -109,7 +109,7 @@ func (z *Crypto) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.HeaderProtectionKey)
+	err = z.HeaderProtectionKey.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "HeaderProtectionKey")
 		return
@@ -119,7 +119,7 @@ func (z *Crypto) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.RemoteTrafficSecret)
+	err = z.RemoteTrafficSecret.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "RemoteTrafficSecret")
 		return
@@ -129,7 +129,7 @@ func (z *Crypto) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.TrafficSecret)
+	err = z.TrafficSecret.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "TrafficSecret")
 		return
@@ -149,16 +149,32 @@ func (z *Crypto) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendString(o, z.TlsCipher)
 	// string "remote_header_protection_key"
 	o = append(o, 0xbc, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	o = msgp.AppendBytes(o, z.RemoteHeaderProtectionKey)
+	o, err = z.RemoteHeaderProtectionKey.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
+		return
+	}
 	// string "header_protection_key"
 	o = append(o, 0xb5, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	o = msgp.AppendBytes(o, z.HeaderProtectionKey)
+	o, err = z.HeaderProtectionKey.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "HeaderProtectionKey")
+		return
+	}
 	// string "remote_traffic_secret"
 	o = append(o, 0xb5, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	o = msgp.AppendBytes(o, z.RemoteTrafficSecret)
+	o, err = z.RemoteTrafficSecret.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "RemoteTrafficSecret")
+		return
+	}
 	// string "traffic_secret"
 	o = append(o, 0xae, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	o = msgp.AppendBytes(o, z.TrafficSecret)
+	o, err = z.TrafficSecret.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "TrafficSecret")
+		return
+	}
 	return
 }
 
@@ -193,25 +209,25 @@ func (z *Crypto) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "remote_header_protection_key":
-			z.RemoteHeaderProtectionKey, bts, err = msgp.ReadBytesBytes(bts, z.RemoteHeaderProtectionKey)
+			bts, err = z.RemoteHeaderProtectionKey.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
 				return
 			}
 		case "header_protection_key":
-			z.HeaderProtectionKey, bts, err = msgp.ReadBytesBytes(bts, z.HeaderProtectionKey)
+			bts, err = z.HeaderProtectionKey.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "HeaderProtectionKey")
 				return
 			}
 		case "remote_traffic_secret":
-			z.RemoteTrafficSecret, bts, err = msgp.ReadBytesBytes(bts, z.RemoteTrafficSecret)
+			bts, err = z.RemoteTrafficSecret.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "RemoteTrafficSecret")
 				return
 			}
 		case "traffic_secret":
-			z.TrafficSecret, bts, err = msgp.ReadBytesBytes(bts, z.TrafficSecret)
+			bts, err = z.TrafficSecret.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "TrafficSecret")
 				return
@@ -230,6 +246,6 @@ func (z *Crypto) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Crypto) Msgsize() (s int) {
-	s = 1 + 10 + msgp.Uint64Size + 11 + msgp.StringPrefixSize + len(z.TlsCipher) + 29 + msgp.BytesPrefixSize + len(z.RemoteHeaderProtectionKey) + 22 + msgp.BytesPrefixSize + len(z.HeaderProtectionKey) + 22 + msgp.BytesPrefixSize + len(z.RemoteTrafficSecret) + 15 + msgp.BytesPrefixSize + len(z.TrafficSecret)
+	s = 1 + 10 + msgp.Uint64Size + 11 + msgp.StringPrefixSize + len(z.TlsCipher) + 29 + z.RemoteHeaderProtectionKey.Msgsize() + 22 + z.HeaderProtectionKey.Msgsize() + 22 + z.RemoteTrafficSecret.Msgsize() + 15 + z.TrafficSecret.Msgsize()
 	return
 }

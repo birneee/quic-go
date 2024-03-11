@@ -31,7 +31,7 @@ func (z *ConnectionID) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "connection_id":
-			z.ConnectionID, err = dc.ReadBytes(z.ConnectionID)
+			err = z.ConnectionID.DecodeMsg(dc)
 			if err != nil {
 				err = msgp.WrapError(err, "ConnectionID")
 				return
@@ -46,9 +46,9 @@ func (z *ConnectionID) DecodeMsg(dc *msgp.Reader) (err error) {
 				z.StatelessResetToken = nil
 			} else {
 				if z.StatelessResetToken == nil {
-					z.StatelessResetToken = new([16]byte)
+					z.StatelessResetToken = new(StatelessResetToken)
 				}
-				err = dc.ReadExactBytes((*z.StatelessResetToken)[:])
+				err = z.StatelessResetToken.DecodeMsg(dc)
 				if err != nil {
 					err = msgp.WrapError(err, "StatelessResetToken")
 					return
@@ -83,7 +83,7 @@ func (z *ConnectionID) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteBytes(z.ConnectionID)
+	err = z.ConnectionID.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "ConnectionID")
 		return
@@ -99,7 +99,7 @@ func (z *ConnectionID) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	} else {
-		err = en.WriteBytes((*z.StatelessResetToken)[:])
+		err = z.StatelessResetToken.EncodeMsg(en)
 		if err != nil {
 			err = msgp.WrapError(err, "StatelessResetToken")
 			return
@@ -117,13 +117,21 @@ func (z *ConnectionID) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendUint64(o, z.SequenceNumber)
 	// string "connection_id"
 	o = append(o, 0xad, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
-	o = msgp.AppendBytes(o, z.ConnectionID)
+	o, err = z.ConnectionID.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "ConnectionID")
+		return
+	}
 	// string "stateless_reset_token"
 	o = append(o, 0xb5, 0x73, 0x74, 0x61, 0x74, 0x65, 0x6c, 0x65, 0x73, 0x73, 0x5f, 0x72, 0x65, 0x73, 0x65, 0x74, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e)
 	if z.StatelessResetToken == nil {
 		o = msgp.AppendNil(o)
 	} else {
-		o = msgp.AppendBytes(o, (*z.StatelessResetToken)[:])
+		o, err = z.StatelessResetToken.MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "StatelessResetToken")
+			return
+		}
 	}
 	return
 }
@@ -153,7 +161,7 @@ func (z *ConnectionID) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "connection_id":
-			z.ConnectionID, bts, err = msgp.ReadBytesBytes(bts, z.ConnectionID)
+			bts, err = z.ConnectionID.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "ConnectionID")
 				return
@@ -167,9 +175,9 @@ func (z *ConnectionID) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				z.StatelessResetToken = nil
 			} else {
 				if z.StatelessResetToken == nil {
-					z.StatelessResetToken = new([16]byte)
+					z.StatelessResetToken = new(StatelessResetToken)
 				}
-				bts, err = msgp.ReadExactBytes(bts, (*z.StatelessResetToken)[:])
+				bts, err = z.StatelessResetToken.UnmarshalMsg(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "StatelessResetToken")
 					return
@@ -189,11 +197,11 @@ func (z *ConnectionID) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *ConnectionID) Msgsize() (s int) {
-	s = 1 + 16 + msgp.Uint64Size + 14 + msgp.BytesPrefixSize + len(z.ConnectionID) + 22
+	s = 1 + 16 + msgp.Uint64Size + 14 + z.ConnectionID.Msgsize() + 22
 	if z.StatelessResetToken == nil {
 		s += msgp.NilSize
 	} else {
-		s += msgp.ArrayHeaderSize + (16 * (msgp.ByteSize))
+		s += z.StatelessResetToken.Msgsize()
 	}
 	return
 }

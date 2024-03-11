@@ -178,9 +178,9 @@ func (z *Parameters) DecodeMsg(dc *msgp.Reader) (err error) {
 				z.OriginalDestinationConnectionID = nil
 			} else {
 				if z.OriginalDestinationConnectionID == nil {
-					z.OriginalDestinationConnectionID = new([]byte)
+					z.OriginalDestinationConnectionID = new(ByteSlice)
 				}
-				*z.OriginalDestinationConnectionID, err = dc.ReadBytes(*z.OriginalDestinationConnectionID)
+				err = z.OriginalDestinationConnectionID.DecodeMsg(dc)
 				if err != nil {
 					err = msgp.WrapError(err, "OriginalDestinationConnectionID")
 					return
@@ -438,7 +438,7 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	} else {
-		err = en.WriteBytes(*z.OriginalDestinationConnectionID)
+		err = z.OriginalDestinationConnectionID.EncodeMsg(en)
 		if err != nil {
 			err = msgp.WrapError(err, "OriginalDestinationConnectionID")
 			return
@@ -607,7 +607,11 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 	if z.OriginalDestinationConnectionID == nil {
 		o = msgp.AppendNil(o)
 	} else {
-		o = msgp.AppendBytes(o, *z.OriginalDestinationConnectionID)
+		o, err = z.OriginalDestinationConnectionID.MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "OriginalDestinationConnectionID")
+			return
+		}
 	}
 	if (zb0001Mask & 0x200) == 0 { // if not empty
 		// string "active_connection_id_limit"
@@ -789,9 +793,9 @@ func (z *Parameters) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				z.OriginalDestinationConnectionID = nil
 			} else {
 				if z.OriginalDestinationConnectionID == nil {
-					z.OriginalDestinationConnectionID = new([]byte)
+					z.OriginalDestinationConnectionID = new(ByteSlice)
 				}
-				*z.OriginalDestinationConnectionID, bts, err = msgp.ReadBytesBytes(bts, *z.OriginalDestinationConnectionID)
+				bts, err = z.OriginalDestinationConnectionID.UnmarshalMsg(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "OriginalDestinationConnectionID")
 					return
@@ -886,7 +890,7 @@ func (z *Parameters) Msgsize() (s int) {
 	if z.OriginalDestinationConnectionID == nil {
 		s += msgp.NilSize
 	} else {
-		s += msgp.BytesPrefixSize + len(*z.OriginalDestinationConnectionID)
+		s += z.OriginalDestinationConnectionID.Msgsize()
 	}
 	s += 27 + msgp.Uint64Size + 24
 	if z.MaxDatagramFrameSize == nil {
