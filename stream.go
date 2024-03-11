@@ -2,6 +2,7 @@ package quic
 
 import (
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"net"
 	"os"
 	"sync"
@@ -60,15 +61,15 @@ type streamI interface {
 	handleStreamFrame(*wire.StreamFrame) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf)
-	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
+	storeReceiveState(state *qstate.Stream, config *handover.ConnectionStateStoreConf)
+	restoreReceiveState(state *qstate.Stream)
 	// for sending
 	hasData() bool
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount, v protocol.Version) (ackhandler.StreamFrame, bool, bool)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf)
-	restoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
+	storeSendState(state *qstate.Stream, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf)
+	restoreSendState(state *qstate.Stream)
 }
 
 var (
@@ -95,8 +96,6 @@ var _ Stream = &stream{}
 func newStream(streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
-	// required for stream state serialization
-	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame,
 ) *stream {
 	s := &stream{sender: sender}
 	senderForSendStream := &uniStreamSender{
@@ -108,7 +107,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, streamFramesInFlight)
+	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController)
 	senderForReceiveStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {

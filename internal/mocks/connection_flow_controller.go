@@ -11,8 +11,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	handover "github.com/quic-go/quic-go/handover"
+	flowcontrol "github.com/quic-go/quic-go/internal/flowcontrol"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
+	qstate "github.com/quic-go/quic-go/qstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -227,7 +228,7 @@ func (c *ConnectionFlowControllerResetCall) DoAndReturn(f func() error) *Connect
 }
 
 // RestoreState mocks base method.
-func (m *MockConnectionFlowController) RestoreState(arg0 handover.StateFromPerspective) {
+func (m *MockConnectionFlowController) RestoreState(arg0 *qstate.Connection) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RestoreState", arg0)
 }
@@ -251,13 +252,13 @@ func (c *ConnectionFlowControllerRestoreStateCall) Return() *ConnectionFlowContr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionFlowControllerRestoreStateCall) Do(f func(handover.StateFromPerspective)) *ConnectionFlowControllerRestoreStateCall {
+func (c *ConnectionFlowControllerRestoreStateCall) Do(f func(*qstate.Connection)) *ConnectionFlowControllerRestoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionFlowControllerRestoreStateCall) DoAndReturn(f func(handover.StateFromPerspective)) *ConnectionFlowControllerRestoreStateCall {
+func (c *ConnectionFlowControllerRestoreStateCall) DoAndReturn(f func(*qstate.Connection)) *ConnectionFlowControllerRestoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -301,15 +302,15 @@ func (c *ConnectionFlowControllerSendWindowSizeCall) DoAndReturn(f func() protoc
 }
 
 // StoreState mocks base method.
-func (m *MockConnectionFlowController) StoreState(arg0 handover.StateFromPerspective) {
+func (m *MockConnectionFlowController) StoreState(arg0 *qstate.Connection, arg1 []flowcontrol.SendStream) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreState", arg0)
+	m.ctrl.Call(m, "StoreState", arg0, arg1)
 }
 
 // StoreState indicates an expected call of StoreState.
-func (mr *MockConnectionFlowControllerMockRecorder) StoreState(arg0 any) *ConnectionFlowControllerStoreStateCall {
+func (mr *MockConnectionFlowControllerMockRecorder) StoreState(arg0, arg1 any) *ConnectionFlowControllerStoreStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).StoreState), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).StoreState), arg0, arg1)
 	return &ConnectionFlowControllerStoreStateCall{Call: call}
 }
 
@@ -325,13 +326,13 @@ func (c *ConnectionFlowControllerStoreStateCall) Return() *ConnectionFlowControl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionFlowControllerStoreStateCall) Do(f func(handover.StateFromPerspective)) *ConnectionFlowControllerStoreStateCall {
+func (c *ConnectionFlowControllerStoreStateCall) Do(f func(*qstate.Connection, []flowcontrol.SendStream)) *ConnectionFlowControllerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionFlowControllerStoreStateCall) DoAndReturn(f func(handover.StateFromPerspective)) *ConnectionFlowControllerStoreStateCall {
+func (c *ConnectionFlowControllerStoreStateCall) DoAndReturn(f func(*qstate.Connection, []flowcontrol.SendStream)) *ConnectionFlowControllerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

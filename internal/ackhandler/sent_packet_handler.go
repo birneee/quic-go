@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/congestion"
@@ -928,11 +929,8 @@ func (h *sentPacketHandler) SetHandshakeConfirmed() {
 	h.setLossDetectionTimer()
 }
 
-func (h *sentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
-	return h.appDataPackets.pns.Peek() - 1
-}
-
 func (h *sentPacketHandler) setHighest1RTTPacketNumber(pn protocol.PacketNumber) {
+	h.appDataPackets.largestSent = pn
 	h.appDataPackets.pns.SetNext(pn + 1)
 	h.appDataPackets.history.highestPacketNumber = pn
 	// validate peer address
@@ -957,22 +955,21 @@ func (h *sentPacketHandler) StreamFramesInFlight(streamID protocol.StreamID, enc
 	return streamFrames
 }
 
-func (h *sentPacketHandler) StoreState(s handover.StateFromPerspective, config *handover.ConnectionStateStoreConf) {
+func (h *sentPacketHandler) StoreState(s *qstate.Connection, config *handover.ConnectionStateStoreConf) {
 	if config.IncludeCongestionState {
-		rtt := h.rttStats.SmoothedRTT() / time.Millisecond
-		s.SetRTT((*int64)(&rtt))
+		rtt := int64(h.rttStats.SmoothedRTT() / time.Millisecond)
+		s.Metrics.SmoothedRTT = &rtt
 		cw := h.congestion.GetCongestionWindow()
-		s.SetCongestionWindow((*int64)(&cw))
+		s.Metrics.CongestionWindow = (*int64)(&cw)
 	}
-	s.SetSentRanges(h.appDataPackets.history.Ranges())
-	s.SetAckPending(h.appDataPackets.history.PacketState())
+	//s.SetSentRanges(h.appDataPackets.history.Ranges())
+	s.Transport.PendingAcks = h.appDataPackets.history.PacketState()
 	//TODO relate pending acks with stream ranges
 	//TODO relate pending acks with control frames
+	s.Transport.NextPacketNumber = int64(h.appDataPackets.pns.Peek())
 }
 
-var RestorePacketNumberSkip protocol.PacketNumber = 10000
-
-func restoreSendPacketHandler(s handover.StateFromPerspective,
+func restoreSendPacketHandler(s *qstate.Connection,
 	initialMaxDatagramSize protocol.ByteCount,
 	rttStats *utils.RTTStats,
 	enableECN bool,
@@ -984,21 +981,18 @@ func restoreSendPacketHandler(s handover.StateFromPerspective,
 		rttStats,
 		true, // TODO path challenge
 		enableECN,
-		s.Perspective(),
+		s.Transport.Perspective(),
 		tracer,
 		logger)
 	h.DropPackets(protocol.EncryptionInitial)
 	h.DropPackets(protocol.EncryptionHandshake)
-	// skip some packets for two reasons:
-	//  - this number might be an estimate from the opposite perspective
-	//  - some packets might be sent during the handshake
-	h.setHighest1RTTPacketNumber(s.HighestSentPacketNumber() + RestorePacketNumberSkip)
+	h.setHighest1RTTPacketNumber(protocol.PacketNumber(s.Transport.NextPacketNumber - 1))
 
-	rtt := s.RTT()
+	rtt := s.Metrics.SmoothedRTT
 	if rtt != nil && *rtt != 0 {
 		h.rttStats.SetInitialRTT(time.Duration(*rtt) * time.Millisecond)
 	}
-	cw := s.CongestionWindow()
+	cw := s.Metrics.CongestionWindow
 	if cw != nil && *cw != 0 {
 		h.congestion.SetCongestionWindow(protocol.ByteCount((*cw) / 2))
 		// divide by 2, to apply congestion window carefully

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -663,7 +664,7 @@ func wrapError(err error) error {
 	return &qerr.TransportError{ErrorCode: qerr.InternalError, ErrorMessage: err.Error()}
 }
 
-func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspective) {
+func (h *cryptoSetup) StoreHandoverState(s *qstate.Connection) {
 	connectionState := h.conn.ConnectionState()
 	if !connectionState.HandshakeComplete {
 		panic("0RTT handover not supported")
@@ -674,29 +675,28 @@ func (h *cryptoSetup) StoreHandoverState(s *handover.State, p protocol.Perspecti
 	if !h.has1RTTSealer {
 		panic("illegal handover state")
 	}
-	sfp := s.FromPerspective(p)
-	sfp.SetOwnTransportParameters(handover.ToHandoverTransportParameters(h.ourParams))
-	sfp.SetPeerTransportParameters(handover.ToHandoverTransportParameters(h.peerParams))
-	s.ALPN = connectionState.NegotiatedProtocol
-	h.aead.store(s, p)
+	s.Transport.Parameters = qstate.ToQStateParameters(h.ourParams)
+	s.Transport.RemoteParameters = qstate.ToQStateParameters(h.peerParams)
+	s.Transport.ChosenALPN = connectionState.NegotiatedProtocol
+	h.aead.store(s)
 }
 
-func RestoreCryptoSetupFromHandoverState(state handover.State, perspective protocol.Perspective, tracer *logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
+func RestoreCryptoSetupFromHandoverState(state *qstate.Connection, tracer *logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
 	cs := &cryptoSetup{
 		initialSealer: nil,
 		initialOpener: nil,
-		aead:          restoreUpdatableAEAD(state, perspective, rttStats, tracer, logger),
+		aead:          restoreUpdatableAEAD(state, rttStats, tracer, logger),
 		events:        make([]Event, 0, 16),
 		ourParams:     ourParams,
 		rttStats:      rttStats,
 		tracer:        tracer,
 		logger:        logger,
-		perspective:   perspective,
-		version:       state.Version,
+		perspective:   state.Transport.Perspective(),
+		version:       protocol.Version(state.Transport.Version),
 		has1RTTOpener: true,
 		has1RTTSealer: true,
 		peerParams:    peerParams,
-		conn:          handover.NewFakeTlsQuicConn(state.ALPN), // no longer important after handshake
+		conn:          handover.NewFakeTlsQuicConn(state.Transport.ChosenALPN), // no longer important after handshake
 	}
 
 	return cs, nil

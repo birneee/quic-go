@@ -2,51 +2,101 @@ package handover
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/gob"
 	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/klauspost/compress/zstd"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/qstate"
 	"github.com/stretchr/testify/require"
 	"github.com/tinylib/msgp/msgp"
 	"testing"
 )
 
-func nonDefaultState() State {
-	s := State{
-		ClientConnectionIDs: map[ConnectionIDSequenceNumber]*ConnectionIDWithResetToken{
-			0: {
-				ConnectionID:        []byte{1, 2, 3},
-				StatelessResetToken: []byte{4, 5, 6},
+func randomByteSlice(length int) []byte {
+	b := make([]byte, length)
+	rand.Read(b)
+	return b
+}
+
+func nonDefaultState() qstate.Connection {
+	s := qstate.Connection{
+		Transport: qstate.Transport{
+			Version:                   1,
+			KeyPhase:                  2,
+			ChosenALPN:                "proto1",
+			VantagePoint:              "client",
+			TlsCipher:                 "TLS_AES_128_GCM_SHA256",
+			HeaderProtectionKey:       randomByteSlice(16),
+			RemoteHeaderProtectionKey: randomByteSlice(16),
+			TrafficSecret:             randomByteSlice(32),
+			RemoteTrafficSecret:       randomByteSlice(32),
+			DestinationIP:             "127.0.0.1",
+			DestinationPort:           6000,
+			Parameters: qstate.Parameters{
+				ActiveConnectionIDLimit: 4,
 			},
-		},
-		Version:                   1,
-		ServerHeaderProtectionKey: []byte{1, 2, 3},
-		BidiStreams: map[protocol.StreamID]*BidiStreamState{
-			0: {
-				ServerDirectionMaxData: 10_000,
+			RemoteParameters: qstate.Parameters{
+				OriginalDestinationConnectionID: utils.New(randomByteSlice(20)),
 			},
+			MaxData:       100_000,
+			RemoteMaxData: 20_000,
+			//TODO complete
 		},
+		Metrics: qstate.Metrics{},
 	}
-	// append pending stream frames
+
+	// add connection IDs
+	for i := 0; i < 4; i++ {
+		s.Transport.ConnectionIDs = append(s.Transport.ConnectionIDs, qstate.ConnectionID{
+			SequenceNumber:      uint64(i),
+			ConnectionID:        randomByteSlice(4),
+			StatelessResetToken: (*[16]byte)(randomByteSlice(16)),
+		})
+	}
+
+	// add remote connection IDs
+	for i := 0; i < 4; i++ {
+		s.Transport.RemoteConnectionIDs = append(s.Transport.RemoteConnectionIDs, qstate.ConnectionID{
+			SequenceNumber:      uint64(i),
+			ConnectionID:        randomByteSlice(20),
+			StatelessResetToken: (*[16]byte)(randomByteSlice(16)),
+		})
+	}
+
+	// add streams
+	for i := 0; i < 3; i++ {
+		s.Transport.Streams = append(s.Transport.Streams, qstate.Stream{
+			StreamID:     int64(i * 4),
+			WriteMaxData: utils.New(int64(10_000)),
+		})
+	}
+
+	// add pending stream frames
 	for i := 0; i < 20; i++ {
-		s.ClientAckPending = append(s.ClientAckPending, PacketState{
+		s.Transport.PendingAcks = append(s.Transport.PendingAcks, qstate.Packet{
 			PacketNumber: int64(100 + i),
-			Frames: []Frame{
-				{Type: "stream", StreamID: 0, Offset: protocol.ByteCount(i * 1000), Length: 1000},
+			Frames: []qstate.Frame{
+				{
+					Type:     "stream",
+					StreamID: utils.New(int64(0)),
+					Offset:   utils.New(int64(i * 1000)),
+					Length:   utils.New(int64(1000)),
+				},
 			},
 		})
 	}
 	return s
 }
 
-func benchmarkBaseSerialize(b *testing.B, serialize func(State) ([]byte, error)) {
+func benchmarkBaseSerialize(b *testing.B, serialize func(*qstate.Connection) ([]byte, error)) {
 	s := nonDefaultState()
 	var buf []byte
 	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buf, err = serialize(s)
+		buf, err = serialize(&s)
 		if err != nil {
 			b.Error(err)
 		}
@@ -55,9 +105,9 @@ func benchmarkBaseSerialize(b *testing.B, serialize func(State) ([]byte, error))
 	b.ReportMetric(float64(len(buf)), "bytes")
 }
 
-func benchmarkBaseParse(b *testing.B, serialize func(State) ([]byte, error), parse func([]byte) (State, error)) {
+func benchmarkBaseParse(b *testing.B, serialize func(*qstate.Connection) ([]byte, error), parse func([]byte) (qstate.Connection, error)) {
 	s := nonDefaultState()
-	serialized, err := serialize(s)
+	serialized, err := serialize(&s)
 	if err != nil {
 		b.Error(err)
 	}
@@ -71,20 +121,25 @@ func benchmarkBaseParse(b *testing.B, serialize func(State) ([]byte, error), par
 }
 
 func BenchmarkJsonSerialize(b *testing.B) {
+	buf := make([]byte, 0, 100_000)
+	wr := bytes.NewBuffer(buf)
+	en := json.NewEncoder(wr)
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
-			return json.Marshal(s)
+		func(s *qstate.Connection) ([]byte, error) {
+			wr.Reset()
+			err := en.Encode(s)
+			return wr.Bytes(), err
 		},
 	)
 }
 
 func BenchmarkJsonParse(b *testing.B) {
+	s := qstate.Connection{}
 	benchmarkBaseParse(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			return json.Marshal(s)
 		},
-		func(buf []byte) (State, error) {
-			s := State{}
+		func(buf []byte) (qstate.Connection, error) {
 			err := json.Unmarshal(buf, &s)
 			return s, err
 		},
@@ -92,20 +147,25 @@ func BenchmarkJsonParse(b *testing.B) {
 }
 
 func BenchmarkJsoniterSerialize(b *testing.B) {
+	buf := make([]byte, 0, 100_000)
+	wr := bytes.NewBuffer(buf)
+	en := jsoniter.NewEncoder(wr)
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
-			return jsoniter.Marshal(s)
+		func(s *qstate.Connection) ([]byte, error) {
+			wr.Reset()
+			err := en.Encode(s)
+			return wr.Bytes(), err
 		},
 	)
 }
 
 func BenchmarkJsoniterParse(b *testing.B) {
+	s := qstate.Connection{}
 	benchmarkBaseParse(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			return jsoniter.Marshal(s)
 		},
-		func(buf []byte) (State, error) {
-			s := State{}
+		func(buf []byte) (qstate.Connection, error) {
 			err := jsoniter.Unmarshal(buf, &s)
 			return s, err
 		},
@@ -113,27 +173,29 @@ func BenchmarkJsoniterParse(b *testing.B) {
 }
 
 func BenchmarkGobSerialize(b *testing.B) {
+	buf := make([]byte, 0, 100_000)
+	wr := bytes.NewBuffer(buf)
+	en := gob.NewEncoder(wr)
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
-			buf := bytes.NewBuffer(nil)
-			encoder := gob.NewEncoder(buf)
-			err := encoder.Encode(s)
-			return buf.Bytes(), err
+		func(s *qstate.Connection) ([]byte, error) {
+			wr.Reset()
+			err := en.Encode(s)
+			return wr.Bytes(), err
 		},
 	)
 }
 
 func BenchmarkGobParse(b *testing.B) {
+	s := qstate.Connection{}
 	benchmarkBaseParse(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			buf := bytes.NewBuffer(nil)
 			encoder := gob.NewEncoder(buf)
 			err := encoder.Encode(s)
 			return buf.Bytes(), err
 		},
-		func(buf []byte) (State, error) {
+		func(buf []byte) (qstate.Connection, error) {
 			decoder := gob.NewDecoder(bytes.NewReader(buf))
-			s := State{}
 			err := decoder.Decode(&s)
 			return s, err
 		},
@@ -143,7 +205,7 @@ func BenchmarkGobParse(b *testing.B) {
 func BenchmarkMsgpSerialize(b *testing.B) {
 	buf := make([]byte, 0, 100_000)
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			buf, err := s.MarshalMsg(buf[:0])
 			return buf, err
 		},
@@ -151,13 +213,13 @@ func BenchmarkMsgpSerialize(b *testing.B) {
 }
 
 func BenchmarkMsgpParse(b *testing.B) {
+	s := qstate.Connection{}
 	benchmarkBaseParse(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			buf, err := s.MarshalMsg(nil)
 			return buf, err
 		},
-		func(buf []byte) (State, error) {
-			s := State{}
+		func(buf []byte) (qstate.Connection, error) {
 			_, err := s.UnmarshalMsg(buf)
 			return s, err
 		},
@@ -168,7 +230,7 @@ func BenchmarkMsgpJsonSerialize(b *testing.B) {
 	msgpBuf := make([]byte, 0, 100_000)
 	jsonBuf := bytes.NewBuffer(make([]byte, 0, 100_000))
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			msgpBuf, err := s.MarshalMsg(msgpBuf[:0])
 			jsonBuf.Reset()
 			_, err = msgp.UnmarshalAsJSON(jsonBuf, msgpBuf)
@@ -183,10 +245,71 @@ func BenchmarkMsgpZstdSerialize(b *testing.B) {
 	zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
 	require.NoError(b, err)
 	benchmarkBaseSerialize(b,
-		func(s State) ([]byte, error) {
+		func(s *qstate.Connection) ([]byte, error) {
 			msgpBuf, err = s.MarshalMsg(msgpBuf[:0])
 			zstdBuf = zstdWriter.EncodeAll(msgpBuf, zstdBuf[:0])
 			return zstdBuf, err
+		},
+	)
+}
+
+func BenchmarkMsgpZstdParse(b *testing.B) {
+	msgpBuf := make([]byte, 0, 100_000)
+	zstdReader, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	require.NoError(b, err)
+	s := qstate.Connection{}
+	benchmarkBaseParse(b,
+		func(s *qstate.Connection) ([]byte, error) {
+			zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+			require.NoError(b, err)
+			msgpBuf, err := s.MarshalMsg(nil)
+			zstdBuf := zstdWriter.EncodeAll(msgpBuf, nil)
+			return zstdBuf, err
+		},
+		func(b []byte) (qstate.Connection, error) {
+			msgpBuf, err = zstdReader.DecodeAll(b, msgpBuf[:0])
+			_, err = s.UnmarshalMsg(msgpBuf)
+			return s, err
+		},
+	)
+}
+
+func BenchmarkJsoniterZstdSerialize(b *testing.B) {
+	jsonBuf := bytes.NewBuffer(make([]byte, 0, 100_000))
+	jsonEncoder := jsoniter.NewEncoder(jsonBuf)
+	zstdBuf := make([]byte, 0, 100_000)
+	zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+	require.NoError(b, err)
+	benchmarkBaseSerialize(b,
+		func(s *qstate.Connection) ([]byte, error) {
+			jsonBuf.Reset()
+			err := jsonEncoder.Encode(s)
+			zstdBuf := zstdWriter.EncodeAll(jsonBuf.Bytes(), zstdBuf[:0])
+			return zstdBuf, err
+		},
+	)
+}
+
+func BenchmarkJsoniterZstdParse(b *testing.B) {
+	jsonEncodeBuf := bytes.NewBuffer(make([]byte, 0, 100_000))
+	jsonDecodeBuf := make([]byte, 0, 100_000)
+	jsonEncoder := jsoniter.NewEncoder(jsonEncodeBuf)
+	zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+	require.NoError(b, err)
+	zstdReader, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	require.NoError(b, err)
+	s := qstate.Connection{}
+	benchmarkBaseParse(b,
+		func(s *qstate.Connection) ([]byte, error) {
+			jsonEncodeBuf.Reset()
+			err := jsonEncoder.Encode(s)
+			zstdBuf := zstdWriter.EncodeAll(jsonEncodeBuf.Bytes(), nil)
+			return zstdBuf, err
+		},
+		func(zstdBuf []byte) (qstate.Connection, error) {
+			jsonDecodeBuf, err := zstdReader.DecodeAll(zstdBuf, jsonDecodeBuf[:0])
+			err = jsoniter.Unmarshal(jsonDecodeBuf, &s)
+			return s, err
 		},
 	)
 }

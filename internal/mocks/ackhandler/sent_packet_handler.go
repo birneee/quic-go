@@ -17,6 +17,7 @@ import (
 	congestion "github.com/quic-go/quic-go/internal/congestion"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
+	qstate "github.com/quic-go/quic-go/qstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -151,44 +152,6 @@ func (c *SentPacketHandlerGetLossDetectionTimeoutCall) Do(f func() time.Time) *S
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *SentPacketHandlerGetLossDetectionTimeoutCall) DoAndReturn(f func() time.Time) *SentPacketHandlerGetLossDetectionTimeoutCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Highest1RTTPacketNumber mocks base method.
-func (m *MockSentPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Highest1RTTPacketNumber")
-	ret0, _ := ret[0].(protocol.PacketNumber)
-	return ret0
-}
-
-// Highest1RTTPacketNumber indicates an expected call of Highest1RTTPacketNumber.
-func (mr *MockSentPacketHandlerMockRecorder) Highest1RTTPacketNumber() *SentPacketHandlerHighest1RTTPacketNumberCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockSentPacketHandler)(nil).Highest1RTTPacketNumber))
-	return &SentPacketHandlerHighest1RTTPacketNumberCall{Call: call}
-}
-
-// SentPacketHandlerHighest1RTTPacketNumberCall wrap *gomock.Call
-type SentPacketHandlerHighest1RTTPacketNumberCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerHighest1RTTPacketNumberCall) Return(arg0 protocol.PacketNumber) *SentPacketHandlerHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerHighest1RTTPacketNumberCall) Do(f func() protocol.PacketNumber) *SentPacketHandlerHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerHighest1RTTPacketNumberCall) DoAndReturn(f func() protocol.PacketNumber) *SentPacketHandlerHighest1RTTPacketNumberCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -678,7 +641,7 @@ func (c *SentPacketHandlerSetMaxDatagramSizeCall) DoAndReturn(f func(protocol.By
 }
 
 // StoreState mocks base method.
-func (m *MockSentPacketHandler) StoreState(arg0 handover.StateFromPerspective, arg1 *handover.ConnectionStateStoreConf) {
+func (m *MockSentPacketHandler) StoreState(arg0 *qstate.Connection, arg1 *handover.ConnectionStateStoreConf) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StoreState", arg0, arg1)
 }
@@ -702,13 +665,13 @@ func (c *SentPacketHandlerStoreStateCall) Return() *SentPacketHandlerStoreStateC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStoreStateCall) Do(f func(handover.StateFromPerspective, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) Do(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(handover.StateFromPerspective, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
+func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

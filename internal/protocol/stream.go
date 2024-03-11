@@ -1,11 +1,4 @@
-//go:generate msgp
 package protocol
-
-import (
-	"github.com/quic-go/quic-go/internal/indi_utils"
-	"github.com/tinylib/msgp/msgp"
-	"strconv"
-)
 
 // StreamType encodes if this is a unidirectional or bidirectional stream
 type StreamType uint8
@@ -80,21 +73,4 @@ func (s StreamID) Type() StreamType {
 // Example: for stream 9 it returns 3 (i.e. streams 1, 5 and 9)
 func (s StreamID) StreamNum() StreamNum {
 	return StreamNum(s/4) + 1
-}
-
-func (s *StreamID) MsgpStrMapKey() string {
-	return strconv.FormatInt(int64(*s), 10)
-}
-
-func (s *StreamID) MsgpFromStrMapKey(str string) msgp.NonStrMapKey {
-	i, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	*s = StreamID(i)
-	return s
-}
-
-func (s *StreamID) MsgpStrMapKeySize() int {
-	return indi_utils.Base10Digits(*s)
 }

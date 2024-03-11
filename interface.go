@@ -6,7 +6,9 @@ import (
 	"errors"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/congestion"
+	"github.com/quic-go/quic-go/internal/flowcontrol"
 	"github.com/quic-go/quic-go/internal/utils/sync"
+	"github.com/quic-go/quic-go/qstate"
 	"io"
 	"net"
 	"net/netip"
@@ -112,6 +114,7 @@ type ReceiveStream interface {
 
 // A SendStream is a unidirectional Send Stream.
 type SendStream interface {
+	flowcontrol.SendStream
 	// StreamID returns the stream ID.
 	StreamID() StreamID
 	// Write writes data to the stream.
@@ -395,7 +398,7 @@ type ProxyConfig struct {
 	// used for proxy control connection
 	TlsConf *tls.Config
 	// before sending the handover state to the H-QUIC proxy, this function can be used to modify the state
-	ModifyState func(state *handover.State)
+	ModifyState func(state *qstate.Connection)
 }
 
 func (c *ProxyConfig) Clone() *ProxyConfig {

@@ -2,16 +2,14 @@ package quic
 
 import (
 	"context"
-	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/qstate"
 	"net/netip"
 	"time"
 )
 
 // for connection restore from H-QUIC state
 type ConnectionRestoreConfig struct {
-	Perspective                    logging.Perspective
 	LocalAddr                      netip.Addr
 	Tracer                         func(context.Context, logging.Perspective, ConnectionID) *logging.ConnectionTracer
 	InitialCongestionWindow        uint32
@@ -23,17 +21,19 @@ type ConnectionRestoreConfig struct {
 	// DefaultRTT is set when state does not contain RTT
 	DefaultRTT     *time.Duration
 	MaxIdleTimeout time.Duration
+	// SendPing sends a ping frame immediately after restore, e.g., to trigger address migration
+	SendPing bool
 }
 
-func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *handover.State) (*Config, *handover.State) {
-	if state.RTT == nil && restoreConf.DefaultRTT != nil {
+func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *qstate.Connection) (*Config, *qstate.Connection) {
+	if state.Metrics.SmoothedRTT == nil && restoreConf.DefaultRTT != nil {
 		ms := restoreConf.DefaultRTT.Milliseconds()
-		state.RTT = &ms
+		state.Metrics.SmoothedRTT = &ms
 	}
 	if restoreConf == nil {
 		restoreConf = &ConnectionRestoreConfig{}
 	}
-	ownTransportParams := state.FromPerspective(restoreConf.Perspective).OwnTransportParameters()
+	ownTransportParams := state.Transport.Parameters
 	quicConf := &Config{
 		InitialCongestionWindow:        restoreConf.InitialCongestionWindow,
 		InitialConnectionReceiveWindow: restoreConf.InitialConnectionReceiveWindow,
@@ -46,14 +46,14 @@ func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *handover.Sta
 		MaxIdleTimeout:                 restoreConf.MaxIdleTimeout,
 	}
 	quicConf = populateConfig(quicConf)
-	quicConf.MaxStreamReceiveWindow = utils.MaxV(
+	quicConf.MaxStreamReceiveWindow = max(
 		quicConf.MaxStreamReceiveWindow,
 		uint64(*ownTransportParams.InitialMaxStreamDataBidiLocal),
 		uint64(*ownTransportParams.InitialMaxStreamDataBidiRemote),
 		uint64(*ownTransportParams.InitialMaxStreamDataUni),
 	)
 
-	quicConf.MaxConnectionReceiveWindow = utils.MaxV(
+	quicConf.MaxConnectionReceiveWindow = max(
 		quicConf.MaxConnectionReceiveWindow,
 		quicConf.MaxStreamReceiveWindow,
 	)

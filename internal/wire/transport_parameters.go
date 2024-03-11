@@ -320,24 +320,19 @@ func (p *TransportParameters) readNumericTransportParameter(
 
 // Marshal the transport parameters
 func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
-	return p.marshal(pers, true)
-}
-
-func (p *TransportParameters) marshal(pers protocol.Perspective, addGreasedValue bool) []byte {
 	// Typical Transport Parameters consume around 110 bytes, depending on the exact values,
 	// especially the lengths of the Connection IDs.
 	// Allocate 256 bytes, so we won't have to grow the slice in any case.
 	b := make([]byte, 0, 256)
 
-	if addGreasedValue {
-		// add a greased value
-		random := make([]byte, 18)
-		rand.Read(random)
-		b = quicvarint.Append(b, 27+31*uint64(random[0]))
-		length := random[1] % 16
-		b = quicvarint.Append(b, uint64(length))
-		b = append(b, random[2:2+length]...)
-	}
+	// add a greased value
+	random := make([]byte, 18)
+	rand.Read(random)
+	b = quicvarint.Append(b, 27+31*uint64(random[0]))
+	length := random[1] % 16
+	b = quicvarint.Append(b, uint64(length))
+	b = append(b, random[2:2+length]...)
+
 	// initial_max_stream_data_bidi_local
 	b = p.marshalVarintParam(b, initialMaxStreamDataBidiLocalParameterID, uint64(p.InitialMaxStreamDataBidiLocal))
 	// initial_max_stream_data_bidi_remote
@@ -458,8 +453,7 @@ func (p *TransportParameters) MarshalForSessionTicket(b []byte) []byte {
 		b = p.marshalVarintParam(b, maxDatagramFrameSizeParameterID, uint64(p.MaxDatagramFrameSize))
 	}
 	// active_connection_id_limit
-	b = p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
-	return b
+	return p.marshalVarintParam(b, activeConnectionIDLimitParameterID, p.ActiveConnectionIDLimit)
 }
 
 // UnmarshalFromSessionTicket unmarshals transport parameters from a session ticket.
@@ -523,8 +517,4 @@ func (p *TransportParameters) String() string {
 	}
 	logString += "}"
 	return fmt.Sprintf(logString, logParams...)
-}
-
-func (p *TransportParameters) MarshalForHandover(pers protocol.Perspective) []byte {
-	return p.marshal(pers, false)
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/testdata"
+	"github.com/quic-go/quic-go/qstate"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net"
@@ -26,7 +26,7 @@ func clientAndServer(t require.TestingT) (transport *Transport, newClient func()
 				NextProtos:         []string{"test"},
 				InsecureSkipVerify: true,
 			}, &Config{
-				MaxIdleTimeout: 100 * time.Millisecond,
+				MaxIdleTimeout: 10 * time.Second,
 			})
 	}
 	serverAccept = func() (Connection, error) {
@@ -62,7 +62,7 @@ func runClient(b *testing.B, newClient func() (Connection, error), clientCtxCanc
 	clientCtxCancel()
 }
 
-func BenchmarkHandover(b *testing.B) {
+func BenchmarkHandoverContinuousStream(b *testing.B) {
 	transport, newClient, serverAccept := clientAndServer(b)
 	clientCtx, clientCtxCancel := context.WithCancel(context.Background())
 	_, serverCtxCancel := context.WithCancel(context.Background())
@@ -79,13 +79,12 @@ func BenchmarkHandover(b *testing.B) {
 	for n := 1; n <= b.N; n++ {
 		resp := server.Handover(true, &handover.ConnectionStateStoreConf{IncludePendingOutgoingFrames: true})
 		require.NoError(b, resp.Error)
-		serializedState, err := resp.State.SerializeMsgp()
+		serializedState, err := resp.State.MarshalMsg(nil)
 		require.NoError(b, err)
-		state, err := (&handover.State{}).ParseMsgp(serializedState)
+		state := qstate.Connection{}
+		_, err = state.UnmarshalMsg(serializedState)
 		require.NoError(b, err)
-		newServer, streams, err := Restore(transport, state, &ConnectionRestoreConfig{
-			Perspective: protocol.PerspectiveServer,
-		})
+		newServer, streams, err := Restore(transport, &state, &ConnectionRestoreConfig{})
 		server = newServer
 		require.NoError(b, err)
 		require.Equal(b, 1, len(streams.BidiStreams))
@@ -95,7 +94,48 @@ func BenchmarkHandover(b *testing.B) {
 	stream.Close()
 	select {
 	case <-clientCtx.Done():
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
+		require.Fail(b, "timeout")
+	}
+	b.StopTimer()
+	serverCtxCancel()
+	err = transport.Close()
+	require.NoError(b, err)
+}
+
+func BenchmarkHandoverFinOnly(b *testing.B) {
+	transport, newClient, serverAccept := clientAndServer(b)
+	clientCtx, clientCtxCancel := context.WithCancel(context.Background())
+	_, serverCtxCancel := context.WithCancel(context.Background())
+
+	go runClient(b, newClient, clientCtxCancel, 1)
+
+	server, err := serverAccept()
+	require.NoError(b, err)
+	stream, err := server.AcceptStream(context.Background())
+	require.NoError(b, err)
+	stream.Write([]byte{0})
+
+	b.ResetTimer()
+	for n := 1; n <= b.N; n++ {
+		resp := server.Handover(true, &handover.ConnectionStateStoreConf{IncludePendingOutgoingFrames: true})
+		require.NoError(b, resp.Error)
+		serializedState, err := resp.State.MarshalMsg(nil)
+		require.NoError(b, err)
+		state := qstate.Connection{}
+		_, err = state.UnmarshalMsg(serializedState)
+		require.NoError(b, err)
+		newServer, streams, err := Restore(transport, &state, &ConnectionRestoreConfig{})
+		server = newServer
+		require.NoError(b, err)
+		require.Equal(b, 1, len(streams.BidiStreams))
+		stream = streams.BidiStreams[0]
+		require.NotNil(b, stream)
+	}
+	stream.Close()
+	select {
+	case <-clientCtx.Done():
+	case <-time.After(10 * time.Second):
 		require.Fail(b, "timeout")
 	}
 	b.StopTimer()

@@ -3,8 +3,7 @@ package quic
 import (
 	"context"
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/qstate"
 	"sync"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -208,12 +207,12 @@ func (m *incomingStreamsMap[T]) GetStream(num protocol.StreamNum) (T, error) {
 	return entry.stream, nil
 }
 
-func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.StreamNum, state *handover.BidiStreamState, perspective logging.Perspective) (streamI, error) {
+func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.StreamNum, state *qstate.Stream) (streamI, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeBidi, perspective))
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.StreamID)
 	}
 	var stream = m.newStream(num)
 	m.streams[num] = incomingStreamEntry[streamI]{stream: stream}
@@ -221,17 +220,17 @@ func RestoreIncomingBidiStream(m *incomingStreamsMap[streamI], num protocol.Stre
 	case m.newStreamChan <- struct{}{}:
 	default:
 	}
-	stream.restoreReceiveState(state, perspective)
-	stream.(sendStreamI).restoreSendState(state, perspective)
+	stream.restoreReceiveState(state)
+	stream.(sendStreamI).restoreSendState(state)
 	return stream, nil
 }
 
-func RestoreIncomingUniStream(m *incomingStreamsMap[receiveStreamI], num protocol.StreamNum, state *handover.UniStreamState, perspective protocol.Perspective) (receiveStreamI, error) {
+func RestoreIncomingUniStream(m *incomingStreamsMap[receiveStreamI], num protocol.StreamNum, state *qstate.Stream) (receiveStreamI, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.streams[num]
 	if ok {
-		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", num.StreamID(protocol.StreamTypeUni, perspective))
+		return nil, fmt.Errorf("failed to restore stream: stream %d already exists", state.StreamID)
 	}
 	m.streams[num] = incomingStreamEntry[receiveStreamI]{stream: m.newStream(num)}
 	select {
@@ -239,6 +238,6 @@ func RestoreIncomingUniStream(m *incomingStreamsMap[receiveStreamI], num protoco
 	default:
 	}
 	stream := m.streams[num].stream
-	stream.restoreReceiveState(state, perspective)
+	stream.restoreReceiveState(state)
 	return stream, nil
 }

@@ -1,10 +1,11 @@
 package ackhandler
 
 import (
-	"bytes"
-	"github.com/quic-go/quic-go/handover"
+	"fmt"
+	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/internal/wire"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/quic-go/quic-go/qstate"
+	"reflect"
 	"sync"
 	"time"
 
@@ -58,39 +59,36 @@ func putPacket(p *packet) {
 	packetPool.Put(p)
 }
 
-func (p *packet) PacketState() handover.PacketState {
-	ps := handover.PacketState{
+func (p *packet) PacketState() qstate.Packet {
+	ps := qstate.Packet{
 		PacketNumber: int64(p.PacketNumber),
 	}
 	for _, frame := range p.Frames {
 		switch f := frame.Frame.(type) {
 		case *wire.HandshakeDoneFrame:
-			ps.Frames = append(ps.Frames, handover.Frame{Type: "handshake_done"})
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "handshake_done"})
 		case *wire.NewTokenFrame:
-			ps.Frames = append(ps.Frames, handover.Frame{Type: "new_token", Token: f.Token})
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "new_token", Token: f.Token})
 		case *wire.CryptoFrame:
-			ps.Frames = append(ps.Frames, handover.Frame{Type: "crypto", Offset: f.Offset, Data: f.Data})
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "crypto", Offset: utils.New(int64(f.Offset)), Data: f.Data})
 		case *wire.PingFrame:
-			ps.Frames = append(ps.Frames, handover.Frame{Type: "ping"})
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "ping"})
+		case *wire.RetireConnectionIDFrame:
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "retire_connection_id", SequenceNumber: utils.New(f.SequenceNumber)})
+		case *wire.NewConnectionIDFrame:
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "new_connection_id", SequenceNumber: utils.New(f.SequenceNumber)}) // the connection_id, stateless_reset_token, retire_prior_to is already part of the transport state
+		case *wire.MaxDataFrame:
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "max_data"})
+		case *wire.MaxStreamDataFrame:
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "max_stream_data", StreamID: utils.New(int64(f.StreamID))})
+		case *wire.StreamDataBlockedFrame:
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "stream_data_blocked", StreamID: utils.New(int64(f.StreamID))}) // max_stream_data is already part of the stream state
 		default:
-			panic("unexpected frame")
+			panic(fmt.Sprintf("unexpected frame type: %s", reflect.ValueOf(frame.Frame).Type().String()))
 		}
 	}
 	for _, f := range p.StreamFrames {
-		ps.Frames = append(ps.Frames, handover.Frame{Type: "stream", StreamID: f.Frame.StreamID, Offset: f.Frame.Offset, Length: f.Frame.DataLen()})
+		ps.Frames = append(ps.Frames, qstate.Frame{Type: "stream", StreamID: utils.New(int64(f.Frame.StreamID)), Offset: utils.New(int64(f.Frame.Offset)), Length: utils.New(int64(f.Frame.DataLen()))})
 	}
 	return ps
-}
-
-func TypeOfFrame(f wire.Frame) uint64 {
-	buf := make([]byte, 0, 2000)
-	buf2, err := f.Append(buf, protocol.Version2) //TODO use actual version
-	if err != nil {
-		panic(err)
-	}
-	typ, err := quicvarint.Read(bytes.NewReader(buf2))
-	if err != nil {
-		panic(err)
-	}
-	return typ
 }

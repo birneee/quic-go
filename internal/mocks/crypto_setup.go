@@ -11,9 +11,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	handover "github.com/quic-go/quic-go/handover"
 	handshake "github.com/quic-go/quic-go/internal/handshake"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
+	qstate "github.com/quic-go/quic-go/qstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -728,15 +728,15 @@ func (c *CryptoSetupStartHandshakeCall) DoAndReturn(f func() error) *CryptoSetup
 }
 
 // StoreHandoverState mocks base method.
-func (m *MockCryptoSetup) StoreHandoverState(arg0 *handover.State, arg1 protocol.Perspective) {
+func (m *MockCryptoSetup) StoreHandoverState(arg0 *qstate.Connection) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreHandoverState", arg0, arg1)
+	m.ctrl.Call(m, "StoreHandoverState", arg0)
 }
 
 // StoreHandoverState indicates an expected call of StoreHandoverState.
-func (mr *MockCryptoSetupMockRecorder) StoreHandoverState(arg0, arg1 any) *CryptoSetupStoreHandoverStateCall {
+func (mr *MockCryptoSetupMockRecorder) StoreHandoverState(arg0 any) *CryptoSetupStoreHandoverStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreHandoverState", reflect.TypeOf((*MockCryptoSetup)(nil).StoreHandoverState), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreHandoverState", reflect.TypeOf((*MockCryptoSetup)(nil).StoreHandoverState), arg0)
 	return &CryptoSetupStoreHandoverStateCall{Call: call}
 }
 
@@ -752,13 +752,13 @@ func (c *CryptoSetupStoreHandoverStateCall) Return() *CryptoSetupStoreHandoverSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *CryptoSetupStoreHandoverStateCall) Do(f func(*handover.State, protocol.Perspective)) *CryptoSetupStoreHandoverStateCall {
+func (c *CryptoSetupStoreHandoverStateCall) Do(f func(*qstate.Connection)) *CryptoSetupStoreHandoverStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *CryptoSetupStoreHandoverStateCall) DoAndReturn(f func(*handover.State, protocol.Perspective)) *CryptoSetupStoreHandoverStateCall {
+func (c *CryptoSetupStoreHandoverStateCall) DoAndReturn(f func(*qstate.Connection)) *CryptoSetupStoreHandoverStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

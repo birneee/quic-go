@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"golang.org/x/exp/constraints"
 	"math"
 	"time"
 )
@@ -34,17 +33,4 @@ func MaxTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
-}
-
-// MaxV is a variadic version of Max
-// returns the maximum
-// panic if no arguments
-func MaxV[T constraints.Ordered](nums ...T) T {
-	max := nums[0]
-	for _, num := range nums[1:] {
-		if num > max {
-			max = num
-		}
-	}
-	return max
 }

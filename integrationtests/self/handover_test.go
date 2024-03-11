@@ -12,8 +12,9 @@ import (
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/qlog"
+	"github.com/quic-go/quic-go/qstate"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net"
@@ -40,7 +41,7 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	MaxIdleTimeout := 100 * time.Millisecond
 	server1AddrChan := make(chan net.Addr, 1)
 	server2AddrChan := make(chan net.Addr, 1)
-	serverStateChan := make(chan handover.State, 1)
+	serverStateChan := make(chan qstate.Connection, 1)
 	server1Ctx, server1CtxCancel := context.WithCancelCause(context.Background())
 	server2Ctx, server2CtxCancel := context.WithCancelCause(context.Background())
 	clientTlsConf, serverTlsConf := tlsConf()
@@ -75,8 +76,8 @@ func TestServerToServerHandoverMidStream(t *testing.T) {
 	go func() { // server 2
 		defer GinkgoRecover()
 		serverState := <-serverStateChan
+		require.Equal(t, "server", serverState.Transport.VantagePoint)
 		conn, restoredStreams, err := quic.Restore(nil, &serverState, &quic.ConnectionRestoreConfig{
-			Perspective:    logging.PerspectiveServer,
 			MaxIdleTimeout: MaxIdleTimeout,
 		})
 		bidiStreams := restoredStreams.BidiStreams
@@ -152,7 +153,7 @@ var _ = Describe("Handover", func() {
 		MaxIdleTimeout := 100 * time.Millisecond
 		server1AddrChan := make(chan net.Addr, 1)
 		server2AddrChan := make(chan net.Addr, 1)
-		serverStateChan := make(chan handover.State, 1)
+		serverStateChan := make(chan qstate.Connection, 1)
 		server2DoneChan := make(chan struct{})
 
 		go func() { // server 1
@@ -177,8 +178,8 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
+			Expect(serverState.Transport.VantagePoint).To(Equal("server"))
 			conn, _, err := quic.Restore(nil, &serverState, &quic.ConnectionRestoreConfig{
-				Perspective:    logging.PerspectiveServer,
 				MaxIdleTimeout: MaxIdleTimeout,
 				Tracer:         qlog.DefaultTracerWithLabel("restored_server"),
 			})
@@ -238,9 +239,8 @@ var _ = Describe("Handover", func() {
 		handoverState := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
-		migratedClientSession, _, err := quic.Restore(nil, &handoverState, &quic.ConnectionRestoreConfig{
-			Perspective: protocol.PerspectiveClient,
-		})
+		Expect(handoverState.Transport.VantagePoint).To(Equal("client"))
+		migratedClientSession, _, err := quic.Restore(nil, &handoverState, &quic.ConnectionRestoreConfig{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// transfer
@@ -282,8 +282,12 @@ var _ = Describe("Handover", func() {
 		restoredServerAddrChan := make(chan net.Addr, 1)
 		go func() {
 			defer GinkgoRecover()
+			handoverState = handoverState.ChangeVantagePoint(
+				clientConn.LocalAddr().(*net.UDPAddr).IP.String(),
+				uint16(clientConn.LocalAddr().(*net.UDPAddr).Port),
+			)
+			Expect(handoverState.Transport.VantagePoint).To(Equal("server"))
 			restoredServerConn, _, err := quic.Restore(nil, &handoverState, &quic.ConnectionRestoreConfig{
-				Perspective:    logging.PerspectiveServer,
 				MaxIdleTimeout: idleTimeout,
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -340,38 +344,28 @@ var _ = Describe("Handover", func() {
 		clientState1 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
+		Expect(clientState1.Transport.VantagePoint).To(Equal("client"))
 		clientConn2, _, err := quic.Restore(nil, &clientState1, &quic.ConnectionRestoreConfig{
-			Perspective:    logging.PerspectiveClient,
 			MaxIdleTimeout: protocol.MinRemoteIdleTimeout,
 			Tracer:         qlog.DefaultTracerWithLabel("restored_client"),
+			DefaultRTT:     utils.New(time.Second),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		res = clientConn2.Handover(true, &handover.ConnectionStateStoreConf{})
 		clientState2 := res.State
 		err = res.Error
 		Expect(err).ToNot(HaveOccurred())
+		Expect(clientState2.Transport.VantagePoint).To(Equal("client"))
 		clientConn3, _, err := quic.Restore(nil, &clientState2, &quic.ConnectionRestoreConfig{
-			Perspective:    logging.PerspectiveClient,
 			MaxIdleTimeout: protocol.MinRemoteIdleTimeout,
 			Tracer:         qlog.DefaultTracerWithLabel("restored_client_2"),
+			DefaultRTT:     utils.New(time.Second),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		defer clientConn3.Destroy()
 		// compare handover states
-		clientState1.ClientAddress = ""                               // ignore changed client address
-		clientState2.ClientAddress = ""                               // ignore changed client address
-		clientState1.ClientConnectionIDs[0].StatelessResetToken = nil // TODO check statelessResetEnabled before comparing
-		clientState2.ClientConnectionIDs[0].StatelessResetToken = nil // TODO check statelessResetEnabled before comparing
-		clientState1.ClientHighestSentPacketNumber = 0                // ignore
-		clientState1.ServerHighestSentPacketNumber = 0                // ignore
-		clientState2.ClientHighestSentPacketNumber = 0                // ignore
-		clientState2.ServerHighestSentPacketNumber = 0                // ignore
-		clientState1.ClientAckPending = nil                           //TODO
-		clientState1.ServerAckPending = nil                           //TODO
-		clientState2.ClientAckPending = nil                           //TODO
-		clientState2.ServerAckPending = nil                           //TODO
-		clientState1.ServerReceivedRanges = nil                       //TODO
-		clientState2.ServerReceivedRanges = nil                       //TODO
+		clientState1.Transport.ConnectionIDs[0].StatelessResetToken = nil // clients are not configured to send stateless resets
+		clientState2.Transport.ConnectionIDs[0].StatelessResetToken = nil // clients are not configured to send stateless resets
 		Expect(clientState1).To(BeEquivalentTo(clientState2))
 		// transmit
 		err = openAndSend(clientConn3, message1, true)

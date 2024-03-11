@@ -3,7 +3,7 @@ package flowcontrol
 import (
 	"errors"
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -112,17 +112,24 @@ func (c *connectionFlowController) Reset() error {
 	return nil
 }
 
-func (c *connectionFlowController) StoreState(state handover.StateFromPerspective) {
-	state.SetIncomingMaxData(c.receiveWindow)
-	state.SetOutgoingMaxData(c.sendWindow)
-	state.SetBytesRead(c.bytesRead)
-	state.SetBytesSent(c.bytesSent)
+func (c *connectionFlowController) StoreState(state *qstate.Connection, sendStreams []SendStream) {
+	state.Transport.MaxData = int64(c.receiveWindow)
+	state.Transport.RemoteMaxData = int64(c.sendWindow)
+	state.Transport.ReceivedData = int64(c.bytesRead)
+	state.Transport.SentData = int64(c.bytesSent)
+	for _, sendStream := range sendStreams {
+		streamFrame := sendStream.NextFrame()
+		if streamFrame == nil {
+			continue
+		}
+		state.Transport.SentData += int64(streamFrame.DataLen())
+	}
 }
 
-func (c *connectionFlowController) RestoreState(state handover.StateFromPerspective) {
-	c.receiveWindow = state.IncomingMaxData()
-	c.bytesRead = state.BytesRead()
-	c.sendWindow = state.OutgoingMaxData()
-	c.bytesSent = state.BytesSent()
+func (c *connectionFlowController) RestoreState(state *qstate.Connection) {
+	c.receiveWindow = protocol.ByteCount(state.Transport.MaxData)
+	c.bytesRead = protocol.ByteCount(state.Transport.ReceivedData)
+	c.sendWindow = protocol.ByteCount(state.Transport.RemoteMaxData)
+	c.bytesSent = protocol.ByteCount(state.Transport.SentData)
 	c.queueWindowUpdate()
 }

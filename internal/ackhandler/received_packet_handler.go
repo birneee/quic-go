@@ -2,7 +2,7 @@ package ackhandler
 
 import (
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -125,20 +125,14 @@ func (h *receivedPacketHandler) IsPotentiallyDuplicate(pn protocol.PacketNumber,
 	panic("unexpected encryption level")
 }
 
-func (h *receivedPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
-	if h.lowest1RTTPacket == protocol.InvalidPacketNumber {
-		return protocol.InvalidPacketNumber
-	}
-	return h.appDataPackets.largestObserved
+func (h *receivedPacketHandler) Store(s *qstate.Connection) {
+	s.Transport.AckRanges = h.appDataPackets.packetHistory.QStateRanges()
+	s.Transport.HighestObservedPacketNumber = int64(h.appDataPackets.largestObserved) // higher packet numbers might be in flight
 }
 
-func (h *receivedPacketHandler) Store(s handover.StateFromPerspective) {
-	ranges := h.appDataPackets.packetHistory.AppendAckRanges(nil)
-	s.SetReceivedRanges(wire.AckRangesTo2DList(ranges))
-}
-
-func restoreReceivedPacketHandler(s handover.StateFromPerspective, spt sentPacketTracker, logger utils.Logger) ReceivedPacketHandler {
+func restoreReceivedPacketHandler(s *qstate.Connection, spt sentPacketTracker, logger utils.Logger) ReceivedPacketHandler {
 	rph := newReceivedPacketHandler(spt, logger).(*receivedPacketHandler)
-	rph.appDataPackets.packetHistory.SetRanges(s.ReceivedRanges())
+	rph.appDataPackets.packetHistory.SetRanges(s.Transport.AckRanges)
+	rph.appDataPackets.largestObserved = protocol.PacketNumber(s.Transport.HighestObservedPacketNumber)
 	return rph
 }

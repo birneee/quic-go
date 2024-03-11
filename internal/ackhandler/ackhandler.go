@@ -5,6 +5,7 @@ import (
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/qstate"
 )
 
 // NewAckHandler creates a new SentPacketHandler and a new ReceivedPacketHandler.
@@ -24,15 +25,13 @@ func NewAckHandler(
 	return sph, newReceivedPacketHandler(sph, logger)
 }
 
-func StoreAckHandler(state handover.StateFromPerspective, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
-	state.SetHighestSentPacketNumber(sph.Highest1RTTPacketNumber())
-	state.SetHighestReceivedPacketNumber(rph.Highest1RTTPacketNumber()) // higher packet numbers might be in flight
+func StoreAckHandler(state *qstate.Connection, config *handover.ConnectionStateStoreConf, sph SentPacketHandler, rph ReceivedPacketHandler) {
 	sph.StoreState(state, config)
 	rph.Store(state)
 }
 
 func RestoreAckHandler(
-	state handover.StateFromPerspective,
+	state *qstate.Connection,
 	initialMaxDatagramSize protocol.ByteCount,
 	rttStats *utils.RTTStats,
 	enableECN bool,

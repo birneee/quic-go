@@ -2,8 +2,8 @@ package ackhandler
 
 import (
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/qstate"
 )
 
 type sentPacketHistory struct {
@@ -192,8 +192,8 @@ func (h *sentPacketHistory) Ranges() [][2]int64 {
 	return ranges
 }
 
-func (h *sentPacketHistory) PacketState() []handover.PacketState {
-	packetStates := make([]handover.PacketState, 0)
+func (h *sentPacketHistory) PacketState() []qstate.Packet {
+	packetStates := make([]qstate.Packet, 0)
 	for _, packet := range h.packets {
 		if packet == nil {
 			continue

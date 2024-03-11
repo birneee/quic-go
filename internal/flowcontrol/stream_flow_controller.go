@@ -2,7 +2,7 @@ package flowcontrol
 
 import (
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/qerr"
@@ -149,21 +149,21 @@ func (c *streamFlowController) GetWindowUpdate() protocol.ByteCount {
 	return offset
 }
 
-func (c *streamFlowController) StoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
-	state.SetOutgoingMaxData(perspective, c.sendWindow)
+func (c *streamFlowController) StoreSendState(state *qstate.Stream) {
+	state.WriteMaxData = utils.New(int64(c.sendWindow))
 }
 
-func (c *streamFlowController) RestoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
-	c.sendWindow = state.OutgoingMaxData(perspective)
-	c.bytesSent = state.OutgoingOffset(perspective)
+func (c *streamFlowController) RestoreSendState(state *qstate.Stream) {
+	c.sendWindow = protocol.ByteCount(*state.WriteMaxData)
+	c.bytesSent = protocol.ByteCount(*state.WriteOffset)
 }
 
-func (c *streamFlowController) StoreReceiveState(state handover.ReceiveStreamStateFromPerspective) {
-	state.SetIncomingMaxData(c.receiveWindow)
+func (c *streamFlowController) StoreReceiveState(state *qstate.Stream) {
+	state.ReadMaxData = utils.New(int64(c.receiveWindow))
 }
 
-func (c *streamFlowController) RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
-	c.receiveWindow = state.IncomingMaxData(perspective)
-	c.bytesRead = state.IncomingOffset(perspective)
+func (c *streamFlowController) RestoreReceiveState(state *qstate.Stream) {
+	c.receiveWindow = protocol.ByteCount(*state.ReadMaxData)
+	c.bytesRead = protocol.ByteCount(*state.ReadOffset)
 	c.queueWindowUpdate()
 }

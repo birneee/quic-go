@@ -91,15 +91,3 @@ func (o *longHeaderOpener) Open(dst, src []byte, pn protocol.PacketNumber, ad []
 func (o *longHeaderOpener) DecryptHeader(sample []byte, firstByte *byte, pnBytes []byte) {
 	o.headerProtector.DecryptHeader(sample, firstByte, pnBytes)
 }
-
-func createAEADNoAlloc(suite *cipherSuite, trafficSecret []byte, v protocol.Version, key []byte, iv []byte, tmp []byte) cipher.AEAD {
-	keyLabel := hkdfLabelKeyV1
-	ivLabel := hkdfLabelIVV1
-	if v == protocol.Version2 {
-		keyLabel = hkdfLabelKeyV2
-		ivLabel = hkdfLabelIVV2
-	}
-	hkdfExpandLabelNoAlloc(suite.Hash, trafficSecret, []byte{}, keyLabel, key, tmp)
-	hkdfExpandLabelNoAlloc(suite.Hash, trafficSecret, []byte{}, ivLabel, iv, tmp)
-	return suite.AEAD(key, iv)
-}

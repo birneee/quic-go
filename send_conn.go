@@ -32,7 +32,6 @@ type sconn struct {
 	// Used to catch the error sometimes returned by the first sendmsg call on Linux,
 	// see https://github.com/golang/go/issues/63322.
 	wroteFirstPacket bool
-	smaqRestored     bool
 }
 
 var _ sendConn = &sconn{}
@@ -110,10 +109,4 @@ func (c *sconn) SetCurrentRemoteAddr(addr net.Addr) {
 	if len(c.packetInfoOOB) != 0 {
 		resetPacketInfoEthernetInterfaceIndexSocketOption(c.packetInfoOOB)
 	}
-}
-
-func restoreSendConn(c rawConn, remote net.Addr, logger utils.Logger) *sconn {
-	sc := newSendConn(c, remote, packetInfo{}, logger)
-	sc.smaqRestored = true
-	return sc
 }

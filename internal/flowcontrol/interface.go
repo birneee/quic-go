@@ -1,8 +1,9 @@
 package flowcontrol
 
 import (
-	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/qstate"
 )
 
 type flowController interface {
@@ -26,18 +27,18 @@ type StreamFlowController interface {
 	// Abandon is called when reading from the stream is aborted early,
 	// and there won't be any further calls to AddBytesRead.
 	Abandon()
-	StoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
-	RestoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
-	StoreReceiveState(state handover.ReceiveStreamStateFromPerspective)
-	RestoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
+	StoreSendState(state *qstate.Stream)
+	RestoreSendState(state *qstate.Stream)
+	StoreReceiveState(state *qstate.Stream)
+	RestoreReceiveState(state *qstate.Stream)
 }
 
 // The ConnectionFlowController is the flow controller for the connection.
 type ConnectionFlowController interface {
 	flowController
 	Reset() error
-	StoreState(state handover.StateFromPerspective)
-	RestoreState(state handover.StateFromPerspective)
+	StoreState(state *qstate.Connection, sendStreams []SendStream)
+	RestoreState(state *qstate.Connection)
 }
 
 type connectionFlowControllerI interface {
@@ -47,4 +48,9 @@ type connectionFlowControllerI interface {
 	EnsureMinimumWindowSize(protocol.ByteCount)
 	// for receiving
 	IncrementHighestReceived(protocol.ByteCount) error
+}
+
+type SendStream interface {
+	// NextFrame might return nil
+	NextFrame() *wire.StreamFrame
 }

@@ -159,3 +159,11 @@ func (h *receivedPacketHistory) SetRanges(ranges [][2]int64) {
 		})
 	}
 }
+
+func (h *receivedPacketHistory) QStateRanges() [][2]int64 {
+	ranges := make([][2]int64, 0, h.ranges.Len())
+	for el := h.ranges.Front(); el != nil; el = el.Next() {
+		ranges = append(ranges, [2]int64{int64(el.Value.Start), int64(el.Value.End)})
+	}
+	return ranges
+}

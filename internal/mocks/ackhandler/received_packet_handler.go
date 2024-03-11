@@ -12,9 +12,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	handover "github.com/quic-go/quic-go/handover"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	wire "github.com/quic-go/quic-go/internal/wire"
+	qstate "github.com/quic-go/quic-go/qstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -153,44 +153,6 @@ func (c *ReceivedPacketHandlerGetAlarmTimeoutCall) DoAndReturn(f func() time.Tim
 	return c
 }
 
-// Highest1RTTPacketNumber mocks base method.
-func (m *MockReceivedPacketHandler) Highest1RTTPacketNumber() protocol.PacketNumber {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Highest1RTTPacketNumber")
-	ret0, _ := ret[0].(protocol.PacketNumber)
-	return ret0
-}
-
-// Highest1RTTPacketNumber indicates an expected call of Highest1RTTPacketNumber.
-func (mr *MockReceivedPacketHandlerMockRecorder) Highest1RTTPacketNumber() *ReceivedPacketHandlerHighest1RTTPacketNumberCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Highest1RTTPacketNumber", reflect.TypeOf((*MockReceivedPacketHandler)(nil).Highest1RTTPacketNumber))
-	return &ReceivedPacketHandlerHighest1RTTPacketNumberCall{Call: call}
-}
-
-// ReceivedPacketHandlerHighest1RTTPacketNumberCall wrap *gomock.Call
-type ReceivedPacketHandlerHighest1RTTPacketNumberCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *ReceivedPacketHandlerHighest1RTTPacketNumberCall) Return(arg0 protocol.PacketNumber) *ReceivedPacketHandlerHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *ReceivedPacketHandlerHighest1RTTPacketNumberCall) Do(f func() protocol.PacketNumber) *ReceivedPacketHandlerHighest1RTTPacketNumberCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ReceivedPacketHandlerHighest1RTTPacketNumberCall) DoAndReturn(f func() protocol.PacketNumber) *ReceivedPacketHandlerHighest1RTTPacketNumberCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsPotentiallyDuplicate mocks base method.
 func (m *MockReceivedPacketHandler) IsPotentiallyDuplicate(arg0 protocol.PacketNumber, arg1 protocol.EncryptionLevel) bool {
 	m.ctrl.T.Helper()
@@ -268,7 +230,7 @@ func (c *ReceivedPacketHandlerReceivedPacketCall) DoAndReturn(f func(protocol.Pa
 }
 
 // Store mocks base method.
-func (m *MockReceivedPacketHandler) Store(arg0 handover.StateFromPerspective) {
+func (m *MockReceivedPacketHandler) Store(arg0 *qstate.Connection) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Store", arg0)
 }
@@ -292,13 +254,13 @@ func (c *ReceivedPacketHandlerStoreCall) Return() *ReceivedPacketHandlerStoreCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ReceivedPacketHandlerStoreCall) Do(f func(handover.StateFromPerspective)) *ReceivedPacketHandlerStoreCall {
+func (c *ReceivedPacketHandlerStoreCall) Do(f func(*qstate.Connection)) *ReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ReceivedPacketHandlerStoreCall) DoAndReturn(f func(handover.StateFromPerspective)) *ReceivedPacketHandlerStoreCall {
+func (c *ReceivedPacketHandlerStoreCall) DoAndReturn(f func(*qstate.Connection)) *ReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

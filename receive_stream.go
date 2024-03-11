@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"io"
 	"reflect"
 	"sync"
@@ -23,8 +24,8 @@ type receiveStreamI interface {
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
-	storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf)
-	restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective)
+	storeReceiveState(state *qstate.Stream, config *handover.ConnectionStateStoreConf)
+	restoreReceiveState(state *qstate.Stream)
 }
 
 type receiveStream struct {
@@ -342,54 +343,64 @@ func (s *receiveStream) readOffset() protocol.ByteCount {
 	}
 }
 
-func (s *receiveStream) pendingReceivedFrames() map[protocol.ByteCount][]byte {
-	data := make(map[protocol.ByteCount][]byte)
+func (s *receiveStream) pendingReceivedFrames() []qstate.StreamRange {
+	ranges := make([]qstate.StreamRange, 0)
 	s.mutex.Lock()
 	for offset, frame := range s.frameQueue.queue {
-		data[offset] = frame.Data
+		ranges = append(ranges, qstate.StreamRange{
+			Offset: int64(offset),
+			Data:   frame.Data,
+		})
 	}
 	s.mutex.Unlock()
 	//add remaining part of current frame
 	remainingLength := len(s.currentFrame) - s.readPosInFrame
 	if remainingLength > 0 {
 		buf := make([]byte, remainingLength)
-		data[s.frameQueue.readPos-protocol.ByteCount(s.readPosInFrame)] = buf
 		copy(buf, s.currentFrame[s.readPosInFrame:])
+		ranges = append(ranges, qstate.StreamRange{
+			Offset: int64(s.frameQueue.readPos) - int64(s.readPosInFrame),
+			Data:   buf,
+		})
 	}
-	return data
+	return ranges
 }
 
-func (s *receiveStream) storeReceiveState(state handover.ReceiveStreamStateFromPerspective, config *handover.ConnectionStateStoreConf) {
-	state.SetIncomingOffset(s.readOffset())
-	state.SetIncomingAcknowledgedOffset(s.readOffset())
-	state.SetIncomingFinOffset(s.finalOffset)
+func (s *receiveStream) storeReceiveState(state *qstate.Stream, config *handover.ConnectionStateStoreConf) {
+	state.ReadOffset = utils.New(int64(s.readOffset()))
+	if s.finalOffset != protocol.MaxByteCount {
+		state.ReadFin = utils.New(int64(s.finalOffset))
+	}
 	if config.IncludePendingIncomingFrames {
-		state.SetPendingIncomingFrames(s.pendingReceivedFrames())
+		state.ReadQueue = s.pendingReceivedFrames()
 	}
 	s.flowController.StoreReceiveState(state)
 }
 
-func (s *receiveStream) restoreReceiveState(state handover.ReceiveStreamState, perspective protocol.Perspective) {
+func (s *receiveStream) restoreReceiveState(state *qstate.Stream) {
 	if reflect.ValueOf(state).IsNil() { // state == nil https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here
 		return
 	}
-	offset := state.IncomingOffset(perspective)
-	pendingFrames := state.PendingIncomingFrames(perspective)
-	for frameOffset, _ := range pendingFrames {
-		if frameOffset < offset {
-			offset = frameOffset
+	offset := *state.ReadOffset
+	for _, streamRange := range state.ReadQueue {
+		if offset > streamRange.Offset+int64(len(streamRange.Data)) {
+			panic("read offset must not be higher than queued ranges")
 		}
 	}
-	finOffset := state.IncomingFinOffset(perspective)
-	s.frameQueue.readPos = offset
-	s.frameQueue.gaps.Front().Value.Start = offset
-	s.finalOffset = finOffset
+	s.frameQueue.readPos = protocol.ByteCount(offset)
+	s.frameQueue.gaps.Front().Value.Start = protocol.ByteCount(offset)
+	if state.ReadFin != nil {
+		s.finalOffset = protocol.ByteCount(*state.ReadFin)
+	} else {
+		s.finalOffset = protocol.MaxByteCount
+	}
+
 	if s.frameQueue.readPos == s.finalOffset {
 		s.finRead = true
 	}
-	for dataOffset, data := range pendingFrames {
-		frameOffset := dataOffset
-		reader := bytes.NewReader(data)
+	for _, streamRange := range state.ReadQueue {
+		frameOffset := protocol.ByteCount(streamRange.Offset)
+		reader := bytes.NewReader(streamRange.Data)
 		for reader.Len() != 0 {
 			sf := wire.GetStreamFrame()
 			sf.Data = sf.Data[:cap(sf.Data)]
@@ -405,7 +416,7 @@ func (s *receiveStream) restoreReceiveState(state handover.ReceiveStreamState, p
 			frameOffset += protocol.ByteCount(n)
 		}
 	}
-	s.flowController.RestoreReceiveState(state, perspective)
+	s.flowController.RestoreReceiveState(state)
 }
 
 func (s *receiveStream) ReadOffset() protocol.ByteCount {

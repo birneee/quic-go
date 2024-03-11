@@ -55,7 +55,7 @@ func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Confi
 	if err != nil {
 		return nil, err
 	}
-	tr, err := setupTransport(udpConn, tlsConf, true, conf)
+	tr, err := setupTransport(udpConn, tlsConf, true)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func DialAddrEarly(ctx context.Context, addr string, tlsConf *tls.Config, conf *
 	if err != nil {
 		return nil, err
 	}
-	tr, err := setupTransport(udpConn, tlsConf, true, conf)
+	tr, err := setupTransport(udpConn, tlsConf, true)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func DialAddrEarly(ctx context.Context, addr string, tlsConf *tls.Config, conf *
 // DialEarly establishes a new 0-RTT QUIC connection to a server using a net.PacketConn.
 // See Dial for more details.
 func DialEarly(ctx context.Context, c net.PacketConn, addr net.Addr, tlsConf *tls.Config, conf *Config) (EarlyConnection, error) {
-	dl, err := setupTransport(c, tlsConf, false, conf)
+	dl, err := setupTransport(c, tlsConf, false)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func DialEarly(ctx context.Context, c net.PacketConn, addr net.Addr, tlsConf *tl
 // which offers configuration options for a more fine-grained control of the connection establishment,
 // including reusing the underlying UDP socket for multiple QUIC connections.
 func Dial(ctx context.Context, c net.PacketConn, addr net.Addr, tlsConf *tls.Config, conf *Config) (Connection, error) {
-	dl, err := setupTransport(c, tlsConf, false, conf)
+	dl, err := setupTransport(c, tlsConf, false)
 	if err != nil {
 		return nil, err
 	}
@@ -122,11 +122,10 @@ func Dial(ctx context.Context, c net.PacketConn, addr net.Addr, tlsConf *tls.Con
 	return conn, nil
 }
 
-func setupTransport(c net.PacketConn, tlsConf *tls.Config, createdPacketConn bool, conf *Config) (*Transport, error) {
+func setupTransport(c net.PacketConn, tlsConf *tls.Config, createdPacketConn bool) (*Transport, error) {
 	if tlsConf == nil {
 		return nil, errors.New("quic: tls.Config not set")
 	}
-	conf = populateConfig(conf)
 	return &Transport{
 		Conn:        c,
 		createdConn: createdPacketConn,

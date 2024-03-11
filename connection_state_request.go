@@ -1,6 +1,9 @@
 package quic
 
-import "github.com/quic-go/quic-go/handover"
+import (
+	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
+)
 
 type HandoverStateRequest struct {
 	Destroy bool
@@ -10,7 +13,7 @@ type HandoverStateRequest struct {
 
 type HandoverStateResponse struct {
 	// is invalid if error
-	State handover.State
+	State qstate.Connection
 	Error error
 	Early bool
 }

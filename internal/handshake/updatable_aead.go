@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
-	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -116,10 +116,6 @@ func (a *updatableAEAD) startKeyDropTimer(now time.Time) {
 
 func (a *updatableAEAD) getNextTrafficSecret(hash crypto.Hash, ts []byte) []byte {
 	return hkdfExpandLabel(hash, ts, []byte{}, "quic ku", hash.Size())
-}
-
-func (a *updatableAEAD) getNextTrafficSecretNoAlloc(hash crypto.Hash, ts []byte, out []byte, tmp []byte) {
-	hkdfExpandLabelNoAlloc(hash, ts, []byte{}, "quic ku", out, tmp)
 }
 
 // SetReadKey sets the read key.
@@ -336,88 +332,40 @@ func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 	return a.firstPacketNumber
 }
 
-func (a *updatableAEAD) store(s *handover.State, p protocol.Perspective) {
-	s.KeyPhase = a.keyPhase
-	s.CipherSuiteId = a.suite.ID
-	s.SetReceiveHeaderProtectionKey(p, a.headerDecrypter.GetHeaderProtectionKey())
-	s.SetSendHeaderProtectionKey(p, a.headerEncrypter.GetHeaderProtectionKey())
-	s.SetReceiveTrafficSecret(p, a.rcvAEAD.TrafficSecret())
-	s.SetSendTrafficSecret(p, a.sendAEAD.TrafficSecret())
+func (a *updatableAEAD) store(s *qstate.Connection) {
+	s.Transport.KeyPhase = uint64(a.keyPhase)
+	s.Transport.TlsCipher = tls.CipherSuiteName(a.suite.ID)
+	s.Transport.RemoteHeaderProtectionKey = a.headerDecrypter.GetHeaderProtectionKey()
+	s.Transport.HeaderProtectionKey = a.headerEncrypter.GetHeaderProtectionKey()
+	s.Transport.RemoteTrafficSecret = a.rcvAEAD.TrafficSecret()
+	s.Transport.TrafficSecret = a.sendAEAD.TrafficSecret()
 }
 
-func restoreUpdatableAEAD(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
-	spf := state.FromPerspective(perspective)
+func restoreUpdatableAEAD(state *qstate.Connection, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
 	a := newUpdatableAEAD(
 		rttStats,
 		tracer,
 		logger,
-		state.Version,
+		protocol.Version(state.Transport.Version),
 	)
 
-	a.keyPhase = state.KeyPhase
-	a.highestRcvdPN = spf.HighestReceivedPacketNumber()
-	suite := getCipherSuite(state.CipherSuiteId)
+	a.keyPhase = protocol.KeyPhase(state.Transport.KeyPhase)
+	a.highestRcvdPN = protocol.PacketNumber(state.Transport.HighestObservedPacketNumber)
+	suite := getCipherSuiteByName(state.Transport.TlsCipher)
 
-	a.rcvAEAD = NewRecreatableAEAD(suite, state.ReceiveTrafficSecret(perspective), a.version)
-	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
-	a.sendAEAD = NewRecreatableAEAD(suite, state.SendTrafficSecret(perspective), a.version)
-	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
-	if perspective == protocol.PerspectiveClient {
+	a.rcvAEAD = NewRecreatableAEAD(suite, state.Transport.RemoteTrafficSecret, a.version)
+	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Transport.RemoteHeaderProtectionKey, false)
+	a.sendAEAD = NewRecreatableAEAD(suite, state.Transport.TrafficSecret, a.version)
+	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Transport.HeaderProtectionKey, false)
+	if state.Transport.Perspective() == protocol.PerspectiveClient {
 		a.setAEADParameters(a.rcvAEAD, suite)
 	} else {
 		a.setAEADParameters(a.sendAEAD, suite)
 	}
-	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.ReceiveTrafficSecret(perspective))
+	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Transport.RemoteTrafficSecret)
 	a.nextRcvAEAD = NewRecreatableAEAD(suite, a.nextRcvTrafficSecret, a.version)
-	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.SendTrafficSecret(perspective))
+	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Transport.TrafficSecret)
 	a.nextSendAEAD = NewRecreatableAEAD(suite, a.nextSendTrafficSecret, a.version)
 
 	return a
-}
-
-func restoreUpdatableAEADReducedAllocstate(state handover.State, perspective protocol.Perspective, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
-	sfp := state.FromPerspective(perspective)
-	a := newUpdatableAEAD(
-		rttStats,
-		tracer,
-		logger,
-		state.Version,
-	)
-
-	a.keyPhase = state.KeyPhase
-	a.highestRcvdPN = sfp.HighestReceivedPacketNumber()
-	suite := getCipherSuite(state.CipherSuiteId)
-
-	bufs := buffers[[16]byte, [12]byte, [32]byte]{} //TODO make dynamic
-	a.rcvAEAD = NewRecreatableAEADNoAlloc(suite, state.ReceiveTrafficSecret(perspective), a.version, bufs.rcvKeyBuf[:], bufs.rcvIVBuf[:], bufs.tmpBuf[:])
-	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.ReceiveHeaderProtectionKey(perspective), false)
-	a.sendAEAD = NewRecreatableAEADNoAlloc(suite, state.SendTrafficSecret(perspective), a.version, bufs.sendKeyBuf[:], bufs.sendIVBuf[:], bufs.tmpBuf[:])
-	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.SendHeaderProtectionKey(perspective), false)
-	if perspective == protocol.PerspectiveClient {
-		a.setAEADParameters(a.rcvAEAD, suite)
-	} else {
-		a.setAEADParameters(a.sendAEAD, suite)
-	}
-	a.nextRcvTrafficSecret = bufs.nextRcvTrafficSecretBuf[:]
-	a.getNextTrafficSecretNoAlloc(suite.Hash, state.ReceiveTrafficSecret(perspective), bufs.nextRcvTrafficSecretBuf[:], bufs.tmpBuf[:])
-	a.nextRcvAEAD = NewRecreatableAEADNoAlloc(suite, a.nextRcvTrafficSecret, a.version, bufs.nextRcvKeyBuf[:], bufs.nextRcvIVBuf[:], bufs.tmpBuf[:])
-	a.nextSendTrafficSecret = bufs.nextSendTrafficSecretBuf[:]
-	a.getNextTrafficSecretNoAlloc(suite.Hash, state.SendTrafficSecret(perspective), bufs.nextSendTrafficSecretBuf[:], bufs.tmpBuf[:])
-	a.nextSendAEAD = NewRecreatableAEADNoAlloc(suite, a.nextSendTrafficSecret, a.version, bufs.nextSendKeyBuf[:], bufs.nextSendIVBuf[:], bufs.tmpBuf[:])
-
-	return a
-}
-
-type buffers[KeyBuf any, IVBuf any, HashBuf any] struct {
-	rcvKeyBuf                KeyBuf
-	rcvIVBuf                 IVBuf
-	sendKeyBuf               KeyBuf
-	sendIVBuf                IVBuf
-	nextRcvKeyBuf            KeyBuf
-	nextRcvIVBuf             IVBuf
-	nextSendKeyBuf           KeyBuf
-	nextSendIVBuf            IVBuf
-	nextSendTrafficSecretBuf HashBuf
-	nextRcvTrafficSecretBuf  HashBuf
-	tmpBuf                   [1024]byte
 }

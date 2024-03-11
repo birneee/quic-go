@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/quic-go/quic-go/internal/ackhandler"
+	"github.com/quic-go/quic-go/qstate"
 	"net"
 	"sync"
 
@@ -55,13 +56,12 @@ type streamsMap struct {
 	sender            streamSender
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController
 
-	mutex                sync.Mutex
-	outgoingBidiStreams  *outgoingStreamsMap[streamI]
-	outgoingUniStreams   *outgoingStreamsMap[sendStreamI]
-	incomingBidiStreams  *incomingStreamsMap[streamI]
-	incomingUniStreams   *incomingStreamsMap[receiveStreamI]
-	reset                bool
-	streamFramesInFlight func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame
+	mutex               sync.Mutex
+	outgoingBidiStreams *outgoingStreamsMap[streamI]
+	outgoingUniStreams  *outgoingStreamsMap[sendStreamI]
+	incomingBidiStreams *incomingStreamsMap[streamI]
+	incomingUniStreams  *incomingStreamsMap[receiveStreamI]
+	reset               bool
 }
 
 var _ streamManager = &streamsMap{}
@@ -73,7 +73,6 @@ func newStreamsMap(
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
 	// required for stream state serialization
-	streamFramesInFlight func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame,
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -81,7 +80,6 @@ func newStreamsMap(
 		maxIncomingBidiStreams: maxIncomingBidiStreams,
 		maxIncomingUniStreams:  maxIncomingUniStreams,
 		sender:                 sender,
-		streamFramesInFlight:   streamFramesInFlight,
 	}
 	m.initMaps()
 	return m
@@ -96,9 +94,6 @@ func (m *streamsMap) initMaps() {
 				id,
 				m.sender,
 				m.newFlowController(id),
-				func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
-					return m.streamFramesInFlight(id, encLevel)
-				},
 			)
 		},
 		m.sender.queueControlFrame,
@@ -107,9 +102,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
-				return m.streamFramesInFlight(id, encLevel)
-			})
+			return newStream(id, m.sender, m.newFlowController(id))
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -118,9 +111,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id), func(encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
-				return m.streamFramesInFlight(id, encLevel)
-			})
+			return newSendStream(id, m.sender, m.newFlowController(id))
 		},
 		m.sender.queueControlFrame,
 	)
@@ -334,13 +325,13 @@ func (m *streamsMap) UseResetMaps() {
 	m.mutex.Unlock()
 }
 
-func (m *streamsMap) RestoreBidiStream(streamID StreamID, state *handover.BidiStreamState) (Stream, error) {
+func (m *streamsMap) RestoreBidiStream(streamID StreamID, state *qstate.Stream) (Stream, error) {
 	var stream Stream
 	var err error
 	if streamID.InitiatedBy() == m.perspective {
-		stream, err = RestoreOutgoingBidiStream(m.outgoingBidiStreams, streamID.StreamNum(), state, m.perspective)
+		stream, err = RestoreOutgoingBidiStream(m.outgoingBidiStreams, streamID.StreamNum(), state)
 	} else {
-		stream, err = RestoreIncomingBidiStream(m.incomingBidiStreams, streamID.StreamNum(), state, m.perspective)
+		stream, err = RestoreIncomingBidiStream(m.incomingBidiStreams, streamID.StreamNum(), state)
 	}
 	if err != nil {
 		return nil, err
@@ -348,33 +339,31 @@ func (m *streamsMap) RestoreBidiStream(streamID StreamID, state *handover.BidiSt
 	return stream, nil
 }
 
-func (m *streamsMap) RestoreSendStream(streamID StreamID, state *handover.UniStreamState) (SendStream, error) {
-	return RestoreOutgoingUniStream(m.outgoingUniStreams, streamID.StreamNum(), state, m.perspective)
+func (m *streamsMap) RestoreSendStream(streamID StreamID, state *qstate.Stream) (SendStream, error) {
+	return RestoreOutgoingUniStream(m.outgoingUniStreams, streamID.StreamNum(), state)
 }
 
-func (m *streamsMap) RestoreReceiveStream(streamID StreamID, state *handover.UniStreamState) (ReceiveStream, error) {
-	return RestoreIncomingUniStream(m.incomingUniStreams, streamID.StreamNum(), state, m.perspective)
+func (m *streamsMap) RestoreReceiveStream(streamID StreamID, state *qstate.Stream) (ReceiveStream, error) {
+	return RestoreIncomingUniStream(m.incomingUniStreams, streamID.StreamNum(), state)
 }
 
-func streamIToBidiStreamState(s streamI, perspective logging.Perspective, config *handover.ConnectionStateStoreConf) handover.BidiStreamState {
-	ss := handover.BidiStreamState{}
-	s.storeReceiveState(ss.FromPerspective(perspective), config)
-	s.storeSendState(&ss, perspective, config)
+func streamIToBidiStreamState(s streamI, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf) qstate.Stream {
+	ss := qstate.Stream{
+		StreamID: int64(s.StreamID()),
+	}
+	s.storeReceiveState(&ss, config)
+	s.storeSendState(&ss, sph, config)
 	return ss
 }
 
-func (m *streamsMap) BidiStreamStates(config *handover.ConnectionStateStoreConf) map[StreamID]*handover.BidiStreamState {
-	states := make(map[protocol.StreamID]*handover.BidiStreamState)
+func (m *streamsMap) AppendBidiStreamStates(streamStates []qstate.Stream, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf) []qstate.Stream {
 	for _, stream := range m.outgoingBidiStreams.streams {
-		state := streamIToBidiStreamState(stream, m.perspective, config)
-		states[stream.StreamID()] = &state
+		streamStates = append(streamStates, streamIToBidiStreamState(stream, sph, config))
 	}
 	for _, entry := range m.incomingBidiStreams.streams {
-		stream := entry.stream
-		state := streamIToBidiStreamState(stream, m.perspective, config)
-		states[stream.StreamID()] = &state
+		streamStates = append(streamStates, streamIToBidiStreamState(entry.stream, sph, config))
 	}
-	return states
+	return streamStates
 }
 
 func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
@@ -385,75 +374,99 @@ func (m *streamsMap) OpenedBidiStream(id StreamID) (Stream, error) {
 	}
 }
 
-func (m *streamsMap) UniStreamStates(config *handover.ConnectionStateStoreConf) map[protocol.StreamID]*handover.UniStreamState {
-	ss := make(map[protocol.StreamID]*handover.UniStreamState)
+func (m *streamsMap) AppendUniStreamStates(streamStates []qstate.Stream, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf) []qstate.Stream {
 	for _, stream := range m.outgoingUniStreams.streams {
-		s := &handover.UniStreamState{}
-		stream.storeSendState(s, m.perspective, config)
-		ss[stream.StreamID()] = s
+		s := qstate.Stream{
+			StreamID: int64(stream.StreamID()),
+		}
+		stream.storeSendState(&s, sph, config)
+		streamStates = append(streamStates, s)
 	}
 	for _, entry := range m.incomingUniStreams.streams {
-		stream := entry.stream
-		s := &handover.UniStreamState{}
-		stream.storeReceiveState(s.ReceiveStreamFromPerspective(m.perspective), config)
-		ss[stream.StreamID()] = s
+		s := qstate.Stream{
+			StreamID: int64(entry.stream.StreamID()),
+		}
+		entry.stream.storeReceiveState(&s, config)
+		streamStates = append(streamStates, s)
 	}
-	return ss
+	return streamStates
 }
 
-func (m *streamsMap) StoreState(state *handover.State, config *handover.ConnectionStateStoreConf) {
-	state.UniStreams = m.UniStreamStates(config)
-	state.BidiStreams = m.BidiStreamStates(config)
-	sfp := state.FromPerspective(m.perspective)
-	sfp.SetNextIncomingUniStream(m.incomingUniStreams.nextStreamToAccept.StreamID(protocol.StreamTypeUni, m.perspective.Opposite()))
-	sfp.SetNextIncomingBidiStream(m.incomingBidiStreams.nextStreamToAccept.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite()))
-	sfp.SetNextOutgoingUniStream(m.outgoingUniStreams.nextStream.StreamID(protocol.StreamTypeUni, m.perspective))
-	sfp.SetNextOutgoingBidiStream(m.outgoingBidiStreams.nextStream.StreamID(protocol.StreamTypeBidi, m.perspective))
-	sfp.SetMaxIncomingUniStream(int64(m.incomingUniStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())))
-	sfp.SetMaxIncomingBidiStream(int64(m.incomingBidiStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())))
-	sfp.SetMaxOutgoingUniStream(int64(m.outgoingUniStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective)))
-	sfp.SetMaxOutgoingBidiStream(int64(m.outgoingBidiStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective)))
+func (m *streamsMap) StoreState(state *qstate.Connection, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf) {
+	state.Transport.Streams = m.AppendUniStreamStates(state.Transport.Streams, sph, config)
+	state.Transport.Streams = m.AppendBidiStreamStates(state.Transport.Streams, sph, config)
+	state.Transport.NextUnidirectionalStream = int64(m.outgoingUniStreams.nextStream.StreamID(protocol.StreamTypeUni, m.perspective))
+	state.Transport.NextBidirectionalStream = int64(m.outgoingBidiStreams.nextStream.StreamID(protocol.StreamTypeBidi, m.perspective))
+	state.Transport.MaxUnidirectionalStreams = int64(m.outgoingUniStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective))
+	state.Transport.MaxBidirectionalStreams = int64(m.outgoingBidiStreams.maxStream.StreamID(protocol.StreamTypeBidi, m.perspective))
+	state.Transport.RemoteNextUnidirectionalStream = int64(m.incomingUniStreams.nextStreamToAccept.StreamID(protocol.StreamTypeUni, m.perspective.Opposite()))
+	state.Transport.RemoteNextBidirectionalStream = int64(m.incomingBidiStreams.nextStreamToAccept.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite()))
+	state.Transport.RemoteMaxUnidirectionalStreams = int64(m.incomingUniStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite()))
+	state.Transport.RemoteMaxBidirectionalStreams = int64(m.incomingBidiStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite()))
 }
 
-func (m *streamsMap) Restore(state *handover.State) (*RestoredStreams, error) {
+func (m *streamsMap) Restore(state *qstate.Connection) (*RestoredStreams, error) {
 	restoredStreams := &RestoredStreams{
 		BidiStreams:    make(map[StreamID]Stream, 0),
 		ReceiveStreams: make(map[StreamID]ReceiveStream, 0),
 		SendStreams:    make(map[StreamID]SendStream, 0),
 	}
-	for streamID, streamState := range state.BidiStreams {
-		stream, err := m.RestoreBidiStream(streamID, streamState)
-		if err != nil {
-			return nil, err
-		}
-		restoredStreams.BidiStreams[stream.StreamID()] = stream
-	}
-	for streamID, streamState := range state.UniStreams {
-		if streamID.InitiatedBy() == m.perspective {
-			stream, err := m.RestoreSendStream(streamID, streamState)
+
+	for _, streamState := range state.Transport.Streams {
+		streamID := protocol.StreamID(streamState.StreamID)
+		switch streamID.Type() {
+		case protocol.StreamTypeBidi:
+			stream, err := m.RestoreBidiStream(streamID, &streamState)
 			if err != nil {
 				return nil, err
 			}
-			restoredStreams.SendStreams[stream.StreamID()] = stream
-		} else {
-			stream, err := m.RestoreReceiveStream(streamID, streamState)
-			if err != nil {
-				return nil, err
+			restoredStreams.BidiStreams[stream.StreamID()] = stream
+		case protocol.StreamTypeUni:
+			switch streamID.InitiatedBy() {
+			case m.perspective:
+				stream, err := m.RestoreSendStream(streamID, &streamState)
+				if err != nil {
+					return nil, err
+				}
+				restoredStreams.SendStreams[stream.StreamID()] = stream
+			case m.perspective.Opposite():
+				stream, err := m.RestoreReceiveStream(streamID, &streamState)
+				if err != nil {
+					return nil, err
+				}
+				restoredStreams.ReceiveStreams[stream.StreamID()] = stream
+			default:
+				panic("unexpected initiator")
 			}
-			restoredStreams.ReceiveStreams[stream.StreamID()] = stream
+		default:
+			panic("unexpected stream type")
 		}
 	}
-	sfp := state.FromPerspective(m.perspective)
-	m.outgoingUniStreams.nextStream = sfp.NextOutgoingUniStream().StreamNum()
-	m.outgoingBidiStreams.nextStream = sfp.NextOutgoingBidiStream().StreamNum()
-	m.outgoingUniStreams.maxStream = protocol.StreamID(sfp.MaxOutgoingUniStream()).StreamNum()
-	m.outgoingBidiStreams.maxStream = protocol.StreamID(sfp.MaxOutgoingBidiStream()).StreamNum()
-	m.incomingUniStreams.nextStreamToAccept = sfp.NextIncomingUniStream().StreamNum()
+
+	m.outgoingUniStreams.nextStream = protocol.StreamID(state.Transport.NextUnidirectionalStream).StreamNum()
+	m.outgoingBidiStreams.nextStream = protocol.StreamID(state.Transport.NextBidirectionalStream).StreamNum()
+	m.outgoingUniStreams.maxStream = protocol.StreamID(state.Transport.MaxUnidirectionalStreams).StreamNum()
+	m.outgoingBidiStreams.maxStream = protocol.StreamID(state.Transport.MaxBidirectionalStreams).StreamNum()
+	m.incomingUniStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextUnidirectionalStream).StreamNum()
 	m.incomingUniStreams.nextStreamToOpen = m.incomingUniStreams.nextStreamToAccept
-	m.incomingUniStreams.maxStream = protocol.StreamID(sfp.MaxIncomingUniStream()).StreamNum()
-	m.incomingBidiStreams.nextStreamToAccept = sfp.NextIncomingBidiStream().StreamNum()
+	m.incomingUniStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxUnidirectionalStreams).StreamNum()
+	m.incomingBidiStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextBidirectionalStream).StreamNum()
 	m.incomingBidiStreams.nextStreamToOpen = m.incomingBidiStreams.nextStreamToAccept
-	m.incomingBidiStreams.maxStream = protocol.StreamID(sfp.MaxIncomingBidiStream()).StreamNum()
+	m.incomingBidiStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxBidirectionalStreams).StreamNum()
 
 	return restoredStreams, nil
+}
+
+func (m *streamsMap) SendStreams() []flowcontrol.SendStream {
+	var sendStreams []flowcontrol.SendStream
+	for _, s := range m.outgoingUniStreams.streams {
+		sendStreams = append(sendStreams, s)
+	}
+	for _, s := range m.outgoingBidiStreams.streams {
+		sendStreams = append(sendStreams, s)
+	}
+	for _, e := range m.incomingBidiStreams.streams {
+		sendStreams = append(sendStreams, e.stream)
+	}
+	return sendStreams
 }

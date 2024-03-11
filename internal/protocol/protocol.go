@@ -1,12 +1,7 @@
-//go:generate msgp
 package protocol
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/quic-go/quic-go/internal/indi_utils"
-	"github.com/tinylib/msgp/msgp"
-	"strconv"
 	"time"
 )
 
@@ -100,23 +95,6 @@ func (e ECN) String() string {
 // A ByteCount in QUIC
 type ByteCount int64
 
-func (z *ByteCount) MsgpStrMapKey() string {
-	return strconv.FormatInt(int64(*z), 10)
-}
-
-func (z *ByteCount) MsgpFromStrMapKey(s string) msgp.NonStrMapKey {
-	i, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	*z = ByteCount(i)
-	return z
-}
-
-func (z *ByteCount) MsgpStrMapKeySize() int {
-	return indi_utils.Base10Digits(*z)
-}
-
 // MaxByteCount is the maximum value of a ByteCount
 const MaxByteCount = ByteCount(1<<62 - 1)
 
@@ -172,22 +150,3 @@ const InvalidPacketLimitAES = 1 << 52
 
 // InvalidPacketLimitChaCha is the maximum number of packets that we can fail to decrypt when using AEAD_CHACHA20_POLY1305.
 const InvalidPacketLimitChaCha = 1 << 36
-
-// MarshalJSON marshals StatelessResetToken to base64 instead of int array
-func (u *StatelessResetToken) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u[:])
-}
-
-// UnmarshalJSON unmarshals StatelessResetToken from base64 instead of int array
-func (u *StatelessResetToken) UnmarshalJSON(data []byte) error {
-	var tmp []byte
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	if len(tmp) != len(u) {
-		return fmt.Errorf("failed to parse stateless reset token: invalid length")
-	}
-	copy(u[:], tmp)
-	return nil
-}

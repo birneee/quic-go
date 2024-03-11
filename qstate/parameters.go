@@ -1,5 +1,5 @@
 //go:generate msgp
-package handover
+package qstate
 
 import (
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -8,33 +8,32 @@ import (
 	"time"
 )
 
-// TransportParameters contains relevant parameters in SMAQ state
-type TransportParameters struct {
+type Parameters struct {
 	// nil if default
-	InitialMaxStreamDataBidiLocal *int64
+	InitialMaxStreamDataBidiLocal *int64 `msg:"initial_max_stream_data_bidi_local,omitempty" json:"initial_max_stream_data_bidi_local,omitempty"`
 	// nil if default
-	InitialMaxStreamDataBidiRemote *int64
+	InitialMaxStreamDataBidiRemote *int64 `msg:"initial_max_stream_data_bidi_remote,omitempty" json:"initial_max_stream_data_bidi_remote,omitempty"`
 	// nil if default
-	InitialMaxStreamDataUni *int64
+	InitialMaxStreamDataUni *int64 `msg:"initial_max_stream_data_uni,omitempty" json:"initial_max_stream_data_uni,omitempty"`
 	// nil if default
-	MaxAckDelay *int64
+	MaxAckDelay *int64 `msg:"max_ack_delay,omitempty" json:"max_ack_delay,omitempty"`
 	// nil if default
-	AckDelayExponent *uint8
+	AckDelayExponent *uint8 `msg:"ack_delay_exponent,omitempty" json:"ack_delay_exponent,omitempty"`
 	// nil if default
-	DisableActiveMigration *bool
+	DisableActiveMigration *bool `msg:"disable_active_migration,omitempty" json:"disable_active_migration,omitempty"`
 	// nil if default
-	MaxUDPPayloadSize *int64
+	MaxUDPPayloadSize *int64 `msg:"max_udp_payload_size,omitempty" json:"max_udp_payload_size,omitempty"`
 	// nil if default
-	MaxIdleTimeout *int64
+	MaxIdleTimeout *int64 `msg:"max_idle_timeout,omitempty" json:"max_idle_timeout,omitempty"`
 	// nil if client perspective
 	OriginalDestinationConnectionID *[]byte
-	ActiveConnectionIDLimit         uint64
+	ActiveConnectionIDLimit         uint64 `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
 	// nil if default
-	MaxDatagramFrameSize *int64
+	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty"`
 }
 
-func ToHandoverTransportParameters(p *wire.TransportParameters) TransportParameters {
-	s := TransportParameters{
+func ToQStateParameters(p *wire.TransportParameters) Parameters {
+	s := Parameters{
 		ActiveConnectionIDLimit: p.ActiveConnectionIDLimit,
 	}
 	if p.InitialMaxStreamDataBidiLocal != 0 {
@@ -73,7 +72,7 @@ func ToHandoverTransportParameters(p *wire.TransportParameters) TransportParamet
 	return s
 }
 
-func RestoreTransportParameters(s *TransportParameters) *wire.TransportParameters {
+func RestoreTransportParameters(s *Parameters) *wire.TransportParameters {
 	p := &wire.TransportParameters{}
 	p.AckDelayExponent = protocol.DefaultAckDelayExponent
 	p.MaxAckDelay = protocol.DefaultMaxAckDelay

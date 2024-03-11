@@ -3,7 +3,7 @@ package handshake
 import (
 	"crypto/tls"
 	"errors"
-	"github.com/quic-go/quic-go/handover"
+	"github.com/quic-go/quic-go/qstate"
 	"io"
 	"time"
 
@@ -114,5 +114,5 @@ type CryptoSetup interface {
 	GetHandshakeSealer() (LongHeaderSealer, error)
 	Get0RTTSealer() (LongHeaderSealer, error)
 	Get1RTTSealer() (ShortHeaderSealer, error)
-	StoreHandoverState(t *handover.State, p protocol.Perspective)
+	StoreHandoverState(t *qstate.Connection)
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/logging"
-	"reflect"
+	"github.com/quic-go/quic-go/qstate"
 	"sync"
 	"time"
 
@@ -24,8 +24,8 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount, v protocol.Version) (frame ackhandler.StreamFrame, ok, hasMore bool)
 	closeForShutdown(error)
 	updateSendWindow(protocol.ByteCount)
-	storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf)
-	restoreSendState(state handover.SendStreamState, perspective protocol.Perspective)
+	storeSendState(state *qstate.Stream, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf)
+	restoreSendState(state *qstate.Stream)
 }
 
 type sendStream struct {
@@ -72,16 +72,13 @@ func newSendStream(
 	streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
-	// required for stream state serialization
-	streamFramesInFlight func(level protocol.EncryptionLevel) []*wire.StreamFrame,
 ) *sendStream {
 	s := &sendStream{
-		streamID:             streamID,
-		sender:               sender,
-		flowController:       flowController,
-		writeChan:            make(chan struct{}, 1),
-		writeOnce:            make(chan struct{}, 1), // cap: 1, to protect against concurrent use of Write
-		streamFramesInFlight: streamFramesInFlight,
+		streamID:       streamID,
+		sender:         sender,
+		flowController: flowController,
+		writeChan:      make(chan struct{}, 1),
+		writeOnce:      make(chan struct{}, 1), // cap: 1, to protect against concurrent use of Write
 	}
 	s.ctx, s.ctxCancel = context.WithCancelCause(context.Background())
 	return s
@@ -517,85 +514,98 @@ func (s *sendStream) writeFinOffset() protocol.ByteCount {
 	return protocol.MaxByteCount
 }
 
-func (s *sendStream) pendingSendFrames() map[protocol.ByteCount][]byte {
-	pendingFrames := make(map[protocol.ByteCount][]byte)
+func (s *sendStream) pendingSendFrames(sph ackhandler.SentPacketHandler) []qstate.StreamRange {
+	ranges := make([]qstate.StreamRange, 0)
 	// queued frames
 	for _, frame := range s.retransmissionQueue {
-		pendingFrames[frame.Offset] = frame.Data
+		ranges = append(ranges, qstate.StreamRange{
+			Offset: int64(frame.Offset),
+			Data:   frame.Data,
+		})
 	}
 	// next frame
 	if s.nextFrame != nil {
-		pendingFrames[s.nextFrame.Offset] = s.nextFrame.Data
+		ranges = append(ranges, qstate.StreamRange{
+			Offset: int64(s.nextFrame.Offset),
+			Data:   s.nextFrame.Data,
+		})
 	}
 	// in flight frames
-	for _, frame := range s.streamFramesInFlight(protocol.Encryption1RTT) {
-		pendingFrames[frame.Offset] = frame.Data
+	for _, frame := range sph.StreamFramesInFlight(s.streamID, protocol.Encryption1RTT) {
+		ranges = append(ranges, qstate.StreamRange{
+			Offset: int64(frame.Offset),
+			Data:   frame.Data,
+		})
 	}
-	return pendingFrames
+	return ranges
 }
 
-func (s *sendStream) storeSendState(state handover.SendStreamState, perspective protocol.Perspective, config *handover.ConnectionStateStoreConf) {
-	sfp := state.SendStreamFromPerspective(perspective)
-
-	pendingFrames := s.pendingSendFrames()
-	acknowledgedWriteOffset := s.writeOffset
-	if !config.IncludePendingOutgoingFrames {
-		for offset, _ := range pendingFrames {
-			if offset < acknowledgedWriteOffset {
-				acknowledgedWriteOffset = offset
-			}
+func (s *sendStream) ackOffset(pendingSendFrames []qstate.StreamRange) protocol.ByteCount {
+	offset := s.writeOffset - 1
+	for _, streamRange := range pendingSendFrames {
+		if protocol.ByteCount(streamRange.Offset) < offset {
+			offset = protocol.ByteCount(streamRange.Offset)
 		}
 	}
-	sfp.SetOutgoingAcknowledgedOffset(acknowledgedWriteOffset)
-	sfp.SetOutgoingOffset(s.writeOffset)
-	sfp.SetOutgoingFinOffset(s.writeFinOffset())
-	if config.IncludePendingOutgoingFrames {
-		sfp.SetPendingOutgoingFrames(pendingFrames)
+	return offset
+}
+
+func (s *sendStream) storeSendState(state *qstate.Stream, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf) {
+	pendingFrames := s.pendingSendFrames(sph)
+	acknowledgedWriteOffset := s.ackOffset(pendingFrames)
+	state.WriteAck = utils.New(int64(acknowledgedWriteOffset))
+	state.WriteOffset = utils.New(int64(s.WriteOffset()))
+	finOffset := s.writeFinOffset()
+	if finOffset != protocol.MaxByteCount {
+		state.WriteFin = utils.New(int64(finOffset))
 	}
-	s.flowController.StoreSendState(state, perspective)
+
+	if config.IncludePendingOutgoingFrames {
+		state.WriteQueue = pendingFrames
+	}
+	s.flowController.StoreSendState(state)
 }
 
 // if fin offset is not known yet set to MaxByteCount
-func (s *sendStream) restoreSendState(state handover.SendStreamState, perspective protocol.Perspective) {
-	sfp := state.SendStreamFromPerspective(perspective)
-	if reflect.ValueOf(state).IsNil() { // state == nil https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here
-		return
-	}
-	offset := sfp.OutgoingAcknowledgedOffset()
-	for frameOffset, frameData := range state.PendingSentData(perspective) {
-		frameEnd := frameOffset + logging.ByteCount(len(frameData))
-		if frameEnd > offset {
-			offset = frameEnd
+func (s *sendStream) restoreSendState(state *qstate.Stream) {
+	s.mutex.Lock()
+	s.writeOffset = protocol.ByteCount(*state.WriteOffset)
+	for _, streamRange := range state.WriteQueue {
+		if s.writeOffset <= protocol.ByteCount(streamRange.Offset) {
+			panic(fmt.Sprintf("write offset (%d) must be larger than write queue ranges (%d)", s.writeOffset, streamRange.Offset))
 		}
 	}
-	finOffset := state.WriteFinOffset(perspective)
-	pendingFrames := state.PendingSentData(perspective)
-	s.mutex.Lock()
-	s.writeOffset = offset
-	if finOffset != protocol.MaxByteCount {
-		s.writeOffset = finOffset
+	if state.WriteFin != nil && protocol.ByteCount(*state.WriteFin) != protocol.MaxByteCount {
+		if *state.WriteFin != *state.WriteOffset {
+			panic(fmt.Sprintf("expected write offset (%d) to be fin offset (%d)", *state.WriteOffset, *state.WriteFin))
+		}
 		s.finishedWriting = true
 	}
 	s.mutex.Unlock()
-	for offset, frame := range pendingFrames {
+	//TODO respect new MTU
+	for _, streamRange := range state.WriteQueue {
 		s.mutex.Lock()
 		f := wire.GetStreamFrame()
-		f.Offset = offset
+		f.Offset = protocol.ByteCount(streamRange.Offset)
 		f.StreamID = s.streamID
 		f.DataLenPresent = true
-		f.Data = f.Data[:len(frame)]
-		copy(f.Data, frame)
-		f.Fin = offset+logging.ByteCount(len(frame)) == finOffset
+		f.Data = f.Data[:len(streamRange.Data)]
+		copy(f.Data, streamRange.Data)
+		f.Fin = s.finishedWriting && f.Offset+logging.ByteCount(len(streamRange.Data)) == s.writeOffset
 		s.numOutstandingFrames++
 		s.mutex.Unlock()
 		(*sendStreamAckHandler)(s).OnLost(f) // queue for retransmission
 	}
-	s.flowController.RestoreSendState(state, perspective)
-	s.flowControllerBytesSent = sfp.OutgoingOffset()
+	s.flowController.RestoreSendState(state)
+	s.flowControllerBytesSent = s.writeOffset
 }
 
 func (s *sendStream) WriteOffset() logging.ByteCount {
-	return s.writeOffset
+	if s.nextFrame != nil {
+		return s.writeOffset + s.nextFrame.DataLen()
+	} else {
+		return s.writeOffset
+	}
 }
 
 func (s *sendStream) increaseFlowBytesSent(offset protocol.ByteCount) {
@@ -604,4 +614,8 @@ func (s *sendStream) increaseFlowBytesSent(offset protocol.ByteCount) {
 		s.flowController.AddBytesSent(n)
 		s.flowControllerBytesSent += n
 	}
+}
+
+func (s *sendStream) NextFrame() *wire.StreamFrame {
+	return s.nextFrame
 }

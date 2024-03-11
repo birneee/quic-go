@@ -11,8 +11,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	handover "github.com/quic-go/quic-go/handover"
 	protocol "github.com/quic-go/quic-go/internal/protocol"
+	qstate "github.com/quic-go/quic-go/qstate"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -225,15 +225,15 @@ func (c *StreamFlowControllerIsNewlyBlockedCall) DoAndReturn(f func() (bool, pro
 }
 
 // RestoreReceiveState mocks base method.
-func (m *MockStreamFlowController) RestoreReceiveState(arg0 handover.ReceiveStreamState, arg1 protocol.Perspective) {
+func (m *MockStreamFlowController) RestoreReceiveState(arg0 *qstate.Stream) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RestoreReceiveState", arg0, arg1)
+	m.ctrl.Call(m, "RestoreReceiveState", arg0)
 }
 
 // RestoreReceiveState indicates an expected call of RestoreReceiveState.
-func (mr *MockStreamFlowControllerMockRecorder) RestoreReceiveState(arg0, arg1 any) *StreamFlowControllerRestoreReceiveStateCall {
+func (mr *MockStreamFlowControllerMockRecorder) RestoreReceiveState(arg0 any) *StreamFlowControllerRestoreReceiveStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreReceiveState), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreReceiveState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreReceiveState), arg0)
 	return &StreamFlowControllerRestoreReceiveStateCall{Call: call}
 }
 
@@ -249,27 +249,27 @@ func (c *StreamFlowControllerRestoreReceiveStateCall) Return() *StreamFlowContro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamFlowControllerRestoreReceiveStateCall) Do(f func(handover.ReceiveStreamState, protocol.Perspective)) *StreamFlowControllerRestoreReceiveStateCall {
+func (c *StreamFlowControllerRestoreReceiveStateCall) Do(f func(*qstate.Stream)) *StreamFlowControllerRestoreReceiveStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamFlowControllerRestoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamState, protocol.Perspective)) *StreamFlowControllerRestoreReceiveStateCall {
+func (c *StreamFlowControllerRestoreReceiveStateCall) DoAndReturn(f func(*qstate.Stream)) *StreamFlowControllerRestoreReceiveStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RestoreSendState mocks base method.
-func (m *MockStreamFlowController) RestoreSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective) {
+func (m *MockStreamFlowController) RestoreSendState(arg0 *qstate.Stream) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RestoreSendState", arg0, arg1)
+	m.ctrl.Call(m, "RestoreSendState", arg0)
 }
 
 // RestoreSendState indicates an expected call of RestoreSendState.
-func (mr *MockStreamFlowControllerMockRecorder) RestoreSendState(arg0, arg1 any) *StreamFlowControllerRestoreSendStateCall {
+func (mr *MockStreamFlowControllerMockRecorder) RestoreSendState(arg0 any) *StreamFlowControllerRestoreSendStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreSendState), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).RestoreSendState), arg0)
 	return &StreamFlowControllerRestoreSendStateCall{Call: call}
 }
 
@@ -285,13 +285,13 @@ func (c *StreamFlowControllerRestoreSendStateCall) Return() *StreamFlowControlle
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamFlowControllerRestoreSendStateCall) Do(f func(handover.SendStreamState, protocol.Perspective)) *StreamFlowControllerRestoreSendStateCall {
+func (c *StreamFlowControllerRestoreSendStateCall) Do(f func(*qstate.Stream)) *StreamFlowControllerRestoreSendStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamFlowControllerRestoreSendStateCall) DoAndReturn(f func(handover.SendStreamState, protocol.Perspective)) *StreamFlowControllerRestoreSendStateCall {
+func (c *StreamFlowControllerRestoreSendStateCall) DoAndReturn(f func(*qstate.Stream)) *StreamFlowControllerRestoreSendStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -335,7 +335,7 @@ func (c *StreamFlowControllerSendWindowSizeCall) DoAndReturn(f func() protocol.B
 }
 
 // StoreReceiveState mocks base method.
-func (m *MockStreamFlowController) StoreReceiveState(arg0 handover.ReceiveStreamStateFromPerspective) {
+func (m *MockStreamFlowController) StoreReceiveState(arg0 *qstate.Stream) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StoreReceiveState", arg0)
 }
@@ -359,27 +359,27 @@ func (c *StreamFlowControllerStoreReceiveStateCall) Return() *StreamFlowControll
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamFlowControllerStoreReceiveStateCall) Do(f func(handover.ReceiveStreamStateFromPerspective)) *StreamFlowControllerStoreReceiveStateCall {
+func (c *StreamFlowControllerStoreReceiveStateCall) Do(f func(*qstate.Stream)) *StreamFlowControllerStoreReceiveStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamFlowControllerStoreReceiveStateCall) DoAndReturn(f func(handover.ReceiveStreamStateFromPerspective)) *StreamFlowControllerStoreReceiveStateCall {
+func (c *StreamFlowControllerStoreReceiveStateCall) DoAndReturn(f func(*qstate.Stream)) *StreamFlowControllerStoreReceiveStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StoreSendState mocks base method.
-func (m *MockStreamFlowController) StoreSendState(arg0 handover.SendStreamState, arg1 protocol.Perspective) {
+func (m *MockStreamFlowController) StoreSendState(arg0 *qstate.Stream) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "StoreSendState", arg0, arg1)
+	m.ctrl.Call(m, "StoreSendState", arg0)
 }
 
 // StoreSendState indicates an expected call of StoreSendState.
-func (mr *MockStreamFlowControllerMockRecorder) StoreSendState(arg0, arg1 any) *StreamFlowControllerStoreSendStateCall {
+func (mr *MockStreamFlowControllerMockRecorder) StoreSendState(arg0 any) *StreamFlowControllerStoreSendStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreSendState), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreSendState", reflect.TypeOf((*MockStreamFlowController)(nil).StoreSendState), arg0)
 	return &StreamFlowControllerStoreSendStateCall{Call: call}
 }
 
@@ -395,13 +395,13 @@ func (c *StreamFlowControllerStoreSendStateCall) Return() *StreamFlowControllerS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamFlowControllerStoreSendStateCall) Do(f func(handover.SendStreamState, protocol.Perspective)) *StreamFlowControllerStoreSendStateCall {
+func (c *StreamFlowControllerStoreSendStateCall) Do(f func(*qstate.Stream)) *StreamFlowControllerStoreSendStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamFlowControllerStoreSendStateCall) DoAndReturn(f func(handover.SendStreamState, protocol.Perspective)) *StreamFlowControllerStoreSendStateCall {
+func (c *StreamFlowControllerStoreSendStateCall) DoAndReturn(f func(*qstate.Stream)) *StreamFlowControllerStoreSendStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/path"
+	"github.com/quic-go/quic-go/qstate"
 	"io"
 	"net"
 	"reflect"
@@ -53,10 +55,9 @@ type streamManager interface {
 	CloseWithError(error)
 	ResetFor0RTT()
 	UseResetMaps()
-	// error if not open yet
-	OpenedBidiStream(id StreamID) (Stream, error)
-	StoreState(state *handover.State, config *handover.ConnectionStateStoreConf)
-	Restore(state *handover.State) (*RestoredStreams, error)
+	StoreState(state *qstate.Connection, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf)
+	Restore(state *qstate.Connection) (*RestoredStreams, error)
+	SendStreams() []flowcontrol.SendStream
 }
 
 type cryptoStreamHandler interface {
@@ -69,7 +70,7 @@ type cryptoStreamHandler interface {
 	DiscardInitialKeys()
 	io.Closer
 	ConnectionState() handshake.ConnectionState
-	StoreHandoverState(t *handover.State, p protocol.Perspective)
+	StoreHandoverState(t *qstate.Connection)
 }
 
 type receivedPacket struct {
@@ -551,9 +552,6 @@ func (s *connection) preSetup() {
 		uint64(s.config.MaxIncomingStreams),
 		uint64(s.config.MaxIncomingUniStreams),
 		s.perspective,
-		func(streamID StreamID, encLevel protocol.EncryptionLevel) []*wire.StreamFrame {
-			return s.sentPacketHandler.StreamFramesInFlight(streamID, encLevel)
-		}, // make indirection because sentPacketHandler is not initialized yet; TODO initialize earlier
 	)
 	s.framer = newFramer(s.streamsMap)
 	s.receivedPackets = make(chan receivedPacket, protocol.MaxConnUnprocessedPackets)
@@ -2621,7 +2619,7 @@ func (s *connection) Handover(destroy bool, config *handover.ConnectionStateStor
 
 // handover must be called after handshake is confirmed
 // if AllowEarlyHandover is set, it can be called after handshake is completed
-func (s *connection) handover(destroy bool, config *handover.ConnectionStateStoreConf) (handover.State, error) {
+func (s *connection) handover(destroy bool, config *handover.ConnectionStateStoreConf) (qstate.Connection, error) {
 	//TODO validate supported options
 	if !s.handshakeComplete {
 		panic("illegal handover state: handshake must be completed")
@@ -2642,58 +2640,57 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 		s.pathManager.IgnoreSendTo(s.RemoteAddr())
 	}
 
-	state := handover.State{}
+	state := qstate.Connection{
+		Transport: qstate.Transport{
+			VantagePoint:    s.perspective.String(),
+			Version:         uint32(s.version),
+			DestinationIP:   s.conn.RemoteAddr().(*net.UDPAddr).IP.String(),
+			DestinationPort: uint16(s.conn.RemoteAddr().(*net.UDPAddr).Port),
+			ChosenALPN:      s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol,
+		},
+	}
 
-	state.Version = s.version
-	state.SetRemoteAddress(s.perspective, *s.conn.RemoteAddr().(*net.UDPAddr))
-	state.SetLocalAddress(s.perspective, *s.conn.LocalAddr().(*net.UDPAddr)) //TODO
-	s.cryptoStreamHandler.StoreHandoverState(&state, s.perspective)
-	state.ALPN = s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol
+	s.cryptoStreamHandler.StoreHandoverState(&state)
 
-	activeSrcConnIDs := make(map[handover.ConnectionIDSequenceNumber]*handover.ConnectionIDWithResetToken, 0)
 	for sn, connID := range s.connIDGenerator.activeSrcConnIDs {
 		statelessResetToken := s.connIDGenerator.getStatelessResetToken(connID) //TODO maybe store history
-		activeSrcConnIDs[handover.ConnectionIDSequenceNumber(sn)] = &handover.ConnectionIDWithResetToken{
+		state.Transport.ConnectionIDs = append(state.Transport.ConnectionIDs, qstate.ConnectionID{
+			SequenceNumber:      sn,
 			ConnectionID:        connID.Bytes(),
-			StatelessResetToken: statelessResetToken[:],
-		}
+			StatelessResetToken: (*[16]byte)(&statelessResetToken),
+		})
 	}
-	state.SetActiveSrcConnectionIDs(s.perspective, activeSrcConnIDs)
 
 	// store dest conn ids
-	var activeDestStatelessResetToken []byte = nil
-	if s.connIDManager.activeStatelessResetToken != nil {
-		activeDestStatelessResetToken = s.connIDManager.activeStatelessResetToken[:]
-	}
-	activeDestConnIDs := make(map[handover.ConnectionIDSequenceNumber]*handover.ConnectionIDWithResetToken, 0)
-	activeDestConnIDs[handover.ConnectionIDSequenceNumber(s.connIDManager.activeSequenceNumber)] = &handover.ConnectionIDWithResetToken{
+	state.Transport.RemoteConnectionIDs = append(state.Transport.RemoteConnectionIDs, qstate.ConnectionID{
+		SequenceNumber:      s.connIDManager.activeSequenceNumber,
 		ConnectionID:        s.connIDManager.activeConnectionID.Bytes(),
-		StatelessResetToken: activeDestStatelessResetToken,
-	}
+		StatelessResetToken: (*[16]byte)(s.connIDManager.activeStatelessResetToken),
+	})
 	for destConnID := s.connIDManager.queue.Front(); destConnID != nil; destConnID = destConnID.Next() {
-		activeDestConnIDs[handover.ConnectionIDSequenceNumber(destConnID.Value.SequenceNumber)] = &handover.ConnectionIDWithResetToken{
+		state.Transport.RemoteConnectionIDs = append(state.Transport.RemoteConnectionIDs, qstate.ConnectionID{
+			SequenceNumber:      destConnID.Value.SequenceNumber,
 			ConnectionID:        destConnID.Value.ConnectionID.Bytes(),
-			StatelessResetToken: destConnID.Value.StatelessResetToken[:],
-		}
+			StatelessResetToken: (*[16]byte)(utils.New(destConnID.Value.StatelessResetToken)),
+		})
 	}
-	state.SetActiveDestConnectionIDs(s.perspective, activeDestConnIDs)
 
 	if s.perspective == protocol.PerspectiveServer {
 		//state.ServerHighestConnectionIDSequenceNumber = s.connIDGenerator.highestSeq //TODO
 	}
 
-	ackhandler.StoreAckHandler(state.FromPerspective(s.perspective), config, s.sentPacketHandler, s.receivedPacketHandler)
+	ackhandler.StoreAckHandler(&state, config, s.sentPacketHandler, s.receivedPacketHandler)
 
 	if s.tracer != nil {
 		s.tracer.Debug("hquic_handover_state_created", "")
 	}
 
-	s.streamsMap.StoreState(&state, config)
+	s.streamsMap.StoreState(&state, s.sentPacketHandler, config)
 
-	s.connFlowController.StoreState(state.FromPerspective(s.perspective))
+	s.connFlowController.StoreState(&state, s.streamsMap.SendStreams())
 
 	if s.logger.Debug() {
-		b, err := state.Serialize()
+		b, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(state)
 		if err != nil {
 			panic(err)
 		}
@@ -2736,13 +2733,10 @@ func (s *connection) awaitHandshakeConfirmed() error {
 
 // Restore session from H-QUIC state
 // if t is nil, a new transport on a new socket will be created
-func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
+func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
 	conf, state := restoreConf.GenerateQuicConf(state)
-	perspective := restoreConf.Perspective
-	sfp := state.FromPerspective(perspective)
 
 	logger := utils.DefaultLogger.WithPrefix("clone")
-	remoteAddr := state.RemoteAddress(perspective)
 
 	err := restoreConf.Validate()
 	if err != nil {
@@ -2757,24 +2751,33 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 			Conn:               pconn,
 			isSingleUse:        true,
 			restoredHQUIC:      true,
-			ConnectionIDLength: state.ConnIDLen(perspective),
+			ConnectionIDLength: state.Transport.ConnectionIDLength(),
 		}
 	}
 	if err := t.init(true); err != nil {
 		panic(err)
 	}
 	packetHandlerManager := t.handlerMap
-	sendConn := newSendConn(t.conn, remoteAddr, packetInfo{addr: restoreConf.LocalAddr}, logger)
-	if t.connIDLen != sfp.LocalConnIDLen() {
-		panic(fmt.Sprintf("transport connection ID length %d does not match state connection ID length %d", t.connIDLen, sfp.LocalConnIDLen()))
+	sendConn := newSendConn(
+		t.conn,
+		&net.UDPAddr{
+			IP:   net.ParseIP(state.Transport.DestinationIP),
+			Port: int(state.Transport.DestinationPort),
+		},
+		packetInfo{addr: restoreConf.LocalAddr},
+		logger,
+	)
+	if t.connIDLen != state.Transport.ConnectionIDLength() {
+		panic(fmt.Sprintf("transport connection ID length %d does not match state connection ID length %d", t.connIDLen, state.Transport.ConnectionIDLength()))
 	}
 
 	// This should stay empty because this is no longer required after the Handshake
 	tlsConf := &tls.Config{}
 
-	oDCID := protocol.ParseConnectionID(*state.ServerTransportParameters.OriginalDestinationConnectionID)
+	oDCID := protocol.ParseConnectionID(state.Transport.OriginalDestinationConnectionID())
 
 	tracingID := nextConnTracingID()
+	perspective := state.Transport.Perspective()
 
 	var tokenGenerator *handshake.TokenGenerator
 	if perspective == protocol.PerspectiveServer {
@@ -2788,12 +2791,12 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	s := &connection{
 		conn:              sendConn,
 		config:            conf,
-		srcConnIDLen:      state.SrcConnectionIDLength(perspective),
+		srcConnIDLen:      state.Transport.ConnectionIDLength(),
 		perspective:       perspective,
 		logID:             oDCID.String(),
 		logger:            logger,
 		versionNegotiated: false,
-		version:           state.Version,
+		version:           protocol.Version(state.Transport.Version),
 		runner:            packetHandlerManager,
 		tokenGenerator:    tokenGenerator,
 		cloned:            true,
@@ -2810,15 +2813,15 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	}
 
 	s.connIDManager = newConnIDManager(
-		*state.MinActiveDestConnectionID(perspective),
+		protocol.ParseConnectionID(state.Transport.RemoteConnectionIDs[0].ConnectionID),
 		func(token protocol.StatelessResetToken) { s.runner.AddResetToken(token, s) },
 		s.runner.RemoveResetToken,
 		s.queueControlFrame,
 	)
 
 	s.connIDGenerator = newConnIDGenerator(
-		state.MinActiveSrcConnectionID(perspective),
-		state.MinActiveDestConnectionID(perspective),
+		protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID),
+		utils.New(protocol.ParseConnectionID(state.Transport.RemoteConnectionIDs[0].ConnectionID)),
 		func(connID protocol.ConnectionID) { s.runner.Add(connID, s) },
 		s.runner.GetStatelessResetToken,
 		s.runner.Remove,
@@ -2830,10 +2833,13 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 
 	// this has to happen before the server calls applyTransportParameters
 	{
-		maxSN, _ := state.MaxActiveSrcConnectionID(perspective)
+		var maxSN uint64
 		activeScrConnIDMap := make(map[uint64]protocol.ConnectionID, 0)
-		for sequenceNumber, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
-			activeScrConnIDMap[uint64(sequenceNumber)] = protocol.ParseConnectionID(activeConnID.ConnectionID)
+		for _, connectionID := range state.Transport.ConnectionIDs {
+			activeScrConnIDMap[connectionID.SequenceNumber] = protocol.ParseConnectionID(connectionID.ConnectionID)
+			if connectionID.SequenceNumber > maxSN {
+				maxSN = connectionID.SequenceNumber
+			}
 		}
 		s.connIDGenerator.activeSrcConnIDs = activeScrConnIDMap
 		s.connIDGenerator.highestSeq = uint64(maxSN)
@@ -2843,7 +2849,7 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	s.ctx, s.ctxCancel = context.WithCancelCause(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
 
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.RestoreAckHandler(
-		state.FromPerspective(perspective),
+		state,
 		getMaxPacketSize(s.conn.RemoteAddr()),
 		s.rttStats, // available after preSetup
 		s.conn.capabilities().ECN,
@@ -2855,8 +2861,8 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 
 	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
 
-	ownParams := handover.RestoreTransportParameters(sfp.OwnTransportParameters())
-	s.peerParams = handover.RestoreTransportParameters(sfp.PeerTransportParameters())
+	ownParams := qstate.RestoreTransportParameters(&state.Transport.Parameters)
+	s.peerParams = qstate.RestoreTransportParameters(&state.Transport.RemoteParameters)
 
 	if s.config.EnableDatagrams {
 		ownParams.MaxDatagramFrameSize = wire.MaxDatagramSize
@@ -2866,7 +2872,7 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	}
 
 	// s.peerParams must be restored
-	cs, err := handshake.RestoreCryptoSetupFromHandoverState(*state, perspective, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
+	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2875,7 +2881,7 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	s.cryptoStreamManager = newCryptoStreamManager(cs, s.initialStream, s.handshakeStream, newCryptoStream())
 	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)
 	s.packer = newPacketPacker(
-		state.MinActiveSrcConnectionID(perspective),
+		protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID),
 		s.connIDManager.Get,
 		s.initialStream,
 		s.handshakeStream,
@@ -2898,10 +2904,10 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 		}
 	}
 
-	for _, activeConnID := range state.ActiveSrcConnectionIDs(perspective) {
-		s.runner.Add(protocol.ParseConnectionID(activeConnID.ConnectionID), s)
-		if activeConnID.StatelessResetToken != nil {
-			s.runner.AddResetToken(protocol.StatelessResetToken(activeConnID.StatelessResetToken), s)
+	for _, connectionID := range state.Transport.ConnectionIDs {
+		s.runner.Add(protocol.ParseConnectionID(connectionID.ConnectionID), s)
+		if connectionID.StatelessResetToken != nil {
+			s.runner.AddResetToken(protocol.StatelessResetToken(*connectionID.StatelessResetToken), s)
 		}
 	}
 
@@ -2909,23 +2915,24 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 		s.tracer.RestoredTransportParameters(s.peerParams)
 	}
 
-	for sequenceNumber, activeConnID := range state.ActiveDestConnectionIDs(perspective) {
-		if protocol.ParseConnectionID(activeConnID.ConnectionID) == s.connIDManager.activeConnectionID {
-			s.connIDManager.activeSequenceNumber = uint64(sequenceNumber)
-			s.connIDManager.activeStatelessResetToken = new(protocol.StatelessResetToken)
-			if activeConnID.StatelessResetToken != nil {
+	for _, connectionID := range state.Transport.RemoteConnectionIDs {
+		if protocol.ParseConnectionID(connectionID.ConnectionID) == s.connIDManager.activeConnectionID {
+			s.connIDManager.activeSequenceNumber = connectionID.SequenceNumber
+
+			if connectionID.StatelessResetToken != nil {
 				s.connIDManager.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(s.connIDManager.rand.Int31n(protocol.PacketsPerConnectionID))
-				copy(s.connIDManager.activeStatelessResetToken[:], activeConnID.StatelessResetToken[:16])
+				s.connIDManager.activeStatelessResetToken = new(protocol.StatelessResetToken)
+				copy(s.connIDManager.activeStatelessResetToken[:], connectionID.StatelessResetToken[:])
 			}
 			continue
 		}
-		var resetToken [16]byte
-		copy(resetToken[:], activeConnID.StatelessResetToken[:16])
-		err := s.connIDManager.Add(&wire.NewConnectionIDFrame{
-			SequenceNumber:      uint64(sequenceNumber),
-			ConnectionID:        protocol.ParseConnectionID(activeConnID.ConnectionID),
-			StatelessResetToken: resetToken,
-		})
+		newConnectionIDFrame := &wire.NewConnectionIDFrame{
+			SequenceNumber: connectionID.SequenceNumber,
+			ConnectionID:   protocol.ParseConnectionID(connectionID.ConnectionID),
+		}
+		copy(newConnectionIDFrame.StatelessResetToken[:], connectionID.StatelessResetToken[:])
+		err := s.connIDManager.Add(newConnectionIDFrame)
+
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2958,12 +2965,13 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 		return nil, nil, err
 	}
 
-	s.connFlowController.RestoreState(sfp)
+	s.connFlowController.RestoreState(state)
 
-	//TODO send PATH_CHALLENGE instead of PING
-	err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
-	if err != nil {
-		return nil, nil, err
+	if restoreConf.SendPing {
+		err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	go func() {
@@ -2974,7 +2982,7 @@ func Restore(t *Transport, state *handover.State, restoreConf *ConnectionRestore
 	}()
 
 	if s.logger.Debug() {
-		b, err := state.Serialize()
+		b, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(state)
 		if err != nil {
 			panic(err)
 		}
@@ -3026,7 +3034,7 @@ func (s *connection) AddProxy(config *ProxyConfig) ProxySetupResponse {
 		config.ModifyState(&state)
 	}
 
-	serializedState, err := state.Serialize()
+	serializedState, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(state)
 	if err != nil {
 		return ProxySetupResponse{Error: fmt.Errorf("failed to serialize handover state: %v", err)}
 	}
@@ -3057,10 +3065,6 @@ func (s *connection) OriginalDestinationConnectionID() ConnectionID {
 		panic(fmt.Errorf("failed to parse odcid: %v", err))
 	}
 	return ConnectionIDFromBytes(bytes)
-}
-
-func (s *connection) OpenedBidiStream(id StreamID) (Stream, error) {
-	return s.streamsMap.OpenedBidiStream(id)
 }
 
 func (s *connection) UpdateRemoteAddr(addr net.UDPAddr, ignoreReceivedPacketsFromCurrentPath bool, ignoreMigrationToCurrentPath bool) error {

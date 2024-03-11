@@ -15,6 +15,7 @@ import (
 
 	protocol "github.com/quic-go/quic-go/internal/protocol"
 	qerr "github.com/quic-go/quic-go/internal/qerr"
+	wire "github.com/quic-go/quic-go/internal/wire"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -185,6 +186,44 @@ func (c *StreamContextCall) Do(f func() context.Context) *StreamContextCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *StreamContextCall) DoAndReturn(f func() context.Context) *StreamContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NextFrame mocks base method.
+func (m *MockStream) NextFrame() *wire.StreamFrame {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextFrame")
+	ret0, _ := ret[0].(*wire.StreamFrame)
+	return ret0
+}
+
+// NextFrame indicates an expected call of NextFrame.
+func (mr *MockStreamMockRecorder) NextFrame() *StreamNextFrameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextFrame", reflect.TypeOf((*MockStream)(nil).NextFrame))
+	return &StreamNextFrameCall{Call: call}
+}
+
+// StreamNextFrameCall wrap *gomock.Call
+type StreamNextFrameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *StreamNextFrameCall) Return(arg0 *wire.StreamFrame) *StreamNextFrameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *StreamNextFrameCall) Do(f func() *wire.StreamFrame) *StreamNextFrameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *StreamNextFrameCall) DoAndReturn(f func() *wire.StreamFrame) *StreamNextFrameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
