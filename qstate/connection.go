@@ -3,6 +3,7 @@ package qstate
 
 type Connection struct {
 	Transport Transport `msg:"transport" json:"transport"`
+	Crypto    Crypto    `msg:"crypto" json:"crypto"`
 	Metrics   Metrics   `msg:"metrics" json:"metrics"`
 }
 
@@ -10,6 +11,7 @@ type Connection struct {
 func (c *Connection) ChangeVantagePoint(DestinationIP string, DestinationPort uint16) Connection {
 	return Connection{
 		Transport: c.Transport.ChangeVantagePoint(DestinationIP, DestinationPort),
+		Crypto:    c.Crypto.ChangeVantagePoint(),
 		Metrics:   c.Metrics,
 	}
 }

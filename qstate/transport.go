@@ -5,7 +5,6 @@ import "github.com/quic-go/quic-go/internal/protocol"
 
 type Transport struct {
 	Version    uint32 `msg:"version" json:"version"`
-	KeyPhase   uint64 `msg:"key_phase" json:"key_phase"`
 	ChosenALPN string `msg:"chosen_alpn" json:"chosen_alpn"`
 	// client or server
 	VantagePoint string `msg:"vantage_point" json:"vantage_point"`
@@ -15,22 +14,8 @@ type Transport struct {
 	// active peer connection IDs;
 	// must be sorted ascending by sequence number;
 	RemoteConnectionIDs []ConnectionID `msg:"remote_connection_ids" json:"remote_connection_ids"`
-	// id of the used TLS 1.3 cipher suites.
-	// see RFC 8446 Appendix B.4. Cipher Suites.
-	// e.g."AES_128_GCM_SHA256"
-	TlsCipher string `msg:"tls_cipher" json:"tls_cipher"`
-	// used for header protection sent by peer.
-	// see RFC 9001 Section 5.4 Header Protection.
-	RemoteHeaderProtectionKey []byte `msg:"remote_header_protection_key" json:"remote_header_protection_key"`
-	// used for header protection sent to peer.
-	// see RFC 9001 Section 5.4 Header Protection.
-	HeaderProtectionKey []byte `msg:"header_protection_key" json:"header_protection_key"`
-	// secret used on packets sent from peer.
-	RemoteTrafficSecret []byte `msg:"remote_traffic_secret" json:"remote_traffic_secret"`
-	// secret used on packets sent to peer.
-	TrafficSecret   []byte `msg:"traffic_secret" json:"traffic_secret"`
-	DestinationIP   string `msg:"dst_ip" json:"dst_ip"`
-	DestinationPort uint16 `msg:"dst_port" json:"dst_port"`
+	DestinationIP       string         `msg:"dst_ip" json:"dst_ip"`
+	DestinationPort     uint16         `msg:"dst_port" json:"dst_port"`
 	// TODO only include non-default parameters
 	Parameters Parameters `msg:"parameters" json:"parameters"`
 	// TODO only include non-default parameters
@@ -101,15 +86,9 @@ func (s *Transport) PutBack(streamID int64, offset int64, data []byte) {
 func (t *Transport) ChangeVantagePoint(DestinationIP string, DestinationPort uint16) Transport {
 	f := Transport{
 		Version:                        t.Version,
-		KeyPhase:                       t.KeyPhase,
 		ChosenALPN:                     t.ChosenALPN,
 		ConnectionIDs:                  t.RemoteConnectionIDs,
 		RemoteConnectionIDs:            t.ConnectionIDs,
-		TlsCipher:                      t.TlsCipher,
-		RemoteHeaderProtectionKey:      t.HeaderProtectionKey,
-		HeaderProtectionKey:            t.RemoteHeaderProtectionKey,
-		RemoteTrafficSecret:            t.TrafficSecret,
-		TrafficSecret:                  t.RemoteTrafficSecret,
 		DestinationIP:                  DestinationIP,
 		DestinationPort:                DestinationPort,
 		Parameters:                     t.RemoteParameters,

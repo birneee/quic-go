@@ -30,12 +30,6 @@ func (z *Transport) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Version")
 				return
 			}
-		case "key_phase":
-			z.KeyPhase, err = dc.ReadUint64()
-			if err != nil {
-				err = msgp.WrapError(err, "KeyPhase")
-				return
-			}
 		case "chosen_alpn":
 			z.ChosenALPN, err = dc.ReadString()
 			if err != nil {
@@ -85,36 +79,6 @@ func (z *Transport) DecodeMsg(dc *msgp.Reader) (err error) {
 					err = msgp.WrapError(err, "RemoteConnectionIDs", za0002)
 					return
 				}
-			}
-		case "tls_cipher":
-			z.TlsCipher, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "TlsCipher")
-				return
-			}
-		case "remote_header_protection_key":
-			z.RemoteHeaderProtectionKey, err = dc.ReadBytes(z.RemoteHeaderProtectionKey)
-			if err != nil {
-				err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
-				return
-			}
-		case "header_protection_key":
-			z.HeaderProtectionKey, err = dc.ReadBytes(z.HeaderProtectionKey)
-			if err != nil {
-				err = msgp.WrapError(err, "HeaderProtectionKey")
-				return
-			}
-		case "remote_traffic_secret":
-			z.RemoteTrafficSecret, err = dc.ReadBytes(z.RemoteTrafficSecret)
-			if err != nil {
-				err = msgp.WrapError(err, "RemoteTrafficSecret")
-				return
-			}
-		case "traffic_secret":
-			z.TrafficSecret, err = dc.ReadBytes(z.TrafficSecret)
-			if err != nil {
-				err = msgp.WrapError(err, "TrafficSecret")
-				return
 			}
 		case "dst_ip":
 			z.DestinationIP, err = dc.ReadString()
@@ -337,25 +301,15 @@ func (z *Transport) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 33
+	// map header, size 27
 	// write "version"
-	err = en.Append(0xde, 0x0, 0x21, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	err = en.Append(0xde, 0x0, 0x1b, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
 	if err != nil {
 		return
 	}
 	err = en.WriteUint32(z.Version)
 	if err != nil {
 		err = msgp.WrapError(err, "Version")
-		return
-	}
-	// write "key_phase"
-	err = en.Append(0xa9, 0x6b, 0x65, 0x79, 0x5f, 0x70, 0x68, 0x61, 0x73, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteUint64(z.KeyPhase)
-	if err != nil {
-		err = msgp.WrapError(err, "KeyPhase")
 		return
 	}
 	// write "chosen_alpn"
@@ -411,56 +365,6 @@ func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
 			err = msgp.WrapError(err, "RemoteConnectionIDs", za0002)
 			return
 		}
-	}
-	// write "tls_cipher"
-	err = en.Append(0xaa, 0x74, 0x6c, 0x73, 0x5f, 0x63, 0x69, 0x70, 0x68, 0x65, 0x72)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.TlsCipher)
-	if err != nil {
-		err = msgp.WrapError(err, "TlsCipher")
-		return
-	}
-	// write "remote_header_protection_key"
-	err = en.Append(0xbc, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	if err != nil {
-		return
-	}
-	err = en.WriteBytes(z.RemoteHeaderProtectionKey)
-	if err != nil {
-		err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
-		return
-	}
-	// write "header_protection_key"
-	err = en.Append(0xb5, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	if err != nil {
-		return
-	}
-	err = en.WriteBytes(z.HeaderProtectionKey)
-	if err != nil {
-		err = msgp.WrapError(err, "HeaderProtectionKey")
-		return
-	}
-	// write "remote_traffic_secret"
-	err = en.Append(0xb5, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	if err != nil {
-		return
-	}
-	err = en.WriteBytes(z.RemoteTrafficSecret)
-	if err != nil {
-		err = msgp.WrapError(err, "RemoteTrafficSecret")
-		return
-	}
-	// write "traffic_secret"
-	err = en.Append(0xae, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	if err != nil {
-		return
-	}
-	err = en.WriteBytes(z.TrafficSecret)
-	if err != nil {
-		err = msgp.WrapError(err, "TrafficSecret")
-		return
 	}
 	// write "dst_ip"
 	err = en.Append(0xa6, 0x64, 0x73, 0x74, 0x5f, 0x69, 0x70)
@@ -730,13 +634,10 @@ func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Transport) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 33
+	// map header, size 27
 	// string "version"
-	o = append(o, 0xde, 0x0, 0x21, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	o = append(o, 0xde, 0x0, 0x1b, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
 	o = msgp.AppendUint32(o, z.Version)
-	// string "key_phase"
-	o = append(o, 0xa9, 0x6b, 0x65, 0x79, 0x5f, 0x70, 0x68, 0x61, 0x73, 0x65)
-	o = msgp.AppendUint64(o, z.KeyPhase)
 	// string "chosen_alpn"
 	o = append(o, 0xab, 0x63, 0x68, 0x6f, 0x73, 0x65, 0x6e, 0x5f, 0x61, 0x6c, 0x70, 0x6e)
 	o = msgp.AppendString(o, z.ChosenALPN)
@@ -763,21 +664,6 @@ func (z *Transport) MarshalMsg(b []byte) (o []byte, err error) {
 			return
 		}
 	}
-	// string "tls_cipher"
-	o = append(o, 0xaa, 0x74, 0x6c, 0x73, 0x5f, 0x63, 0x69, 0x70, 0x68, 0x65, 0x72)
-	o = msgp.AppendString(o, z.TlsCipher)
-	// string "remote_header_protection_key"
-	o = append(o, 0xbc, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	o = msgp.AppendBytes(o, z.RemoteHeaderProtectionKey)
-	// string "header_protection_key"
-	o = append(o, 0xb5, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x6b, 0x65, 0x79)
-	o = msgp.AppendBytes(o, z.HeaderProtectionKey)
-	// string "remote_traffic_secret"
-	o = append(o, 0xb5, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x5f, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	o = msgp.AppendBytes(o, z.RemoteTrafficSecret)
-	// string "traffic_secret"
-	o = append(o, 0xae, 0x74, 0x72, 0x61, 0x66, 0x66, 0x69, 0x63, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74)
-	o = msgp.AppendBytes(o, z.TrafficSecret)
 	// string "dst_ip"
 	o = append(o, 0xa6, 0x64, 0x73, 0x74, 0x5f, 0x69, 0x70)
 	o = msgp.AppendString(o, z.DestinationIP)
@@ -905,12 +791,6 @@ func (z *Transport) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Version")
 				return
 			}
-		case "key_phase":
-			z.KeyPhase, bts, err = msgp.ReadUint64Bytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "KeyPhase")
-				return
-			}
 		case "chosen_alpn":
 			z.ChosenALPN, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
@@ -960,36 +840,6 @@ func (z *Transport) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					err = msgp.WrapError(err, "RemoteConnectionIDs", za0002)
 					return
 				}
-			}
-		case "tls_cipher":
-			z.TlsCipher, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "TlsCipher")
-				return
-			}
-		case "remote_header_protection_key":
-			z.RemoteHeaderProtectionKey, bts, err = msgp.ReadBytesBytes(bts, z.RemoteHeaderProtectionKey)
-			if err != nil {
-				err = msgp.WrapError(err, "RemoteHeaderProtectionKey")
-				return
-			}
-		case "header_protection_key":
-			z.HeaderProtectionKey, bts, err = msgp.ReadBytesBytes(bts, z.HeaderProtectionKey)
-			if err != nil {
-				err = msgp.WrapError(err, "HeaderProtectionKey")
-				return
-			}
-		case "remote_traffic_secret":
-			z.RemoteTrafficSecret, bts, err = msgp.ReadBytesBytes(bts, z.RemoteTrafficSecret)
-			if err != nil {
-				err = msgp.WrapError(err, "RemoteTrafficSecret")
-				return
-			}
-		case "traffic_secret":
-			z.TrafficSecret, bts, err = msgp.ReadBytesBytes(bts, z.TrafficSecret)
-			if err != nil {
-				err = msgp.WrapError(err, "TrafficSecret")
-				return
 			}
 		case "dst_ip":
 			z.DestinationIP, bts, err = msgp.ReadStringBytes(bts)
@@ -1213,7 +1063,7 @@ func (z *Transport) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Transport) Msgsize() (s int) {
-	s = 3 + 8 + msgp.Uint32Size + 10 + msgp.Uint64Size + 12 + msgp.StringPrefixSize + len(z.ChosenALPN) + 14 + msgp.StringPrefixSize + len(z.VantagePoint) + 15 + msgp.ArrayHeaderSize
+	s = 3 + 8 + msgp.Uint32Size + 12 + msgp.StringPrefixSize + len(z.ChosenALPN) + 14 + msgp.StringPrefixSize + len(z.VantagePoint) + 15 + msgp.ArrayHeaderSize
 	for za0001 := range z.ConnectionIDs {
 		s += z.ConnectionIDs[za0001].Msgsize()
 	}
@@ -1221,7 +1071,7 @@ func (z *Transport) Msgsize() (s int) {
 	for za0002 := range z.RemoteConnectionIDs {
 		s += z.RemoteConnectionIDs[za0002].Msgsize()
 	}
-	s += 11 + msgp.StringPrefixSize + len(z.TlsCipher) + 29 + msgp.BytesPrefixSize + len(z.RemoteHeaderProtectionKey) + 22 + msgp.BytesPrefixSize + len(z.HeaderProtectionKey) + 22 + msgp.BytesPrefixSize + len(z.RemoteTrafficSecret) + 15 + msgp.BytesPrefixSize + len(z.TrafficSecret) + 7 + msgp.StringPrefixSize + len(z.DestinationIP) + 9 + msgp.Uint16Size + 11 + z.Parameters.Msgsize() + 18 + z.RemoteParameters.Msgsize() + 9 + msgp.Int64Size + 16 + msgp.Int64Size + 10 + msgp.Int64Size + 14 + msgp.Int64Size + 26 + msgp.Int64Size + 27 + msgp.Int64Size + 34 + msgp.Int64Size + 35 + msgp.Int64Size + 27 + msgp.Int64Size + 26 + msgp.Int64Size + 35 + msgp.Int64Size + 34 + msgp.Int64Size + 8 + msgp.ArrayHeaderSize
+	s += 7 + msgp.StringPrefixSize + len(z.DestinationIP) + 9 + msgp.Uint16Size + 11 + z.Parameters.Msgsize() + 18 + z.RemoteParameters.Msgsize() + 9 + msgp.Int64Size + 16 + msgp.Int64Size + 10 + msgp.Int64Size + 14 + msgp.Int64Size + 26 + msgp.Int64Size + 27 + msgp.Int64Size + 34 + msgp.Int64Size + 35 + msgp.Int64Size + 27 + msgp.Int64Size + 26 + msgp.Int64Size + 35 + msgp.Int64Size + 34 + msgp.Int64Size + 8 + msgp.ArrayHeaderSize
 	for za0003 := range z.Streams {
 		s += z.Streams[za0003].Msgsize()
 	}

@@ -23,17 +23,12 @@ func randomByteSlice(length int) []byte {
 func nonDefaultState() qstate.Connection {
 	s := qstate.Connection{
 		Transport: qstate.Transport{
-			Version:                   1,
-			KeyPhase:                  2,
-			ChosenALPN:                "proto1",
-			VantagePoint:              "client",
-			TlsCipher:                 "TLS_AES_128_GCM_SHA256",
-			HeaderProtectionKey:       randomByteSlice(16),
-			RemoteHeaderProtectionKey: randomByteSlice(16),
-			TrafficSecret:             randomByteSlice(32),
-			RemoteTrafficSecret:       randomByteSlice(32),
-			DestinationIP:             "127.0.0.1",
-			DestinationPort:           6000,
+			Version:      1,
+			ChosenALPN:   "proto1",
+			VantagePoint: "client",
+
+			DestinationIP:   "127.0.0.1",
+			DestinationPort: 6000,
 			Parameters: qstate.Parameters{
 				ActiveConnectionIDLimit: 4,
 			},
@@ -43,6 +38,14 @@ func nonDefaultState() qstate.Connection {
 			MaxData:       100_000,
 			RemoteMaxData: 20_000,
 			//TODO complete
+		},
+		Crypto: qstate.Crypto{
+			KeyPhase:                  2,
+			TlsCipher:                 "TLS_AES_128_GCM_SHA256",
+			HeaderProtectionKey:       randomByteSlice(16),
+			RemoteHeaderProtectionKey: randomByteSlice(16),
+			TrafficSecret:             randomByteSlice(32),
+			RemoteTrafficSecret:       randomByteSlice(32),
 		},
 		Metrics: qstate.Metrics{},
 	}

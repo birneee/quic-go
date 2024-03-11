@@ -333,12 +333,12 @@ func (a *updatableAEAD) FirstPacketNumber() protocol.PacketNumber {
 }
 
 func (a *updatableAEAD) store(s *qstate.Connection) {
-	s.Transport.KeyPhase = uint64(a.keyPhase)
-	s.Transport.TlsCipher = tls.CipherSuiteName(a.suite.ID)
-	s.Transport.RemoteHeaderProtectionKey = a.headerDecrypter.GetHeaderProtectionKey()
-	s.Transport.HeaderProtectionKey = a.headerEncrypter.GetHeaderProtectionKey()
-	s.Transport.RemoteTrafficSecret = a.rcvAEAD.TrafficSecret()
-	s.Transport.TrafficSecret = a.sendAEAD.TrafficSecret()
+	s.Crypto.KeyPhase = uint64(a.keyPhase)
+	s.Crypto.TlsCipher = tls.CipherSuiteName(a.suite.ID)
+	s.Crypto.RemoteHeaderProtectionKey = a.headerDecrypter.GetHeaderProtectionKey()
+	s.Crypto.HeaderProtectionKey = a.headerEncrypter.GetHeaderProtectionKey()
+	s.Crypto.RemoteTrafficSecret = a.rcvAEAD.TrafficSecret()
+	s.Crypto.TrafficSecret = a.sendAEAD.TrafficSecret()
 }
 
 func restoreUpdatableAEAD(state *qstate.Connection, rttStats *utils.RTTStats, tracer *logging.ConnectionTracer, logger utils.Logger) *updatableAEAD {
@@ -349,22 +349,22 @@ func restoreUpdatableAEAD(state *qstate.Connection, rttStats *utils.RTTStats, tr
 		protocol.Version(state.Transport.Version),
 	)
 
-	a.keyPhase = protocol.KeyPhase(state.Transport.KeyPhase)
+	a.keyPhase = protocol.KeyPhase(state.Crypto.KeyPhase)
 	a.highestRcvdPN = protocol.PacketNumber(state.Transport.HighestObservedPacketNumber)
-	suite := getCipherSuiteByName(state.Transport.TlsCipher)
+	suite := getCipherSuiteByName(state.Crypto.TlsCipher)
 
-	a.rcvAEAD = NewRecreatableAEAD(suite, state.Transport.RemoteTrafficSecret, a.version)
-	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Transport.RemoteHeaderProtectionKey, false)
-	a.sendAEAD = NewRecreatableAEAD(suite, state.Transport.TrafficSecret, a.version)
-	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Transport.HeaderProtectionKey, false)
+	a.rcvAEAD = NewRecreatableAEAD(suite, state.Crypto.RemoteTrafficSecret, a.version)
+	a.headerDecrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Crypto.RemoteHeaderProtectionKey, false)
+	a.sendAEAD = NewRecreatableAEAD(suite, state.Crypto.TrafficSecret, a.version)
+	a.headerEncrypter = newHeaderProtectorFromHeaderProtectionKey(suite, state.Crypto.HeaderProtectionKey, false)
 	if state.Transport.Perspective() == protocol.PerspectiveClient {
 		a.setAEADParameters(a.rcvAEAD, suite)
 	} else {
 		a.setAEADParameters(a.sendAEAD, suite)
 	}
-	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Transport.RemoteTrafficSecret)
+	a.nextRcvTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Crypto.RemoteTrafficSecret)
 	a.nextRcvAEAD = NewRecreatableAEAD(suite, a.nextRcvTrafficSecret, a.version)
-	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Transport.TrafficSecret)
+	a.nextSendTrafficSecret = a.getNextTrafficSecret(suite.Hash, state.Crypto.TrafficSecret)
 	a.nextSendAEAD = NewRecreatableAEAD(suite, a.nextSendTrafficSecret, a.version)
 
 	return a

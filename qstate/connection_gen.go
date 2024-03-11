@@ -30,6 +30,12 @@ func (z *Connection) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Transport")
 				return
 			}
+		case "crypto":
+			err = z.Crypto.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "Crypto")
+				return
+			}
 		case "metrics":
 			err = z.Metrics.DecodeMsg(dc)
 			if err != nil {
@@ -49,15 +55,25 @@ func (z *Connection) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Connection) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
+	// map header, size 3
 	// write "transport"
-	err = en.Append(0x82, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
+	err = en.Append(0x83, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
 	if err != nil {
 		return
 	}
 	err = z.Transport.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "Transport")
+		return
+	}
+	// write "crypto"
+	err = en.Append(0xa6, 0x63, 0x72, 0x79, 0x70, 0x74, 0x6f)
+	if err != nil {
+		return
+	}
+	err = z.Crypto.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Crypto")
 		return
 	}
 	// write "metrics"
@@ -76,12 +92,19 @@ func (z *Connection) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Connection) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
+	// map header, size 3
 	// string "transport"
-	o = append(o, 0x82, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
+	o = append(o, 0x83, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
 	o, err = z.Transport.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "Transport")
+		return
+	}
+	// string "crypto"
+	o = append(o, 0xa6, 0x63, 0x72, 0x79, 0x70, 0x74, 0x6f)
+	o, err = z.Crypto.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "Crypto")
 		return
 	}
 	// string "metrics"
@@ -118,6 +141,12 @@ func (z *Connection) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Transport")
 				return
 			}
+		case "crypto":
+			bts, err = z.Crypto.UnmarshalMsg(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Crypto")
+				return
+			}
 		case "metrics":
 			bts, err = z.Metrics.UnmarshalMsg(bts)
 			if err != nil {
@@ -138,6 +167,6 @@ func (z *Connection) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Connection) Msgsize() (s int) {
-	s = 1 + 10 + z.Transport.Msgsize() + 8 + z.Metrics.Msgsize()
+	s = 1 + 10 + z.Transport.Msgsize() + 7 + z.Crypto.Msgsize() + 8 + z.Metrics.Msgsize()
 	return
 }
