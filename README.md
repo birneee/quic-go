@@ -1,4 +1,4 @@
-# QUIC-GO with H-QUIC Extension
+# QUIC-GO with qstate Extension
 
 > :warning: Experimental!
 
@@ -12,7 +12,7 @@ Due to lack of security measures, this implementation is intended for research p
   - tbd: address validation with path challenge
 - server migration
   - tbd: address validation with path challenge
-- H-QUIC extension
+- qstate extension
   - store and restore session
   - use non-transparent encryption-breaking proxies
 
