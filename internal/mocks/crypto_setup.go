@@ -735,31 +735,31 @@ func (m *MockCryptoSetup) StoreHandoverState(arg0 *qstate.Connection) {
 }
 
 // StoreHandoverState indicates an expected call of StoreHandoverState.
-func (mr *MockCryptoSetupMockRecorder) StoreHandoverState(arg0 any) *CryptoSetupStoreHandoverStateCall {
+func (mr *MockCryptoSetupMockRecorder) StoreHandoverState(arg0 any) *MockCryptoSetupStoreHandoverStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreHandoverState", reflect.TypeOf((*MockCryptoSetup)(nil).StoreHandoverState), arg0)
-	return &CryptoSetupStoreHandoverStateCall{Call: call}
+	return &MockCryptoSetupStoreHandoverStateCall{Call: call}
 }
 
-// CryptoSetupStoreHandoverStateCall wrap *gomock.Call
-type CryptoSetupStoreHandoverStateCall struct {
+// MockCryptoSetupStoreHandoverStateCall wrap *gomock.Call
+type MockCryptoSetupStoreHandoverStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *CryptoSetupStoreHandoverStateCall) Return() *CryptoSetupStoreHandoverStateCall {
+func (c *MockCryptoSetupStoreHandoverStateCall) Return() *MockCryptoSetupStoreHandoverStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *CryptoSetupStoreHandoverStateCall) Do(f func(*qstate.Connection)) *CryptoSetupStoreHandoverStateCall {
+func (c *MockCryptoSetupStoreHandoverStateCall) Do(f func(*qstate.Connection)) *MockCryptoSetupStoreHandoverStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *CryptoSetupStoreHandoverStateCall) DoAndReturn(f func(*qstate.Connection)) *CryptoSetupStoreHandoverStateCall {
+func (c *MockCryptoSetupStoreHandoverStateCall) DoAndReturn(f func(*qstate.Connection)) *MockCryptoSetupStoreHandoverStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

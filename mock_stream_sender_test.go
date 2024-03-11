@@ -119,31 +119,31 @@ func (m *MockStreamSender) onStreamDataReadByApplication(arg0 protocol.StreamID,
 }
 
 // onStreamDataReadByApplication indicates an expected call of onStreamDataReadByApplication.
-func (mr *MockStreamSenderMockRecorder) onStreamDataReadByApplication(arg0, arg1, arg2 any) *StreamSenderonStreamDataReadByApplicationCall {
+func (mr *MockStreamSenderMockRecorder) onStreamDataReadByApplication(arg0, arg1, arg2 any) *MockStreamSenderonStreamDataReadByApplicationCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "onStreamDataReadByApplication", reflect.TypeOf((*MockStreamSender)(nil).onStreamDataReadByApplication), arg0, arg1, arg2)
-	return &StreamSenderonStreamDataReadByApplicationCall{Call: call}
+	return &MockStreamSenderonStreamDataReadByApplicationCall{Call: call}
 }
 
-// StreamSenderonStreamDataReadByApplicationCall wrap *gomock.Call
-type StreamSenderonStreamDataReadByApplicationCall struct {
+// MockStreamSenderonStreamDataReadByApplicationCall wrap *gomock.Call
+type MockStreamSenderonStreamDataReadByApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *StreamSenderonStreamDataReadByApplicationCall) Return() *StreamSenderonStreamDataReadByApplicationCall {
+func (c *MockStreamSenderonStreamDataReadByApplicationCall) Return() *MockStreamSenderonStreamDataReadByApplicationCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamSenderonStreamDataReadByApplicationCall) Do(f func(protocol.StreamID, uint64, int)) *StreamSenderonStreamDataReadByApplicationCall {
+func (c *MockStreamSenderonStreamDataReadByApplicationCall) Do(f func(protocol.StreamID, uint64, int)) *MockStreamSenderonStreamDataReadByApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamSenderonStreamDataReadByApplicationCall) DoAndReturn(f func(protocol.StreamID, uint64, int)) *StreamSenderonStreamDataReadByApplicationCall {
+func (c *MockStreamSenderonStreamDataReadByApplicationCall) DoAndReturn(f func(protocol.StreamID, uint64, int)) *MockStreamSenderonStreamDataReadByApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -155,31 +155,31 @@ func (m *MockStreamSender) onStreamDataWrittenByApplication(arg0 protocol.Stream
 }
 
 // onStreamDataWrittenByApplication indicates an expected call of onStreamDataWrittenByApplication.
-func (mr *MockStreamSenderMockRecorder) onStreamDataWrittenByApplication(arg0, arg1, arg2 any) *StreamSenderonStreamDataWrittenByApplicationCall {
+func (mr *MockStreamSenderMockRecorder) onStreamDataWrittenByApplication(arg0, arg1, arg2 any) *MockStreamSenderonStreamDataWrittenByApplicationCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "onStreamDataWrittenByApplication", reflect.TypeOf((*MockStreamSender)(nil).onStreamDataWrittenByApplication), arg0, arg1, arg2)
-	return &StreamSenderonStreamDataWrittenByApplicationCall{Call: call}
+	return &MockStreamSenderonStreamDataWrittenByApplicationCall{Call: call}
 }
 
-// StreamSenderonStreamDataWrittenByApplicationCall wrap *gomock.Call
-type StreamSenderonStreamDataWrittenByApplicationCall struct {
+// MockStreamSenderonStreamDataWrittenByApplicationCall wrap *gomock.Call
+type MockStreamSenderonStreamDataWrittenByApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *StreamSenderonStreamDataWrittenByApplicationCall) Return() *StreamSenderonStreamDataWrittenByApplicationCall {
+func (c *MockStreamSenderonStreamDataWrittenByApplicationCall) Return() *MockStreamSenderonStreamDataWrittenByApplicationCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamSenderonStreamDataWrittenByApplicationCall) Do(f func(protocol.StreamID, uint64, int)) *StreamSenderonStreamDataWrittenByApplicationCall {
+func (c *MockStreamSenderonStreamDataWrittenByApplicationCall) Do(f func(protocol.StreamID, uint64, int)) *MockStreamSenderonStreamDataWrittenByApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamSenderonStreamDataWrittenByApplicationCall) DoAndReturn(f func(protocol.StreamID, uint64, int)) *StreamSenderonStreamDataWrittenByApplicationCall {
+func (c *MockStreamSenderonStreamDataWrittenByApplicationCall) DoAndReturn(f func(protocol.StreamID, uint64, int)) *MockStreamSenderonStreamDataWrittenByApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

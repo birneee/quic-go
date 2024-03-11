@@ -274,31 +274,31 @@ func (m *MockPacketHandlerManager) GetConnectionByID(arg0 protocol.ConnectionID)
 }
 
 // GetConnectionByID indicates an expected call of GetConnectionByID.
-func (mr *MockPacketHandlerManagerMockRecorder) GetConnectionByID(arg0 any) *PacketHandlerManagerGetConnectionByIDCall {
+func (mr *MockPacketHandlerManagerMockRecorder) GetConnectionByID(arg0 any) *MockPacketHandlerManagerGetConnectionByIDCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionByID", reflect.TypeOf((*MockPacketHandlerManager)(nil).GetConnectionByID), arg0)
-	return &PacketHandlerManagerGetConnectionByIDCall{Call: call}
+	return &MockPacketHandlerManagerGetConnectionByIDCall{Call: call}
 }
 
-// PacketHandlerManagerGetConnectionByIDCall wrap *gomock.Call
-type PacketHandlerManagerGetConnectionByIDCall struct {
+// MockPacketHandlerManagerGetConnectionByIDCall wrap *gomock.Call
+type MockPacketHandlerManagerGetConnectionByIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PacketHandlerManagerGetConnectionByIDCall) Return(arg0 Connection) *PacketHandlerManagerGetConnectionByIDCall {
+func (c *MockPacketHandlerManagerGetConnectionByIDCall) Return(arg0 Connection) *MockPacketHandlerManagerGetConnectionByIDCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PacketHandlerManagerGetConnectionByIDCall) Do(f func(protocol.ConnectionID) Connection) *PacketHandlerManagerGetConnectionByIDCall {
+func (c *MockPacketHandlerManagerGetConnectionByIDCall) Do(f func(protocol.ConnectionID) Connection) *MockPacketHandlerManagerGetConnectionByIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PacketHandlerManagerGetConnectionByIDCall) DoAndReturn(f func(protocol.ConnectionID) Connection) *PacketHandlerManagerGetConnectionByIDCall {
+func (c *MockPacketHandlerManagerGetConnectionByIDCall) DoAndReturn(f func(protocol.ConnectionID) Connection) *MockPacketHandlerManagerGetConnectionByIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

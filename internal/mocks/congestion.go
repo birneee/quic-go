@@ -418,31 +418,31 @@ func (m *MockSendAlgorithmWithDebugInfos) SetCongestionWindow(arg0 protocol.Byte
 }
 
 // SetCongestionWindow indicates an expected call of SetCongestionWindow.
-func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetCongestionWindow(arg0 any) *SendAlgorithmWithDebugInfosSetCongestionWindowCall {
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetCongestionWindow(arg0 any) *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCongestionWindow", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetCongestionWindow), arg0)
-	return &SendAlgorithmWithDebugInfosSetCongestionWindowCall{Call: call}
+	return &MockSendAlgorithmWithDebugInfosSetCongestionWindowCall{Call: call}
 }
 
-// SendAlgorithmWithDebugInfosSetCongestionWindowCall wrap *gomock.Call
-type SendAlgorithmWithDebugInfosSetCongestionWindowCall struct {
+// MockSendAlgorithmWithDebugInfosSetCongestionWindowCall wrap *gomock.Call
+type MockSendAlgorithmWithDebugInfosSetCongestionWindowCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendAlgorithmWithDebugInfosSetCongestionWindowCall) Return() *SendAlgorithmWithDebugInfosSetCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall) Return() *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendAlgorithmWithDebugInfosSetCongestionWindowCall) Do(f func(protocol.ByteCount)) *SendAlgorithmWithDebugInfosSetCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall) Do(f func(protocol.ByteCount)) *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendAlgorithmWithDebugInfosSetCongestionWindowCall) DoAndReturn(f func(protocol.ByteCount)) *SendAlgorithmWithDebugInfosSetCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall) DoAndReturn(f func(protocol.ByteCount)) *MockSendAlgorithmWithDebugInfosSetCongestionWindowCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -454,31 +454,31 @@ func (m *MockSendAlgorithmWithDebugInfos) SetInitialCongestionWindow(arg0 uint32
 }
 
 // SetInitialCongestionWindow indicates an expected call of SetInitialCongestionWindow.
-func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetInitialCongestionWindow(arg0 any) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetInitialCongestionWindow(arg0 any) *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInitialCongestionWindow", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetInitialCongestionWindow), arg0)
-	return &SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall{Call: call}
+	return &MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall{Call: call}
 }
 
-// SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall wrap *gomock.Call
-type SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall struct {
+// MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall wrap *gomock.Call
+type MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Return() *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Return() *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Do(f func(uint32)) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) Do(f func(uint32)) *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) DoAndReturn(f func(uint32)) *SendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
+func (c *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall) DoAndReturn(f func(uint32)) *MockSendAlgorithmWithDebugInfosSetInitialCongestionWindowCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -490,31 +490,31 @@ func (m *MockSendAlgorithmWithDebugInfos) SetMaxBandwidth(arg0 congestion.Bandwi
 }
 
 // SetMaxBandwidth indicates an expected call of SetMaxBandwidth.
-func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetMaxBandwidth(arg0 any) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+func (mr *MockSendAlgorithmWithDebugInfosMockRecorder) SetMaxBandwidth(arg0 any) *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxBandwidth", reflect.TypeOf((*MockSendAlgorithmWithDebugInfos)(nil).SetMaxBandwidth), arg0)
-	return &SendAlgorithmWithDebugInfosSetMaxBandwidthCall{Call: call}
+	return &MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall{Call: call}
 }
 
-// SendAlgorithmWithDebugInfosSetMaxBandwidthCall wrap *gomock.Call
-type SendAlgorithmWithDebugInfosSetMaxBandwidthCall struct {
+// MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall wrap *gomock.Call
+type MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) Return() *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+func (c *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall) Return() *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) Do(f func(congestion.Bandwidth)) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+func (c *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall) Do(f func(congestion.Bandwidth)) *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendAlgorithmWithDebugInfosSetMaxBandwidthCall) DoAndReturn(f func(congestion.Bandwidth)) *SendAlgorithmWithDebugInfosSetMaxBandwidthCall {
+func (c *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall) DoAndReturn(f func(congestion.Bandwidth)) *MockSendAlgorithmWithDebugInfosSetMaxBandwidthCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

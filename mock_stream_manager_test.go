@@ -513,31 +513,31 @@ func (m *MockStreamManager) Restore(arg0 *qstate.Connection) (*RestoredStreams, 
 }
 
 // Restore indicates an expected call of Restore.
-func (mr *MockStreamManagerMockRecorder) Restore(arg0 any) *StreamManagerRestoreCall {
+func (mr *MockStreamManagerMockRecorder) Restore(arg0 any) *MockStreamManagerRestoreCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restore", reflect.TypeOf((*MockStreamManager)(nil).Restore), arg0)
-	return &StreamManagerRestoreCall{Call: call}
+	return &MockStreamManagerRestoreCall{Call: call}
 }
 
-// StreamManagerRestoreCall wrap *gomock.Call
-type StreamManagerRestoreCall struct {
+// MockStreamManagerRestoreCall wrap *gomock.Call
+type MockStreamManagerRestoreCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *StreamManagerRestoreCall) Return(arg0 *RestoredStreams, arg1 error) *StreamManagerRestoreCall {
+func (c *MockStreamManagerRestoreCall) Return(arg0 *RestoredStreams, arg1 error) *MockStreamManagerRestoreCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamManagerRestoreCall) Do(f func(*qstate.Connection) (*RestoredStreams, error)) *StreamManagerRestoreCall {
+func (c *MockStreamManagerRestoreCall) Do(f func(*qstate.Connection) (*RestoredStreams, error)) *MockStreamManagerRestoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamManagerRestoreCall) DoAndReturn(f func(*qstate.Connection) (*RestoredStreams, error)) *StreamManagerRestoreCall {
+func (c *MockStreamManagerRestoreCall) DoAndReturn(f func(*qstate.Connection) (*RestoredStreams, error)) *MockStreamManagerRestoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -551,31 +551,31 @@ func (m *MockStreamManager) SendStreams() []flowcontrol.SendStream {
 }
 
 // SendStreams indicates an expected call of SendStreams.
-func (mr *MockStreamManagerMockRecorder) SendStreams() *StreamManagerSendStreamsCall {
+func (mr *MockStreamManagerMockRecorder) SendStreams() *MockStreamManagerSendStreamsCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendStreams", reflect.TypeOf((*MockStreamManager)(nil).SendStreams))
-	return &StreamManagerSendStreamsCall{Call: call}
+	return &MockStreamManagerSendStreamsCall{Call: call}
 }
 
-// StreamManagerSendStreamsCall wrap *gomock.Call
-type StreamManagerSendStreamsCall struct {
+// MockStreamManagerSendStreamsCall wrap *gomock.Call
+type MockStreamManagerSendStreamsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *StreamManagerSendStreamsCall) Return(arg0 []flowcontrol.SendStream) *StreamManagerSendStreamsCall {
+func (c *MockStreamManagerSendStreamsCall) Return(arg0 []flowcontrol.SendStream) *MockStreamManagerSendStreamsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamManagerSendStreamsCall) Do(f func() []flowcontrol.SendStream) *StreamManagerSendStreamsCall {
+func (c *MockStreamManagerSendStreamsCall) Do(f func() []flowcontrol.SendStream) *MockStreamManagerSendStreamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamManagerSendStreamsCall) DoAndReturn(f func() []flowcontrol.SendStream) *StreamManagerSendStreamsCall {
+func (c *MockStreamManagerSendStreamsCall) DoAndReturn(f func() []flowcontrol.SendStream) *MockStreamManagerSendStreamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -587,31 +587,31 @@ func (m *MockStreamManager) StoreState(arg0 *qstate.Connection, arg1 ackhandler.
 }
 
 // StoreState indicates an expected call of StoreState.
-func (mr *MockStreamManagerMockRecorder) StoreState(arg0, arg1, arg2 any) *StreamManagerStoreStateCall {
+func (mr *MockStreamManagerMockRecorder) StoreState(arg0, arg1, arg2 any) *MockStreamManagerStoreStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockStreamManager)(nil).StoreState), arg0, arg1, arg2)
-	return &StreamManagerStoreStateCall{Call: call}
+	return &MockStreamManagerStoreStateCall{Call: call}
 }
 
-// StreamManagerStoreStateCall wrap *gomock.Call
-type StreamManagerStoreStateCall struct {
+// MockStreamManagerStoreStateCall wrap *gomock.Call
+type MockStreamManagerStoreStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *StreamManagerStoreStateCall) Return() *StreamManagerStoreStateCall {
+func (c *MockStreamManagerStoreStateCall) Return() *MockStreamManagerStoreStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *StreamManagerStoreStateCall) Do(f func(*qstate.Connection, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
+func (c *MockStreamManagerStoreStateCall) Do(f func(*qstate.Connection, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *MockStreamManagerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *StreamManagerStoreStateCall) DoAndReturn(f func(*qstate.Connection, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *StreamManagerStoreStateCall {
+func (c *MockStreamManagerStoreStateCall) DoAndReturn(f func(*qstate.Connection, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *MockStreamManagerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

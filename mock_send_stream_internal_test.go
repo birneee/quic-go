@@ -167,31 +167,31 @@ func (m *MockSendStreamI) NextFrame() *wire.StreamFrame {
 }
 
 // NextFrame indicates an expected call of NextFrame.
-func (mr *MockSendStreamIMockRecorder) NextFrame() *SendStreamINextFrameCall {
+func (mr *MockSendStreamIMockRecorder) NextFrame() *MockSendStreamINextFrameCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextFrame", reflect.TypeOf((*MockSendStreamI)(nil).NextFrame))
-	return &SendStreamINextFrameCall{Call: call}
+	return &MockSendStreamINextFrameCall{Call: call}
 }
 
-// SendStreamINextFrameCall wrap *gomock.Call
-type SendStreamINextFrameCall struct {
+// MockSendStreamINextFrameCall wrap *gomock.Call
+type MockSendStreamINextFrameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendStreamINextFrameCall) Return(arg0 *wire.StreamFrame) *SendStreamINextFrameCall {
+func (c *MockSendStreamINextFrameCall) Return(arg0 *wire.StreamFrame) *MockSendStreamINextFrameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendStreamINextFrameCall) Do(f func() *wire.StreamFrame) *SendStreamINextFrameCall {
+func (c *MockSendStreamINextFrameCall) Do(f func() *wire.StreamFrame) *MockSendStreamINextFrameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendStreamINextFrameCall) DoAndReturn(f func() *wire.StreamFrame) *SendStreamINextFrameCall {
+func (c *MockSendStreamINextFrameCall) DoAndReturn(f func() *wire.StreamFrame) *MockSendStreamINextFrameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -320,31 +320,31 @@ func (m *MockSendStreamI) WriteOffset() protocol.ByteCount {
 }
 
 // WriteOffset indicates an expected call of WriteOffset.
-func (mr *MockSendStreamIMockRecorder) WriteOffset() *SendStreamIWriteOffsetCall {
+func (mr *MockSendStreamIMockRecorder) WriteOffset() *MockSendStreamIWriteOffsetCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteOffset", reflect.TypeOf((*MockSendStreamI)(nil).WriteOffset))
-	return &SendStreamIWriteOffsetCall{Call: call}
+	return &MockSendStreamIWriteOffsetCall{Call: call}
 }
 
-// SendStreamIWriteOffsetCall wrap *gomock.Call
-type SendStreamIWriteOffsetCall struct {
+// MockSendStreamIWriteOffsetCall wrap *gomock.Call
+type MockSendStreamIWriteOffsetCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendStreamIWriteOffsetCall) Return(arg0 protocol.ByteCount) *SendStreamIWriteOffsetCall {
+func (c *MockSendStreamIWriteOffsetCall) Return(arg0 protocol.ByteCount) *MockSendStreamIWriteOffsetCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendStreamIWriteOffsetCall) Do(f func() protocol.ByteCount) *SendStreamIWriteOffsetCall {
+func (c *MockSendStreamIWriteOffsetCall) Do(f func() protocol.ByteCount) *MockSendStreamIWriteOffsetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendStreamIWriteOffsetCall) DoAndReturn(f func() protocol.ByteCount) *SendStreamIWriteOffsetCall {
+func (c *MockSendStreamIWriteOffsetCall) DoAndReturn(f func() protocol.ByteCount) *MockSendStreamIWriteOffsetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -506,31 +506,31 @@ func (m *MockSendStreamI) restoreSendState(arg0 *qstate.Stream) {
 }
 
 // restoreSendState indicates an expected call of restoreSendState.
-func (mr *MockSendStreamIMockRecorder) restoreSendState(arg0 any) *SendStreamIrestoreSendStateCall {
+func (mr *MockSendStreamIMockRecorder) restoreSendState(arg0 any) *MockSendStreamIrestoreSendStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "restoreSendState", reflect.TypeOf((*MockSendStreamI)(nil).restoreSendState), arg0)
-	return &SendStreamIrestoreSendStateCall{Call: call}
+	return &MockSendStreamIrestoreSendStateCall{Call: call}
 }
 
-// SendStreamIrestoreSendStateCall wrap *gomock.Call
-type SendStreamIrestoreSendStateCall struct {
+// MockSendStreamIrestoreSendStateCall wrap *gomock.Call
+type MockSendStreamIrestoreSendStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendStreamIrestoreSendStateCall) Return() *SendStreamIrestoreSendStateCall {
+func (c *MockSendStreamIrestoreSendStateCall) Return() *MockSendStreamIrestoreSendStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendStreamIrestoreSendStateCall) Do(f func(*qstate.Stream)) *SendStreamIrestoreSendStateCall {
+func (c *MockSendStreamIrestoreSendStateCall) Do(f func(*qstate.Stream)) *MockSendStreamIrestoreSendStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendStreamIrestoreSendStateCall) DoAndReturn(f func(*qstate.Stream)) *SendStreamIrestoreSendStateCall {
+func (c *MockSendStreamIrestoreSendStateCall) DoAndReturn(f func(*qstate.Stream)) *MockSendStreamIrestoreSendStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -542,31 +542,31 @@ func (m *MockSendStreamI) storeSendState(arg0 *qstate.Stream, arg1 ackhandler.Se
 }
 
 // storeSendState indicates an expected call of storeSendState.
-func (mr *MockSendStreamIMockRecorder) storeSendState(arg0, arg1, arg2 any) *SendStreamIstoreSendStateCall {
+func (mr *MockSendStreamIMockRecorder) storeSendState(arg0, arg1, arg2 any) *MockSendStreamIstoreSendStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "storeSendState", reflect.TypeOf((*MockSendStreamI)(nil).storeSendState), arg0, arg1, arg2)
-	return &SendStreamIstoreSendStateCall{Call: call}
+	return &MockSendStreamIstoreSendStateCall{Call: call}
 }
 
-// SendStreamIstoreSendStateCall wrap *gomock.Call
-type SendStreamIstoreSendStateCall struct {
+// MockSendStreamIstoreSendStateCall wrap *gomock.Call
+type MockSendStreamIstoreSendStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendStreamIstoreSendStateCall) Return() *SendStreamIstoreSendStateCall {
+func (c *MockSendStreamIstoreSendStateCall) Return() *MockSendStreamIstoreSendStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendStreamIstoreSendStateCall) Do(f func(*qstate.Stream, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
+func (c *MockSendStreamIstoreSendStateCall) Do(f func(*qstate.Stream, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *MockSendStreamIstoreSendStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendStreamIstoreSendStateCall) DoAndReturn(f func(*qstate.Stream, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *SendStreamIstoreSendStateCall {
+func (c *MockSendStreamIstoreSendStateCall) DoAndReturn(f func(*qstate.Stream, ackhandler.SentPacketHandler, *handover.ConnectionStateStoreConf)) *MockSendStreamIstoreSendStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

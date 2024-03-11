@@ -951,31 +951,31 @@ func (m *MockConnectionTracer) StreamDataMoved(arg0 protocol.StreamID, arg1 uint
 }
 
 // StreamDataMoved indicates an expected call of StreamDataMoved.
-func (mr *MockConnectionTracerMockRecorder) StreamDataMoved(arg0, arg1, arg2, arg3, arg4 any) *ConnectionTracerStreamDataMovedCall {
+func (mr *MockConnectionTracerMockRecorder) StreamDataMoved(arg0, arg1, arg2, arg3, arg4 any) *MockConnectionTracerStreamDataMovedCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamDataMoved", reflect.TypeOf((*MockConnectionTracer)(nil).StreamDataMoved), arg0, arg1, arg2, arg3, arg4)
-	return &ConnectionTracerStreamDataMovedCall{Call: call}
+	return &MockConnectionTracerStreamDataMovedCall{Call: call}
 }
 
-// ConnectionTracerStreamDataMovedCall wrap *gomock.Call
-type ConnectionTracerStreamDataMovedCall struct {
+// MockConnectionTracerStreamDataMovedCall wrap *gomock.Call
+type MockConnectionTracerStreamDataMovedCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionTracerStreamDataMovedCall) Return() *ConnectionTracerStreamDataMovedCall {
+func (c *MockConnectionTracerStreamDataMovedCall) Return() *MockConnectionTracerStreamDataMovedCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionTracerStreamDataMovedCall) Do(f func(protocol.StreamID, uint64, int, string, string)) *ConnectionTracerStreamDataMovedCall {
+func (c *MockConnectionTracerStreamDataMovedCall) Do(f func(protocol.StreamID, uint64, int, string, string)) *MockConnectionTracerStreamDataMovedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionTracerStreamDataMovedCall) DoAndReturn(f func(protocol.StreamID, uint64, int, string, string)) *ConnectionTracerStreamDataMovedCall {
+func (c *MockConnectionTracerStreamDataMovedCall) DoAndReturn(f func(protocol.StreamID, uint64, int, string, string)) *MockConnectionTracerStreamDataMovedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

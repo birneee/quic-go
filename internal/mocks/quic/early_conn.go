@@ -132,31 +132,31 @@ func (m *MockEarlyConnection) AddProxy(arg0 *quic.ProxyConfig) quic.ProxySetupRe
 }
 
 // AddProxy indicates an expected call of AddProxy.
-func (mr *MockEarlyConnectionMockRecorder) AddProxy(arg0 any) *EarlyConnectionAddProxyCall {
+func (mr *MockEarlyConnectionMockRecorder) AddProxy(arg0 any) *MockEarlyConnectionAddProxyCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProxy", reflect.TypeOf((*MockEarlyConnection)(nil).AddProxy), arg0)
-	return &EarlyConnectionAddProxyCall{Call: call}
+	return &MockEarlyConnectionAddProxyCall{Call: call}
 }
 
-// EarlyConnectionAddProxyCall wrap *gomock.Call
-type EarlyConnectionAddProxyCall struct {
+// MockEarlyConnectionAddProxyCall wrap *gomock.Call
+type MockEarlyConnectionAddProxyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionAddProxyCall) Return(arg0 quic.ProxySetupResponse) *EarlyConnectionAddProxyCall {
+func (c *MockEarlyConnectionAddProxyCall) Return(arg0 quic.ProxySetupResponse) *MockEarlyConnectionAddProxyCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionAddProxyCall) Do(f func(*quic.ProxyConfig) quic.ProxySetupResponse) *EarlyConnectionAddProxyCall {
+func (c *MockEarlyConnectionAddProxyCall) Do(f func(*quic.ProxyConfig) quic.ProxySetupResponse) *MockEarlyConnectionAddProxyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionAddProxyCall) DoAndReturn(f func(*quic.ProxyConfig) quic.ProxySetupResponse) *EarlyConnectionAddProxyCall {
+func (c *MockEarlyConnectionAddProxyCall) DoAndReturn(f func(*quic.ProxyConfig) quic.ProxySetupResponse) *MockEarlyConnectionAddProxyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -170,31 +170,31 @@ func (m *MockEarlyConnection) AwaitPathUpdate() <-chan struct{} {
 }
 
 // AwaitPathUpdate indicates an expected call of AwaitPathUpdate.
-func (mr *MockEarlyConnectionMockRecorder) AwaitPathUpdate() *EarlyConnectionAwaitPathUpdateCall {
+func (mr *MockEarlyConnectionMockRecorder) AwaitPathUpdate() *MockEarlyConnectionAwaitPathUpdateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitPathUpdate", reflect.TypeOf((*MockEarlyConnection)(nil).AwaitPathUpdate))
-	return &EarlyConnectionAwaitPathUpdateCall{Call: call}
+	return &MockEarlyConnectionAwaitPathUpdateCall{Call: call}
 }
 
-// EarlyConnectionAwaitPathUpdateCall wrap *gomock.Call
-type EarlyConnectionAwaitPathUpdateCall struct {
+// MockEarlyConnectionAwaitPathUpdateCall wrap *gomock.Call
+type MockEarlyConnectionAwaitPathUpdateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionAwaitPathUpdateCall) Return(arg0 <-chan struct{}) *EarlyConnectionAwaitPathUpdateCall {
+func (c *MockEarlyConnectionAwaitPathUpdateCall) Return(arg0 <-chan struct{}) *MockEarlyConnectionAwaitPathUpdateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionAwaitPathUpdateCall) Do(f func() <-chan struct{}) *EarlyConnectionAwaitPathUpdateCall {
+func (c *MockEarlyConnectionAwaitPathUpdateCall) Do(f func() <-chan struct{}) *MockEarlyConnectionAwaitPathUpdateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionAwaitPathUpdateCall) DoAndReturn(f func() <-chan struct{}) *EarlyConnectionAwaitPathUpdateCall {
+func (c *MockEarlyConnectionAwaitPathUpdateCall) DoAndReturn(f func() <-chan struct{}) *MockEarlyConnectionAwaitPathUpdateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -320,31 +320,31 @@ func (m *MockEarlyConnection) Destroy() {
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockEarlyConnectionMockRecorder) Destroy() *EarlyConnectionDestroyCall {
+func (mr *MockEarlyConnectionMockRecorder) Destroy() *MockEarlyConnectionDestroyCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockEarlyConnection)(nil).Destroy))
-	return &EarlyConnectionDestroyCall{Call: call}
+	return &MockEarlyConnectionDestroyCall{Call: call}
 }
 
-// EarlyConnectionDestroyCall wrap *gomock.Call
-type EarlyConnectionDestroyCall struct {
+// MockEarlyConnectionDestroyCall wrap *gomock.Call
+type MockEarlyConnectionDestroyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionDestroyCall) Return() *EarlyConnectionDestroyCall {
+func (c *MockEarlyConnectionDestroyCall) Return() *MockEarlyConnectionDestroyCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionDestroyCall) Do(f func()) *EarlyConnectionDestroyCall {
+func (c *MockEarlyConnectionDestroyCall) Do(f func()) *MockEarlyConnectionDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionDestroyCall) DoAndReturn(f func()) *EarlyConnectionDestroyCall {
+func (c *MockEarlyConnectionDestroyCall) DoAndReturn(f func()) *MockEarlyConnectionDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -358,31 +358,31 @@ func (m *MockEarlyConnection) ExtensionValues() *sync.Map[string, interface{}] {
 }
 
 // ExtensionValues indicates an expected call of ExtensionValues.
-func (mr *MockEarlyConnectionMockRecorder) ExtensionValues() *EarlyConnectionExtensionValuesCall {
+func (mr *MockEarlyConnectionMockRecorder) ExtensionValues() *MockEarlyConnectionExtensionValuesCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionValues", reflect.TypeOf((*MockEarlyConnection)(nil).ExtensionValues))
-	return &EarlyConnectionExtensionValuesCall{Call: call}
+	return &MockEarlyConnectionExtensionValuesCall{Call: call}
 }
 
-// EarlyConnectionExtensionValuesCall wrap *gomock.Call
-type EarlyConnectionExtensionValuesCall struct {
+// MockEarlyConnectionExtensionValuesCall wrap *gomock.Call
+type MockEarlyConnectionExtensionValuesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionExtensionValuesCall) Return(arg0 *sync.Map[string, interface{}]) *EarlyConnectionExtensionValuesCall {
+func (c *MockEarlyConnectionExtensionValuesCall) Return(arg0 *sync.Map[string, interface{}]) *MockEarlyConnectionExtensionValuesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionExtensionValuesCall) Do(f func() *sync.Map[string, interface{}]) *EarlyConnectionExtensionValuesCall {
+func (c *MockEarlyConnectionExtensionValuesCall) Do(f func() *sync.Map[string, interface{}]) *MockEarlyConnectionExtensionValuesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionExtensionValuesCall) DoAndReturn(f func() *sync.Map[string, interface{}]) *EarlyConnectionExtensionValuesCall {
+func (c *MockEarlyConnectionExtensionValuesCall) DoAndReturn(f func() *sync.Map[string, interface{}]) *MockEarlyConnectionExtensionValuesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -394,31 +394,31 @@ func (m *MockEarlyConnection) HandlePacket(arg0 quic.ReceivedPacket) {
 }
 
 // HandlePacket indicates an expected call of HandlePacket.
-func (mr *MockEarlyConnectionMockRecorder) HandlePacket(arg0 any) *EarlyConnectionHandlePacketCall {
+func (mr *MockEarlyConnectionMockRecorder) HandlePacket(arg0 any) *MockEarlyConnectionHandlePacketCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePacket", reflect.TypeOf((*MockEarlyConnection)(nil).HandlePacket), arg0)
-	return &EarlyConnectionHandlePacketCall{Call: call}
+	return &MockEarlyConnectionHandlePacketCall{Call: call}
 }
 
-// EarlyConnectionHandlePacketCall wrap *gomock.Call
-type EarlyConnectionHandlePacketCall struct {
+// MockEarlyConnectionHandlePacketCall wrap *gomock.Call
+type MockEarlyConnectionHandlePacketCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionHandlePacketCall) Return() *EarlyConnectionHandlePacketCall {
+func (c *MockEarlyConnectionHandlePacketCall) Return() *MockEarlyConnectionHandlePacketCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionHandlePacketCall) Do(f func(quic.ReceivedPacket)) *EarlyConnectionHandlePacketCall {
+func (c *MockEarlyConnectionHandlePacketCall) Do(f func(quic.ReceivedPacket)) *MockEarlyConnectionHandlePacketCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionHandlePacketCall) DoAndReturn(f func(quic.ReceivedPacket)) *EarlyConnectionHandlePacketCall {
+func (c *MockEarlyConnectionHandlePacketCall) DoAndReturn(f func(quic.ReceivedPacket)) *MockEarlyConnectionHandlePacketCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -432,31 +432,31 @@ func (m *MockEarlyConnection) Handover(arg0 bool, arg1 *handover.ConnectionState
 }
 
 // Handover indicates an expected call of Handover.
-func (mr *MockEarlyConnectionMockRecorder) Handover(arg0, arg1 any) *EarlyConnectionHandoverCall {
+func (mr *MockEarlyConnectionMockRecorder) Handover(arg0, arg1 any) *MockEarlyConnectionHandoverCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockEarlyConnection)(nil).Handover), arg0, arg1)
-	return &EarlyConnectionHandoverCall{Call: call}
+	return &MockEarlyConnectionHandoverCall{Call: call}
 }
 
-// EarlyConnectionHandoverCall wrap *gomock.Call
-type EarlyConnectionHandoverCall struct {
+// MockEarlyConnectionHandoverCall wrap *gomock.Call
+type MockEarlyConnectionHandoverCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionHandoverCall) Return(arg0 quic.HandoverStateResponse) *EarlyConnectionHandoverCall {
+func (c *MockEarlyConnectionHandoverCall) Return(arg0 quic.HandoverStateResponse) *MockEarlyConnectionHandoverCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionHandoverCall) Do(f func(bool, *handover.ConnectionStateStoreConf) quic.HandoverStateResponse) *EarlyConnectionHandoverCall {
+func (c *MockEarlyConnectionHandoverCall) Do(f func(bool, *handover.ConnectionStateStoreConf) quic.HandoverStateResponse) *MockEarlyConnectionHandoverCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionHandoverCall) DoAndReturn(f func(bool, *handover.ConnectionStateStoreConf) quic.HandoverStateResponse) *EarlyConnectionHandoverCall {
+func (c *MockEarlyConnectionHandoverCall) DoAndReturn(f func(bool, *handover.ConnectionStateStoreConf) quic.HandoverStateResponse) *MockEarlyConnectionHandoverCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -740,31 +740,31 @@ func (m *MockEarlyConnection) OriginalDestinationConnectionID() protocol.Connect
 }
 
 // OriginalDestinationConnectionID indicates an expected call of OriginalDestinationConnectionID.
-func (mr *MockEarlyConnectionMockRecorder) OriginalDestinationConnectionID() *EarlyConnectionOriginalDestinationConnectionIDCall {
+func (mr *MockEarlyConnectionMockRecorder) OriginalDestinationConnectionID() *MockEarlyConnectionOriginalDestinationConnectionIDCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockEarlyConnection)(nil).OriginalDestinationConnectionID))
-	return &EarlyConnectionOriginalDestinationConnectionIDCall{Call: call}
+	return &MockEarlyConnectionOriginalDestinationConnectionIDCall{Call: call}
 }
 
-// EarlyConnectionOriginalDestinationConnectionIDCall wrap *gomock.Call
-type EarlyConnectionOriginalDestinationConnectionIDCall struct {
+// MockEarlyConnectionOriginalDestinationConnectionIDCall wrap *gomock.Call
+type MockEarlyConnectionOriginalDestinationConnectionIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionOriginalDestinationConnectionIDCall) Return(arg0 protocol.ConnectionID) *EarlyConnectionOriginalDestinationConnectionIDCall {
+func (c *MockEarlyConnectionOriginalDestinationConnectionIDCall) Return(arg0 protocol.ConnectionID) *MockEarlyConnectionOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionOriginalDestinationConnectionIDCall) Do(f func() protocol.ConnectionID) *EarlyConnectionOriginalDestinationConnectionIDCall {
+func (c *MockEarlyConnectionOriginalDestinationConnectionIDCall) Do(f func() protocol.ConnectionID) *MockEarlyConnectionOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionOriginalDestinationConnectionIDCall) DoAndReturn(f func() protocol.ConnectionID) *EarlyConnectionOriginalDestinationConnectionIDCall {
+func (c *MockEarlyConnectionOriginalDestinationConnectionIDCall) DoAndReturn(f func() protocol.ConnectionID) *MockEarlyConnectionOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -778,31 +778,31 @@ func (m *MockEarlyConnection) QueueHandshakeDoneFrame() error {
 }
 
 // QueueHandshakeDoneFrame indicates an expected call of QueueHandshakeDoneFrame.
-func (mr *MockEarlyConnectionMockRecorder) QueueHandshakeDoneFrame() *EarlyConnectionQueueHandshakeDoneFrameCall {
+func (mr *MockEarlyConnectionMockRecorder) QueueHandshakeDoneFrame() *MockEarlyConnectionQueueHandshakeDoneFrameCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueueHandshakeDoneFrame", reflect.TypeOf((*MockEarlyConnection)(nil).QueueHandshakeDoneFrame))
-	return &EarlyConnectionQueueHandshakeDoneFrameCall{Call: call}
+	return &MockEarlyConnectionQueueHandshakeDoneFrameCall{Call: call}
 }
 
-// EarlyConnectionQueueHandshakeDoneFrameCall wrap *gomock.Call
-type EarlyConnectionQueueHandshakeDoneFrameCall struct {
+// MockEarlyConnectionQueueHandshakeDoneFrameCall wrap *gomock.Call
+type MockEarlyConnectionQueueHandshakeDoneFrameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionQueueHandshakeDoneFrameCall) Return(arg0 error) *EarlyConnectionQueueHandshakeDoneFrameCall {
+func (c *MockEarlyConnectionQueueHandshakeDoneFrameCall) Return(arg0 error) *MockEarlyConnectionQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionQueueHandshakeDoneFrameCall) Do(f func() error) *EarlyConnectionQueueHandshakeDoneFrameCall {
+func (c *MockEarlyConnectionQueueHandshakeDoneFrameCall) Do(f func() error) *MockEarlyConnectionQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionQueueHandshakeDoneFrameCall) DoAndReturn(f func() error) *EarlyConnectionQueueHandshakeDoneFrameCall {
+func (c *MockEarlyConnectionQueueHandshakeDoneFrameCall) DoAndReturn(f func() error) *MockEarlyConnectionQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -931,31 +931,31 @@ func (m *MockEarlyConnection) UpdateRemoteAddr(arg0 net.UDPAddr, arg1, arg2 bool
 }
 
 // UpdateRemoteAddr indicates an expected call of UpdateRemoteAddr.
-func (mr *MockEarlyConnectionMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 any) *EarlyConnectionUpdateRemoteAddrCall {
+func (mr *MockEarlyConnectionMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 any) *MockEarlyConnectionUpdateRemoteAddrCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteAddr", reflect.TypeOf((*MockEarlyConnection)(nil).UpdateRemoteAddr), arg0, arg1, arg2)
-	return &EarlyConnectionUpdateRemoteAddrCall{Call: call}
+	return &MockEarlyConnectionUpdateRemoteAddrCall{Call: call}
 }
 
-// EarlyConnectionUpdateRemoteAddrCall wrap *gomock.Call
-type EarlyConnectionUpdateRemoteAddrCall struct {
+// MockEarlyConnectionUpdateRemoteAddrCall wrap *gomock.Call
+type MockEarlyConnectionUpdateRemoteAddrCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *EarlyConnectionUpdateRemoteAddrCall) Return(arg0 error) *EarlyConnectionUpdateRemoteAddrCall {
+func (c *MockEarlyConnectionUpdateRemoteAddrCall) Return(arg0 error) *MockEarlyConnectionUpdateRemoteAddrCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *EarlyConnectionUpdateRemoteAddrCall) Do(f func(net.UDPAddr, bool, bool) error) *EarlyConnectionUpdateRemoteAddrCall {
+func (c *MockEarlyConnectionUpdateRemoteAddrCall) Do(f func(net.UDPAddr, bool, bool) error) *MockEarlyConnectionUpdateRemoteAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *EarlyConnectionUpdateRemoteAddrCall) DoAndReturn(f func(net.UDPAddr, bool, bool) error) *EarlyConnectionUpdateRemoteAddrCall {
+func (c *MockEarlyConnectionUpdateRemoteAddrCall) DoAndReturn(f func(net.UDPAddr, bool, bool) error) *MockEarlyConnectionUpdateRemoteAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

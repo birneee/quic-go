@@ -161,31 +161,31 @@ func (m *MockSendConn) SetCurrentRemoteAddr(arg0 net.Addr) {
 }
 
 // SetCurrentRemoteAddr indicates an expected call of SetCurrentRemoteAddr.
-func (mr *MockSendConnMockRecorder) SetCurrentRemoteAddr(arg0 any) *SendConnSetCurrentRemoteAddrCall {
+func (mr *MockSendConnMockRecorder) SetCurrentRemoteAddr(arg0 any) *MockSendConnSetCurrentRemoteAddrCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentRemoteAddr", reflect.TypeOf((*MockSendConn)(nil).SetCurrentRemoteAddr), arg0)
-	return &SendConnSetCurrentRemoteAddrCall{Call: call}
+	return &MockSendConnSetCurrentRemoteAddrCall{Call: call}
 }
 
-// SendConnSetCurrentRemoteAddrCall wrap *gomock.Call
-type SendConnSetCurrentRemoteAddrCall struct {
+// MockSendConnSetCurrentRemoteAddrCall wrap *gomock.Call
+type MockSendConnSetCurrentRemoteAddrCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SendConnSetCurrentRemoteAddrCall) Return() *SendConnSetCurrentRemoteAddrCall {
+func (c *MockSendConnSetCurrentRemoteAddrCall) Return() *MockSendConnSetCurrentRemoteAddrCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SendConnSetCurrentRemoteAddrCall) Do(f func(net.Addr)) *SendConnSetCurrentRemoteAddrCall {
+func (c *MockSendConnSetCurrentRemoteAddrCall) Do(f func(net.Addr)) *MockSendConnSetCurrentRemoteAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SendConnSetCurrentRemoteAddrCall) DoAndReturn(f func(net.Addr)) *SendConnSetCurrentRemoteAddrCall {
+func (c *MockSendConnSetCurrentRemoteAddrCall) DoAndReturn(f func(net.Addr)) *MockSendConnSetCurrentRemoteAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

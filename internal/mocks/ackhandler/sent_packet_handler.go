@@ -540,31 +540,31 @@ func (m *MockSentPacketHandler) SetInitialCongestionWindow(arg0 uint32) {
 }
 
 // SetInitialCongestionWindow indicates an expected call of SetInitialCongestionWindow.
-func (mr *MockSentPacketHandlerMockRecorder) SetInitialCongestionWindow(arg0 any) *SentPacketHandlerSetInitialCongestionWindowCall {
+func (mr *MockSentPacketHandlerMockRecorder) SetInitialCongestionWindow(arg0 any) *MockSentPacketHandlerSetInitialCongestionWindowCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInitialCongestionWindow", reflect.TypeOf((*MockSentPacketHandler)(nil).SetInitialCongestionWindow), arg0)
-	return &SentPacketHandlerSetInitialCongestionWindowCall{Call: call}
+	return &MockSentPacketHandlerSetInitialCongestionWindowCall{Call: call}
 }
 
-// SentPacketHandlerSetInitialCongestionWindowCall wrap *gomock.Call
-type SentPacketHandlerSetInitialCongestionWindowCall struct {
+// MockSentPacketHandlerSetInitialCongestionWindowCall wrap *gomock.Call
+type MockSentPacketHandlerSetInitialCongestionWindowCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerSetInitialCongestionWindowCall) Return() *SentPacketHandlerSetInitialCongestionWindowCall {
+func (c *MockSentPacketHandlerSetInitialCongestionWindowCall) Return() *MockSentPacketHandlerSetInitialCongestionWindowCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerSetInitialCongestionWindowCall) Do(f func(uint32)) *SentPacketHandlerSetInitialCongestionWindowCall {
+func (c *MockSentPacketHandlerSetInitialCongestionWindowCall) Do(f func(uint32)) *MockSentPacketHandlerSetInitialCongestionWindowCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerSetInitialCongestionWindowCall) DoAndReturn(f func(uint32)) *SentPacketHandlerSetInitialCongestionWindowCall {
+func (c *MockSentPacketHandlerSetInitialCongestionWindowCall) DoAndReturn(f func(uint32)) *MockSentPacketHandlerSetInitialCongestionWindowCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -576,31 +576,31 @@ func (m *MockSentPacketHandler) SetMaxBandwidth(arg0 congestion.Bandwidth) {
 }
 
 // SetMaxBandwidth indicates an expected call of SetMaxBandwidth.
-func (mr *MockSentPacketHandlerMockRecorder) SetMaxBandwidth(arg0 any) *SentPacketHandlerSetMaxBandwidthCall {
+func (mr *MockSentPacketHandlerMockRecorder) SetMaxBandwidth(arg0 any) *MockSentPacketHandlerSetMaxBandwidthCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxBandwidth", reflect.TypeOf((*MockSentPacketHandler)(nil).SetMaxBandwidth), arg0)
-	return &SentPacketHandlerSetMaxBandwidthCall{Call: call}
+	return &MockSentPacketHandlerSetMaxBandwidthCall{Call: call}
 }
 
-// SentPacketHandlerSetMaxBandwidthCall wrap *gomock.Call
-type SentPacketHandlerSetMaxBandwidthCall struct {
+// MockSentPacketHandlerSetMaxBandwidthCall wrap *gomock.Call
+type MockSentPacketHandlerSetMaxBandwidthCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerSetMaxBandwidthCall) Return() *SentPacketHandlerSetMaxBandwidthCall {
+func (c *MockSentPacketHandlerSetMaxBandwidthCall) Return() *MockSentPacketHandlerSetMaxBandwidthCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerSetMaxBandwidthCall) Do(f func(congestion.Bandwidth)) *SentPacketHandlerSetMaxBandwidthCall {
+func (c *MockSentPacketHandlerSetMaxBandwidthCall) Do(f func(congestion.Bandwidth)) *MockSentPacketHandlerSetMaxBandwidthCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerSetMaxBandwidthCall) DoAndReturn(f func(congestion.Bandwidth)) *SentPacketHandlerSetMaxBandwidthCall {
+func (c *MockSentPacketHandlerSetMaxBandwidthCall) DoAndReturn(f func(congestion.Bandwidth)) *MockSentPacketHandlerSetMaxBandwidthCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -648,31 +648,31 @@ func (m *MockSentPacketHandler) StoreState(arg0 *qstate.Connection, arg1 *handov
 }
 
 // StoreState indicates an expected call of StoreState.
-func (mr *MockSentPacketHandlerMockRecorder) StoreState(arg0, arg1 any) *SentPacketHandlerStoreStateCall {
+func (mr *MockSentPacketHandlerMockRecorder) StoreState(arg0, arg1 any) *MockSentPacketHandlerStoreStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockSentPacketHandler)(nil).StoreState), arg0, arg1)
-	return &SentPacketHandlerStoreStateCall{Call: call}
+	return &MockSentPacketHandlerStoreStateCall{Call: call}
 }
 
-// SentPacketHandlerStoreStateCall wrap *gomock.Call
-type SentPacketHandlerStoreStateCall struct {
+// MockSentPacketHandlerStoreStateCall wrap *gomock.Call
+type MockSentPacketHandlerStoreStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerStoreStateCall) Return() *SentPacketHandlerStoreStateCall {
+func (c *MockSentPacketHandlerStoreStateCall) Return() *MockSentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStoreStateCall) Do(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
+func (c *MockSentPacketHandlerStoreStateCall) Do(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *MockSentPacketHandlerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStoreStateCall) DoAndReturn(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *SentPacketHandlerStoreStateCall {
+func (c *MockSentPacketHandlerStoreStateCall) DoAndReturn(f func(*qstate.Connection, *handover.ConnectionStateStoreConf)) *MockSentPacketHandlerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -686,31 +686,31 @@ func (m *MockSentPacketHandler) StreamFramesInFlight(arg0 protocol.StreamID, arg
 }
 
 // StreamFramesInFlight indicates an expected call of StreamFramesInFlight.
-func (mr *MockSentPacketHandlerMockRecorder) StreamFramesInFlight(arg0, arg1 any) *SentPacketHandlerStreamFramesInFlightCall {
+func (mr *MockSentPacketHandlerMockRecorder) StreamFramesInFlight(arg0, arg1 any) *MockSentPacketHandlerStreamFramesInFlightCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFramesInFlight", reflect.TypeOf((*MockSentPacketHandler)(nil).StreamFramesInFlight), arg0, arg1)
-	return &SentPacketHandlerStreamFramesInFlightCall{Call: call}
+	return &MockSentPacketHandlerStreamFramesInFlightCall{Call: call}
 }
 
-// SentPacketHandlerStreamFramesInFlightCall wrap *gomock.Call
-type SentPacketHandlerStreamFramesInFlightCall struct {
+// MockSentPacketHandlerStreamFramesInFlightCall wrap *gomock.Call
+type MockSentPacketHandlerStreamFramesInFlightCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SentPacketHandlerStreamFramesInFlightCall) Return(arg0 []*wire.StreamFrame) *SentPacketHandlerStreamFramesInFlightCall {
+func (c *MockSentPacketHandlerStreamFramesInFlightCall) Return(arg0 []*wire.StreamFrame) *MockSentPacketHandlerStreamFramesInFlightCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SentPacketHandlerStreamFramesInFlightCall) Do(f func(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame) *SentPacketHandlerStreamFramesInFlightCall {
+func (c *MockSentPacketHandlerStreamFramesInFlightCall) Do(f func(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame) *MockSentPacketHandlerStreamFramesInFlightCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SentPacketHandlerStreamFramesInFlightCall) DoAndReturn(f func(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame) *SentPacketHandlerStreamFramesInFlightCall {
+func (c *MockSentPacketHandlerStreamFramesInFlightCall) DoAndReturn(f func(protocol.StreamID, protocol.EncryptionLevel) []*wire.StreamFrame) *MockSentPacketHandlerStreamFramesInFlightCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

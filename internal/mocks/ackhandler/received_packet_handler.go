@@ -237,31 +237,31 @@ func (m *MockReceivedPacketHandler) Store(arg0 *qstate.Connection) {
 }
 
 // Store indicates an expected call of Store.
-func (mr *MockReceivedPacketHandlerMockRecorder) Store(arg0 any) *ReceivedPacketHandlerStoreCall {
+func (mr *MockReceivedPacketHandlerMockRecorder) Store(arg0 any) *MockReceivedPacketHandlerStoreCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockReceivedPacketHandler)(nil).Store), arg0)
-	return &ReceivedPacketHandlerStoreCall{Call: call}
+	return &MockReceivedPacketHandlerStoreCall{Call: call}
 }
 
-// ReceivedPacketHandlerStoreCall wrap *gomock.Call
-type ReceivedPacketHandlerStoreCall struct {
+// MockReceivedPacketHandlerStoreCall wrap *gomock.Call
+type MockReceivedPacketHandlerStoreCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ReceivedPacketHandlerStoreCall) Return() *ReceivedPacketHandlerStoreCall {
+func (c *MockReceivedPacketHandlerStoreCall) Return() *MockReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ReceivedPacketHandlerStoreCall) Do(f func(*qstate.Connection)) *ReceivedPacketHandlerStoreCall {
+func (c *MockReceivedPacketHandlerStoreCall) Do(f func(*qstate.Connection)) *MockReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ReceivedPacketHandlerStoreCall) DoAndReturn(f func(*qstate.Connection)) *ReceivedPacketHandlerStoreCall {
+func (c *MockReceivedPacketHandlerStoreCall) DoAndReturn(f func(*qstate.Connection)) *MockReceivedPacketHandlerStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

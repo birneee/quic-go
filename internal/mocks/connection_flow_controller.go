@@ -235,31 +235,31 @@ func (m *MockConnectionFlowController) RestoreState(arg0 *qstate.Connection) {
 }
 
 // RestoreState indicates an expected call of RestoreState.
-func (mr *MockConnectionFlowControllerMockRecorder) RestoreState(arg0 any) *ConnectionFlowControllerRestoreStateCall {
+func (mr *MockConnectionFlowControllerMockRecorder) RestoreState(arg0 any) *MockConnectionFlowControllerRestoreStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).RestoreState), arg0)
-	return &ConnectionFlowControllerRestoreStateCall{Call: call}
+	return &MockConnectionFlowControllerRestoreStateCall{Call: call}
 }
 
-// ConnectionFlowControllerRestoreStateCall wrap *gomock.Call
-type ConnectionFlowControllerRestoreStateCall struct {
+// MockConnectionFlowControllerRestoreStateCall wrap *gomock.Call
+type MockConnectionFlowControllerRestoreStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionFlowControllerRestoreStateCall) Return() *ConnectionFlowControllerRestoreStateCall {
+func (c *MockConnectionFlowControllerRestoreStateCall) Return() *MockConnectionFlowControllerRestoreStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionFlowControllerRestoreStateCall) Do(f func(*qstate.Connection)) *ConnectionFlowControllerRestoreStateCall {
+func (c *MockConnectionFlowControllerRestoreStateCall) Do(f func(*qstate.Connection)) *MockConnectionFlowControllerRestoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionFlowControllerRestoreStateCall) DoAndReturn(f func(*qstate.Connection)) *ConnectionFlowControllerRestoreStateCall {
+func (c *MockConnectionFlowControllerRestoreStateCall) DoAndReturn(f func(*qstate.Connection)) *MockConnectionFlowControllerRestoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -309,31 +309,31 @@ func (m *MockConnectionFlowController) StoreState(arg0 *qstate.Connection, arg1 
 }
 
 // StoreState indicates an expected call of StoreState.
-func (mr *MockConnectionFlowControllerMockRecorder) StoreState(arg0, arg1 any) *ConnectionFlowControllerStoreStateCall {
+func (mr *MockConnectionFlowControllerMockRecorder) StoreState(arg0, arg1 any) *MockConnectionFlowControllerStoreStateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreState", reflect.TypeOf((*MockConnectionFlowController)(nil).StoreState), arg0, arg1)
-	return &ConnectionFlowControllerStoreStateCall{Call: call}
+	return &MockConnectionFlowControllerStoreStateCall{Call: call}
 }
 
-// ConnectionFlowControllerStoreStateCall wrap *gomock.Call
-type ConnectionFlowControllerStoreStateCall struct {
+// MockConnectionFlowControllerStoreStateCall wrap *gomock.Call
+type MockConnectionFlowControllerStoreStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionFlowControllerStoreStateCall) Return() *ConnectionFlowControllerStoreStateCall {
+func (c *MockConnectionFlowControllerStoreStateCall) Return() *MockConnectionFlowControllerStoreStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionFlowControllerStoreStateCall) Do(f func(*qstate.Connection, []flowcontrol.SendStream)) *ConnectionFlowControllerStoreStateCall {
+func (c *MockConnectionFlowControllerStoreStateCall) Do(f func(*qstate.Connection, []flowcontrol.SendStream)) *MockConnectionFlowControllerStoreStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionFlowControllerStoreStateCall) DoAndReturn(f func(*qstate.Connection, []flowcontrol.SendStream)) *ConnectionFlowControllerStoreStateCall {
+func (c *MockConnectionFlowControllerStoreStateCall) DoAndReturn(f func(*qstate.Connection, []flowcontrol.SendStream)) *MockConnectionFlowControllerStoreStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

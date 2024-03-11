@@ -131,31 +131,31 @@ func (m *MockQUICConn) AddProxy(arg0 *ProxyConfig) ProxySetupResponse {
 }
 
 // AddProxy indicates an expected call of AddProxy.
-func (mr *MockQUICConnMockRecorder) AddProxy(arg0 any) *QUICConnAddProxyCall {
+func (mr *MockQUICConnMockRecorder) AddProxy(arg0 any) *MockQUICConnAddProxyCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProxy", reflect.TypeOf((*MockQUICConn)(nil).AddProxy), arg0)
-	return &QUICConnAddProxyCall{Call: call}
+	return &MockQUICConnAddProxyCall{Call: call}
 }
 
-// QUICConnAddProxyCall wrap *gomock.Call
-type QUICConnAddProxyCall struct {
+// MockQUICConnAddProxyCall wrap *gomock.Call
+type MockQUICConnAddProxyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnAddProxyCall) Return(arg0 ProxySetupResponse) *QUICConnAddProxyCall {
+func (c *MockQUICConnAddProxyCall) Return(arg0 ProxySetupResponse) *MockQUICConnAddProxyCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnAddProxyCall) Do(f func(*ProxyConfig) ProxySetupResponse) *QUICConnAddProxyCall {
+func (c *MockQUICConnAddProxyCall) Do(f func(*ProxyConfig) ProxySetupResponse) *MockQUICConnAddProxyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnAddProxyCall) DoAndReturn(f func(*ProxyConfig) ProxySetupResponse) *QUICConnAddProxyCall {
+func (c *MockQUICConnAddProxyCall) DoAndReturn(f func(*ProxyConfig) ProxySetupResponse) *MockQUICConnAddProxyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -169,31 +169,31 @@ func (m *MockQUICConn) AwaitPathUpdate() <-chan struct{} {
 }
 
 // AwaitPathUpdate indicates an expected call of AwaitPathUpdate.
-func (mr *MockQUICConnMockRecorder) AwaitPathUpdate() *QUICConnAwaitPathUpdateCall {
+func (mr *MockQUICConnMockRecorder) AwaitPathUpdate() *MockQUICConnAwaitPathUpdateCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitPathUpdate", reflect.TypeOf((*MockQUICConn)(nil).AwaitPathUpdate))
-	return &QUICConnAwaitPathUpdateCall{Call: call}
+	return &MockQUICConnAwaitPathUpdateCall{Call: call}
 }
 
-// QUICConnAwaitPathUpdateCall wrap *gomock.Call
-type QUICConnAwaitPathUpdateCall struct {
+// MockQUICConnAwaitPathUpdateCall wrap *gomock.Call
+type MockQUICConnAwaitPathUpdateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnAwaitPathUpdateCall) Return(arg0 <-chan struct{}) *QUICConnAwaitPathUpdateCall {
+func (c *MockQUICConnAwaitPathUpdateCall) Return(arg0 <-chan struct{}) *MockQUICConnAwaitPathUpdateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnAwaitPathUpdateCall) Do(f func() <-chan struct{}) *QUICConnAwaitPathUpdateCall {
+func (c *MockQUICConnAwaitPathUpdateCall) Do(f func() <-chan struct{}) *MockQUICConnAwaitPathUpdateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnAwaitPathUpdateCall) DoAndReturn(f func() <-chan struct{}) *QUICConnAwaitPathUpdateCall {
+func (c *MockQUICConnAwaitPathUpdateCall) DoAndReturn(f func() <-chan struct{}) *MockQUICConnAwaitPathUpdateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -319,31 +319,31 @@ func (m *MockQUICConn) Destroy() {
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockQUICConnMockRecorder) Destroy() *QUICConnDestroyCall {
+func (mr *MockQUICConnMockRecorder) Destroy() *MockQUICConnDestroyCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockQUICConn)(nil).Destroy))
-	return &QUICConnDestroyCall{Call: call}
+	return &MockQUICConnDestroyCall{Call: call}
 }
 
-// QUICConnDestroyCall wrap *gomock.Call
-type QUICConnDestroyCall struct {
+// MockQUICConnDestroyCall wrap *gomock.Call
+type MockQUICConnDestroyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnDestroyCall) Return() *QUICConnDestroyCall {
+func (c *MockQUICConnDestroyCall) Return() *MockQUICConnDestroyCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnDestroyCall) Do(f func()) *QUICConnDestroyCall {
+func (c *MockQUICConnDestroyCall) Do(f func()) *MockQUICConnDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnDestroyCall) DoAndReturn(f func()) *QUICConnDestroyCall {
+func (c *MockQUICConnDestroyCall) DoAndReturn(f func()) *MockQUICConnDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -357,31 +357,31 @@ func (m *MockQUICConn) ExtensionValues() *sync.Map[string, interface{}] {
 }
 
 // ExtensionValues indicates an expected call of ExtensionValues.
-func (mr *MockQUICConnMockRecorder) ExtensionValues() *QUICConnExtensionValuesCall {
+func (mr *MockQUICConnMockRecorder) ExtensionValues() *MockQUICConnExtensionValuesCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionValues", reflect.TypeOf((*MockQUICConn)(nil).ExtensionValues))
-	return &QUICConnExtensionValuesCall{Call: call}
+	return &MockQUICConnExtensionValuesCall{Call: call}
 }
 
-// QUICConnExtensionValuesCall wrap *gomock.Call
-type QUICConnExtensionValuesCall struct {
+// MockQUICConnExtensionValuesCall wrap *gomock.Call
+type MockQUICConnExtensionValuesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnExtensionValuesCall) Return(arg0 *sync.Map[string, interface{}]) *QUICConnExtensionValuesCall {
+func (c *MockQUICConnExtensionValuesCall) Return(arg0 *sync.Map[string, interface{}]) *MockQUICConnExtensionValuesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnExtensionValuesCall) Do(f func() *sync.Map[string, interface{}]) *QUICConnExtensionValuesCall {
+func (c *MockQUICConnExtensionValuesCall) Do(f func() *sync.Map[string, interface{}]) *MockQUICConnExtensionValuesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnExtensionValuesCall) DoAndReturn(f func() *sync.Map[string, interface{}]) *QUICConnExtensionValuesCall {
+func (c *MockQUICConnExtensionValuesCall) DoAndReturn(f func() *sync.Map[string, interface{}]) *MockQUICConnExtensionValuesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -393,31 +393,31 @@ func (m *MockQUICConn) HandlePacket(arg0 ReceivedPacket) {
 }
 
 // HandlePacket indicates an expected call of HandlePacket.
-func (mr *MockQUICConnMockRecorder) HandlePacket(arg0 any) *QUICConnHandlePacketCall {
+func (mr *MockQUICConnMockRecorder) HandlePacket(arg0 any) *MockQUICConnHandlePacketCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePacket", reflect.TypeOf((*MockQUICConn)(nil).HandlePacket), arg0)
-	return &QUICConnHandlePacketCall{Call: call}
+	return &MockQUICConnHandlePacketCall{Call: call}
 }
 
-// QUICConnHandlePacketCall wrap *gomock.Call
-type QUICConnHandlePacketCall struct {
+// MockQUICConnHandlePacketCall wrap *gomock.Call
+type MockQUICConnHandlePacketCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnHandlePacketCall) Return() *QUICConnHandlePacketCall {
+func (c *MockQUICConnHandlePacketCall) Return() *MockQUICConnHandlePacketCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnHandlePacketCall) Do(f func(ReceivedPacket)) *QUICConnHandlePacketCall {
+func (c *MockQUICConnHandlePacketCall) Do(f func(ReceivedPacket)) *MockQUICConnHandlePacketCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnHandlePacketCall) DoAndReturn(f func(ReceivedPacket)) *QUICConnHandlePacketCall {
+func (c *MockQUICConnHandlePacketCall) DoAndReturn(f func(ReceivedPacket)) *MockQUICConnHandlePacketCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -431,31 +431,31 @@ func (m *MockQUICConn) Handover(arg0 bool, arg1 *handover.ConnectionStateStoreCo
 }
 
 // Handover indicates an expected call of Handover.
-func (mr *MockQUICConnMockRecorder) Handover(arg0, arg1 any) *QUICConnHandoverCall {
+func (mr *MockQUICConnMockRecorder) Handover(arg0, arg1 any) *MockQUICConnHandoverCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handover", reflect.TypeOf((*MockQUICConn)(nil).Handover), arg0, arg1)
-	return &QUICConnHandoverCall{Call: call}
+	return &MockQUICConnHandoverCall{Call: call}
 }
 
-// QUICConnHandoverCall wrap *gomock.Call
-type QUICConnHandoverCall struct {
+// MockQUICConnHandoverCall wrap *gomock.Call
+type MockQUICConnHandoverCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnHandoverCall) Return(arg0 HandoverStateResponse) *QUICConnHandoverCall {
+func (c *MockQUICConnHandoverCall) Return(arg0 HandoverStateResponse) *MockQUICConnHandoverCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnHandoverCall) Do(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
+func (c *MockQUICConnHandoverCall) Do(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *MockQUICConnHandoverCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnHandoverCall) DoAndReturn(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *QUICConnHandoverCall {
+func (c *MockQUICConnHandoverCall) DoAndReturn(f func(bool, *handover.ConnectionStateStoreConf) HandoverStateResponse) *MockQUICConnHandoverCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -739,31 +739,31 @@ func (m *MockQUICConn) OriginalDestinationConnectionID() protocol.ConnectionID {
 }
 
 // OriginalDestinationConnectionID indicates an expected call of OriginalDestinationConnectionID.
-func (mr *MockQUICConnMockRecorder) OriginalDestinationConnectionID() *QUICConnOriginalDestinationConnectionIDCall {
+func (mr *MockQUICConnMockRecorder) OriginalDestinationConnectionID() *MockQUICConnOriginalDestinationConnectionIDCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OriginalDestinationConnectionID", reflect.TypeOf((*MockQUICConn)(nil).OriginalDestinationConnectionID))
-	return &QUICConnOriginalDestinationConnectionIDCall{Call: call}
+	return &MockQUICConnOriginalDestinationConnectionIDCall{Call: call}
 }
 
-// QUICConnOriginalDestinationConnectionIDCall wrap *gomock.Call
-type QUICConnOriginalDestinationConnectionIDCall struct {
+// MockQUICConnOriginalDestinationConnectionIDCall wrap *gomock.Call
+type MockQUICConnOriginalDestinationConnectionIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnOriginalDestinationConnectionIDCall) Return(arg0 protocol.ConnectionID) *QUICConnOriginalDestinationConnectionIDCall {
+func (c *MockQUICConnOriginalDestinationConnectionIDCall) Return(arg0 protocol.ConnectionID) *MockQUICConnOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnOriginalDestinationConnectionIDCall) Do(f func() protocol.ConnectionID) *QUICConnOriginalDestinationConnectionIDCall {
+func (c *MockQUICConnOriginalDestinationConnectionIDCall) Do(f func() protocol.ConnectionID) *MockQUICConnOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnOriginalDestinationConnectionIDCall) DoAndReturn(f func() protocol.ConnectionID) *QUICConnOriginalDestinationConnectionIDCall {
+func (c *MockQUICConnOriginalDestinationConnectionIDCall) DoAndReturn(f func() protocol.ConnectionID) *MockQUICConnOriginalDestinationConnectionIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -777,31 +777,31 @@ func (m *MockQUICConn) QueueHandshakeDoneFrame() error {
 }
 
 // QueueHandshakeDoneFrame indicates an expected call of QueueHandshakeDoneFrame.
-func (mr *MockQUICConnMockRecorder) QueueHandshakeDoneFrame() *QUICConnQueueHandshakeDoneFrameCall {
+func (mr *MockQUICConnMockRecorder) QueueHandshakeDoneFrame() *MockQUICConnQueueHandshakeDoneFrameCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueueHandshakeDoneFrame", reflect.TypeOf((*MockQUICConn)(nil).QueueHandshakeDoneFrame))
-	return &QUICConnQueueHandshakeDoneFrameCall{Call: call}
+	return &MockQUICConnQueueHandshakeDoneFrameCall{Call: call}
 }
 
-// QUICConnQueueHandshakeDoneFrameCall wrap *gomock.Call
-type QUICConnQueueHandshakeDoneFrameCall struct {
+// MockQUICConnQueueHandshakeDoneFrameCall wrap *gomock.Call
+type MockQUICConnQueueHandshakeDoneFrameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnQueueHandshakeDoneFrameCall) Return(arg0 error) *QUICConnQueueHandshakeDoneFrameCall {
+func (c *MockQUICConnQueueHandshakeDoneFrameCall) Return(arg0 error) *MockQUICConnQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnQueueHandshakeDoneFrameCall) Do(f func() error) *QUICConnQueueHandshakeDoneFrameCall {
+func (c *MockQUICConnQueueHandshakeDoneFrameCall) Do(f func() error) *MockQUICConnQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnQueueHandshakeDoneFrameCall) DoAndReturn(f func() error) *QUICConnQueueHandshakeDoneFrameCall {
+func (c *MockQUICConnQueueHandshakeDoneFrameCall) DoAndReturn(f func() error) *MockQUICConnQueueHandshakeDoneFrameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -930,31 +930,31 @@ func (m *MockQUICConn) UpdateRemoteAddr(arg0 net.UDPAddr, arg1, arg2 bool) error
 }
 
 // UpdateRemoteAddr indicates an expected call of UpdateRemoteAddr.
-func (mr *MockQUICConnMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 any) *QUICConnUpdateRemoteAddrCall {
+func (mr *MockQUICConnMockRecorder) UpdateRemoteAddr(arg0, arg1, arg2 any) *MockQUICConnUpdateRemoteAddrCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteAddr", reflect.TypeOf((*MockQUICConn)(nil).UpdateRemoteAddr), arg0, arg1, arg2)
-	return &QUICConnUpdateRemoteAddrCall{Call: call}
+	return &MockQUICConnUpdateRemoteAddrCall{Call: call}
 }
 
-// QUICConnUpdateRemoteAddrCall wrap *gomock.Call
-type QUICConnUpdateRemoteAddrCall struct {
+// MockQUICConnUpdateRemoteAddrCall wrap *gomock.Call
+type MockQUICConnUpdateRemoteAddrCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QUICConnUpdateRemoteAddrCall) Return(arg0 error) *QUICConnUpdateRemoteAddrCall {
+func (c *MockQUICConnUpdateRemoteAddrCall) Return(arg0 error) *MockQUICConnUpdateRemoteAddrCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QUICConnUpdateRemoteAddrCall) Do(f func(net.UDPAddr, bool, bool) error) *QUICConnUpdateRemoteAddrCall {
+func (c *MockQUICConnUpdateRemoteAddrCall) Do(f func(net.UDPAddr, bool, bool) error) *MockQUICConnUpdateRemoteAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QUICConnUpdateRemoteAddrCall) DoAndReturn(f func(net.UDPAddr, bool, bool) error) *QUICConnUpdateRemoteAddrCall {
+func (c *MockQUICConnUpdateRemoteAddrCall) DoAndReturn(f func(net.UDPAddr, bool, bool) error) *MockQUICConnUpdateRemoteAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
