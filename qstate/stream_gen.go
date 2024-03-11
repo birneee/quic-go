@@ -102,7 +102,7 @@ func (z *Stream) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
-		case "WriteQueue":
+		case "write_queue":
 			var zb0002 uint32
 			zb0002, err = dc.ReadArrayHeader()
 			if err != nil {
@@ -175,7 +175,7 @@ func (z *Stream) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
-		case "ReadQueue":
+		case "read_queue":
 			var zb0003 uint32
 			zb0003, err = dc.ReadArrayHeader()
 			if err != nil {
@@ -227,6 +227,10 @@ func (z *Stream) EncodeMsg(en *msgp.Writer) (err error) {
 		zb0001Len--
 		zb0001Mask |= 0x10
 	}
+	if z.WriteQueue == nil {
+		zb0001Len--
+		zb0001Mask |= 0x20
+	}
 	if z.ReadOffset == nil {
 		zb0001Len--
 		zb0001Mask |= 0x40
@@ -238,6 +242,10 @@ func (z *Stream) EncodeMsg(en *msgp.Writer) (err error) {
 	if z.ReadMaxData == nil {
 		zb0001Len--
 		zb0001Mask |= 0x100
+	}
+	if z.ReadQueue == nil {
+		zb0001Len--
+		zb0001Mask |= 0x200
 	}
 	// variable map header, size zb0001Len
 	err = en.Append(0x80 | uint8(zb0001Len))
@@ -333,21 +341,23 @@ func (z *Stream) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
-	// write "WriteQueue"
-	err = en.Append(0xaa, 0x57, 0x72, 0x69, 0x74, 0x65, 0x51, 0x75, 0x65, 0x75, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteArrayHeader(uint32(len(z.WriteQueue)))
-	if err != nil {
-		err = msgp.WrapError(err, "WriteQueue")
-		return
-	}
-	for za0001 := range z.WriteQueue {
-		err = z.WriteQueue[za0001].EncodeMsg(en)
+	if (zb0001Mask & 0x20) == 0 { // if not empty
+		// write "write_queue"
+		err = en.Append(0xab, 0x77, 0x72, 0x69, 0x74, 0x65, 0x5f, 0x71, 0x75, 0x65, 0x75, 0x65)
 		if err != nil {
-			err = msgp.WrapError(err, "WriteQueue", za0001)
 			return
+		}
+		err = en.WriteArrayHeader(uint32(len(z.WriteQueue)))
+		if err != nil {
+			err = msgp.WrapError(err, "WriteQueue")
+			return
+		}
+		for za0001 := range z.WriteQueue {
+			err = z.WriteQueue[za0001].EncodeMsg(en)
+			if err != nil {
+				err = msgp.WrapError(err, "WriteQueue", za0001)
+				return
+			}
 		}
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
@@ -407,21 +417,23 @@ func (z *Stream) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
-	// write "ReadQueue"
-	err = en.Append(0xa9, 0x52, 0x65, 0x61, 0x64, 0x51, 0x75, 0x65, 0x75, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteArrayHeader(uint32(len(z.ReadQueue)))
-	if err != nil {
-		err = msgp.WrapError(err, "ReadQueue")
-		return
-	}
-	for za0002 := range z.ReadQueue {
-		err = z.ReadQueue[za0002].EncodeMsg(en)
+	if (zb0001Mask & 0x200) == 0 { // if not empty
+		// write "read_queue"
+		err = en.Append(0xaa, 0x72, 0x65, 0x61, 0x64, 0x5f, 0x71, 0x75, 0x65, 0x75, 0x65)
 		if err != nil {
-			err = msgp.WrapError(err, "ReadQueue", za0002)
 			return
+		}
+		err = en.WriteArrayHeader(uint32(len(z.ReadQueue)))
+		if err != nil {
+			err = msgp.WrapError(err, "ReadQueue")
+			return
+		}
+		for za0002 := range z.ReadQueue {
+			err = z.ReadQueue[za0002].EncodeMsg(en)
+			if err != nil {
+				err = msgp.WrapError(err, "ReadQueue", za0002)
+				return
+			}
 		}
 	}
 	return
@@ -450,6 +462,10 @@ func (z *Stream) MarshalMsg(b []byte) (o []byte, err error) {
 		zb0001Len--
 		zb0001Mask |= 0x10
 	}
+	if z.WriteQueue == nil {
+		zb0001Len--
+		zb0001Mask |= 0x20
+	}
 	if z.ReadOffset == nil {
 		zb0001Len--
 		zb0001Mask |= 0x40
@@ -461,6 +477,10 @@ func (z *Stream) MarshalMsg(b []byte) (o []byte, err error) {
 	if z.ReadMaxData == nil {
 		zb0001Len--
 		zb0001Mask |= 0x100
+	}
+	if z.ReadQueue == nil {
+		zb0001Len--
+		zb0001Mask |= 0x200
 	}
 	// variable map header, size zb0001Len
 	o = append(o, 0x80|uint8(zb0001Len))
@@ -506,14 +526,16 @@ func (z *Stream) MarshalMsg(b []byte) (o []byte, err error) {
 			o = msgp.AppendInt64(o, *z.WriteAck)
 		}
 	}
-	// string "WriteQueue"
-	o = append(o, 0xaa, 0x57, 0x72, 0x69, 0x74, 0x65, 0x51, 0x75, 0x65, 0x75, 0x65)
-	o = msgp.AppendArrayHeader(o, uint32(len(z.WriteQueue)))
-	for za0001 := range z.WriteQueue {
-		o, err = z.WriteQueue[za0001].MarshalMsg(o)
-		if err != nil {
-			err = msgp.WrapError(err, "WriteQueue", za0001)
-			return
+	if (zb0001Mask & 0x20) == 0 { // if not empty
+		// string "write_queue"
+		o = append(o, 0xab, 0x77, 0x72, 0x69, 0x74, 0x65, 0x5f, 0x71, 0x75, 0x65, 0x75, 0x65)
+		o = msgp.AppendArrayHeader(o, uint32(len(z.WriteQueue)))
+		for za0001 := range z.WriteQueue {
+			o, err = z.WriteQueue[za0001].MarshalMsg(o)
+			if err != nil {
+				err = msgp.WrapError(err, "WriteQueue", za0001)
+				return
+			}
 		}
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
@@ -543,14 +565,16 @@ func (z *Stream) MarshalMsg(b []byte) (o []byte, err error) {
 			o = msgp.AppendInt64(o, *z.ReadMaxData)
 		}
 	}
-	// string "ReadQueue"
-	o = append(o, 0xa9, 0x52, 0x65, 0x61, 0x64, 0x51, 0x75, 0x65, 0x75, 0x65)
-	o = msgp.AppendArrayHeader(o, uint32(len(z.ReadQueue)))
-	for za0002 := range z.ReadQueue {
-		o, err = z.ReadQueue[za0002].MarshalMsg(o)
-		if err != nil {
-			err = msgp.WrapError(err, "ReadQueue", za0002)
-			return
+	if (zb0001Mask & 0x200) == 0 { // if not empty
+		// string "read_queue"
+		o = append(o, 0xaa, 0x72, 0x65, 0x61, 0x64, 0x5f, 0x71, 0x75, 0x65, 0x75, 0x65)
+		o = msgp.AppendArrayHeader(o, uint32(len(z.ReadQueue)))
+		for za0002 := range z.ReadQueue {
+			o, err = z.ReadQueue[za0002].MarshalMsg(o)
+			if err != nil {
+				err = msgp.WrapError(err, "ReadQueue", za0002)
+				return
+			}
 		}
 	}
 	return
@@ -648,7 +672,7 @@ func (z *Stream) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					return
 				}
 			}
-		case "WriteQueue":
+		case "write_queue":
 			var zb0002 uint32
 			zb0002, bts, err = msgp.ReadArrayHeaderBytes(bts)
 			if err != nil {
@@ -718,7 +742,7 @@ func (z *Stream) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					return
 				}
 			}
-		case "ReadQueue":
+		case "read_queue":
 			var zb0003 uint32
 			zb0003, bts, err = msgp.ReadArrayHeaderBytes(bts)
 			if err != nil {
@@ -775,7 +799,7 @@ func (z *Stream) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 11 + msgp.ArrayHeaderSize
+	s += 12 + msgp.ArrayHeaderSize
 	for za0001 := range z.WriteQueue {
 		s += z.WriteQueue[za0001].Msgsize()
 	}
@@ -797,7 +821,7 @@ func (z *Stream) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 10 + msgp.ArrayHeaderSize
+	s += 11 + msgp.ArrayHeaderSize
 	for za0002 := range z.ReadQueue {
 		s += z.ReadQueue[za0002].Msgsize()
 	}

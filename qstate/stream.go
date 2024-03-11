@@ -23,7 +23,7 @@ type Stream struct {
 	// only set for write streams;
 	// stream data written by the application but not yet sent on the network;
 	// must be sorted ascending by offset;
-	WriteQueue []StreamRange
+	WriteQueue []StreamRange `msg:"write_queue,omitempty" json:"write_queue,omitempty"`
 	// in byte;
 	// only set for read streams
 	ReadOffset *int64 `msg:"read_offset,omitempty" json:"read_offset,omitempty"`
@@ -36,7 +36,7 @@ type Stream struct {
 	// only set for read streams;
 	// stream data received from network but not yet read by application
 	// must be sorted ascending by offset;
-	ReadQueue []StreamRange
+	ReadQueue []StreamRange `msg:"read_queue,omitempty" json:"read_queue,omitempty"`
 }
 
 func (s *Stream) ChangeVantagePoint() Stream {

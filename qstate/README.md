@@ -25,6 +25,11 @@ Depending on the use case, only parts of the state can be shared.
     "vantage_point": "server",
     "connection_ids": [
       {
+        "sequence_number": 9,
+        "connection_id": "09bdf22f44aeab2cc14e58703cd6e9e069a1",
+        "stateless_reset_token": "6092813a57d7e277484b2cd2a6a9dcaa"
+      },
+      {
         "sequence_number": 10,
         "connection_id": "09bdf22f44ae6bc2c12765112ec53a9f482c",
         "stateless_reset_token": "9a0de4ae5e35f02c97d562fafd3d8300"
@@ -33,11 +38,6 @@ Depending on the use case, only parts of the state can be shared.
         "sequence_number": 11,
         "connection_id": "09bdf22f44ae86ac5d900218c9abb3dcc5cf",
         "stateless_reset_token": "9f3f0ee819e4ddaaef6048a496615bec"
-      },
-      {
-        "sequence_number": 9,
-        "connection_id": "09bdf22f44aeab2cc14e58703cd6e9e069a1",
-        "stateless_reset_token": "6092813a57d7e277484b2cd2a6a9dcaa"
       }
     ],
     "remote_connection_ids": [
@@ -67,7 +67,7 @@ Depending on the use case, only parts of the state can be shared.
       "disable_active_migration": true,
       "max_udp_payload_size": 0,
       "max_idle_timeout": 30000,
-      "OriginalDestinationConnectionID": "42c33e2be6eed516f36039838bb5beac",
+      "original_destination_connection_id": "42c33e2be6eed516f36039838bb5beac",
       "active_connection_id_limit": 4
     },
     "remote_parameters": {
@@ -78,7 +78,6 @@ Depending on the use case, only parts of the state can be shared.
       "disable_active_migration": true,
       "max_udp_payload_size": 1452,
       "max_idle_timeout": 5000,
-      "OriginalDestinationConnectionID": null,
       "active_connection_id_limit": 4
     },
     "max_data": 103039344,
@@ -99,11 +98,9 @@ Depending on the use case, only parts of the state can be shared.
         "write_offset": 55958608,
         "write_max_data": 56234118,
         "write_ack": 55958607,
-        "WriteQueue": null,
         "read_offset": 100000000,
         "read_fin": 100000000,
-        "read_max_data": 101731416,
-        "ReadQueue": null
+        "read_max_data": 101731416
       }
     ],
     "next_packet_number": 43322,

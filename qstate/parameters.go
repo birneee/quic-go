@@ -26,8 +26,8 @@ type Parameters struct {
 	// nil if default
 	MaxIdleTimeout *int64 `msg:"max_idle_timeout,omitempty" json:"max_idle_timeout,omitempty"`
 	// nil if client perspective
-	OriginalDestinationConnectionID *ByteSlice
-	ActiveConnectionIDLimit         uint64 `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
+	OriginalDestinationConnectionID *ByteSlice `msg:"original_destination_connection_id,omitempty" json:"original_destination_connection_id,omitempty"`
+	ActiveConnectionIDLimit         uint64     `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
 	// nil if default
 	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty"`
 }

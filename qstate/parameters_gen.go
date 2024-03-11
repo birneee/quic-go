@@ -168,7 +168,7 @@ func (z *Parameters) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
-		case "OriginalDestinationConnectionID":
+		case "original_destination_connection_id":
 			if dc.IsNil() {
 				err = dc.ReadNil()
 				if err != nil {
@@ -258,6 +258,10 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 	if z.MaxIdleTimeout == nil {
 		zb0001Len--
 		zb0001Mask |= 0x80
+	}
+	if z.OriginalDestinationConnectionID == nil {
+		zb0001Len--
+		zb0001Mask |= 0x100
 	}
 	if z.ActiveConnectionIDLimit == 0 {
 		zb0001Len--
@@ -427,21 +431,23 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
-	// write "OriginalDestinationConnectionID"
-	err = en.Append(0xbf, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
-	if err != nil {
-		return
-	}
-	if z.OriginalDestinationConnectionID == nil {
-		err = en.WriteNil()
+	if (zb0001Mask & 0x100) == 0 { // if not empty
+		// write "original_destination_connection_id"
+		err = en.Append(0xd9, 0x22, 0x6f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x5f, 0x64, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 		if err != nil {
 			return
 		}
-	} else {
-		err = z.OriginalDestinationConnectionID.EncodeMsg(en)
-		if err != nil {
-			err = msgp.WrapError(err, "OriginalDestinationConnectionID")
-			return
+		if z.OriginalDestinationConnectionID == nil {
+			err = en.WriteNil()
+			if err != nil {
+				return
+			}
+		} else {
+			err = z.OriginalDestinationConnectionID.EncodeMsg(en)
+			if err != nil {
+				err = msgp.WrapError(err, "OriginalDestinationConnectionID")
+				return
+			}
 		}
 	}
 	if (zb0001Mask & 0x200) == 0 { // if not empty
@@ -516,6 +522,10 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 	if z.MaxIdleTimeout == nil {
 		zb0001Len--
 		zb0001Mask |= 0x80
+	}
+	if z.OriginalDestinationConnectionID == nil {
+		zb0001Len--
+		zb0001Mask |= 0x100
 	}
 	if z.ActiveConnectionIDLimit == 0 {
 		zb0001Len--
@@ -602,15 +612,17 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 			o = msgp.AppendInt64(o, *z.MaxIdleTimeout)
 		}
 	}
-	// string "OriginalDestinationConnectionID"
-	o = append(o, 0xbf, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
-	if z.OriginalDestinationConnectionID == nil {
-		o = msgp.AppendNil(o)
-	} else {
-		o, err = z.OriginalDestinationConnectionID.MarshalMsg(o)
-		if err != nil {
-			err = msgp.WrapError(err, "OriginalDestinationConnectionID")
-			return
+	if (zb0001Mask & 0x100) == 0 { // if not empty
+		// string "original_destination_connection_id"
+		o = append(o, 0xd9, 0x22, 0x6f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x5f, 0x64, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
+		if z.OriginalDestinationConnectionID == nil {
+			o = msgp.AppendNil(o)
+		} else {
+			o, err = z.OriginalDestinationConnectionID.MarshalMsg(o)
+			if err != nil {
+				err = msgp.WrapError(err, "OriginalDestinationConnectionID")
+				return
+			}
 		}
 	}
 	if (zb0001Mask & 0x200) == 0 { // if not empty
@@ -784,7 +796,7 @@ func (z *Parameters) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					return
 				}
 			}
-		case "OriginalDestinationConnectionID":
+		case "original_destination_connection_id":
 			if msgp.IsNil(bts) {
 				bts, err = msgp.ReadNilBytes(bts)
 				if err != nil {
@@ -886,7 +898,7 @@ func (z *Parameters) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 32
+	s += 36
 	if z.OriginalDestinationConnectionID == nil {
 		s += msgp.NilSize
 	} else {
