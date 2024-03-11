@@ -72,7 +72,6 @@ func newStreamsMap(
 	maxIncomingBidiStreams uint64,
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
-	// required for stream state serialization
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -90,11 +89,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(
-				id,
-				m.sender,
-				m.newFlowController(id),
-			)
+			return newStream(id, m.sender, m.newFlowController(id))
 		},
 		m.sender.queueControlFrame,
 	)

@@ -34,7 +34,6 @@ type packetHandlerManager interface {
 	AddWithConnID(destConnID, newConnID protocol.ConnectionID, h packetHandler) bool
 	Close(error)
 	connRunner
-	GetConnectionByID(id protocol.ConnectionID) Connection
 }
 
 type quicConn interface {

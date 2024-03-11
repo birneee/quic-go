@@ -253,14 +253,3 @@ func (h *packetHandlerMap) GetStatelessResetToken(connID protocol.ConnectionID) 
 	h.statelessResetMutex.Unlock()
 	return token
 }
-
-func (h *packetHandlerMap) GetConnectionByID(id protocol.ConnectionID) Connection {
-	handler, ok := h.handlers[id]
-	if !ok {
-		return nil // unknown connection
-	}
-	if conn, ok := handler.(*connection); ok {
-		return conn
-	}
-	panic("unsupported handler type")
-}

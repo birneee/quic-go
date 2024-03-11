@@ -240,8 +240,6 @@ var _ = Describe("Transport", func() {
 		tr.Close()
 	})
 
-	//TODO handle stateless resets for zero-length connection IDs or if decryption fails https://github.com/quic-go/quic-go/issues/4337
-
 	It("handles stateless resets", func() {
 		connID := protocol.ParseConnectionID([]byte{2, 3, 4, 5})
 		packetChan := make(chan packetToRead)
