@@ -104,6 +104,12 @@ func (z *Transport) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "RemoteParameters")
 				return
 			}
+		case "idle_timeout":
+			z.IdleTimeout, err = dc.ReadInt64()
+			if err != nil {
+				err = msgp.WrapError(err, "IdleTimeout")
+				return
+			}
 		case "max_data":
 			z.MaxData, err = dc.ReadInt64()
 			if err != nil {
@@ -301,9 +307,9 @@ func (z *Transport) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 27
+	// map header, size 28
 	// write "version"
-	err = en.Append(0xde, 0x0, 0x1b, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	err = en.Append(0xde, 0x0, 0x1c, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
 	if err != nil {
 		return
 	}
@@ -404,6 +410,16 @@ func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
 	err = z.RemoteParameters.EncodeMsg(en)
 	if err != nil {
 		err = msgp.WrapError(err, "RemoteParameters")
+		return
+	}
+	// write "idle_timeout"
+	err = en.Append(0xac, 0x69, 0x64, 0x6c, 0x65, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt64(z.IdleTimeout)
+	if err != nil {
+		err = msgp.WrapError(err, "IdleTimeout")
 		return
 	}
 	// write "max_data"
@@ -634,9 +650,9 @@ func (z *Transport) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Transport) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 27
+	// map header, size 28
 	// string "version"
-	o = append(o, 0xde, 0x0, 0x1b, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	o = append(o, 0xde, 0x0, 0x1c, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
 	o = msgp.AppendUint32(o, z.Version)
 	// string "chosen_alpn"
 	o = append(o, 0xab, 0x63, 0x68, 0x6f, 0x73, 0x65, 0x6e, 0x5f, 0x61, 0x6c, 0x70, 0x6e)
@@ -684,6 +700,9 @@ func (z *Transport) MarshalMsg(b []byte) (o []byte, err error) {
 		err = msgp.WrapError(err, "RemoteParameters")
 		return
 	}
+	// string "idle_timeout"
+	o = append(o, 0xac, 0x69, 0x64, 0x6c, 0x65, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74)
+	o = msgp.AppendInt64(o, z.IdleTimeout)
 	// string "max_data"
 	o = append(o, 0xa8, 0x6d, 0x61, 0x78, 0x5f, 0x64, 0x61, 0x74, 0x61)
 	o = msgp.AppendInt64(o, z.MaxData)
@@ -863,6 +882,12 @@ func (z *Transport) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			bts, err = z.RemoteParameters.UnmarshalMsg(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "RemoteParameters")
+				return
+			}
+		case "idle_timeout":
+			z.IdleTimeout, bts, err = msgp.ReadInt64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "IdleTimeout")
 				return
 			}
 		case "max_data":
@@ -1071,7 +1096,7 @@ func (z *Transport) Msgsize() (s int) {
 	for za0002 := range z.RemoteConnectionIDs {
 		s += z.RemoteConnectionIDs[za0002].Msgsize()
 	}
-	s += 7 + msgp.StringPrefixSize + len(z.DestinationIP) + 9 + msgp.Uint16Size + 11 + z.Parameters.Msgsize() + 18 + z.RemoteParameters.Msgsize() + 9 + msgp.Int64Size + 16 + msgp.Int64Size + 10 + msgp.Int64Size + 14 + msgp.Int64Size + 26 + msgp.Int64Size + 27 + msgp.Int64Size + 34 + msgp.Int64Size + 35 + msgp.Int64Size + 27 + msgp.Int64Size + 26 + msgp.Int64Size + 35 + msgp.Int64Size + 34 + msgp.Int64Size + 8 + msgp.ArrayHeaderSize
+	s += 7 + msgp.StringPrefixSize + len(z.DestinationIP) + 9 + msgp.Uint16Size + 11 + z.Parameters.Msgsize() + 18 + z.RemoteParameters.Msgsize() + 13 + msgp.Int64Size + 9 + msgp.Int64Size + 16 + msgp.Int64Size + 10 + msgp.Int64Size + 14 + msgp.Int64Size + 26 + msgp.Int64Size + 27 + msgp.Int64Size + 34 + msgp.Int64Size + 35 + msgp.Int64Size + 27 + msgp.Int64Size + 26 + msgp.Int64Size + 35 + msgp.Int64Size + 34 + msgp.Int64Size + 8 + msgp.ArrayHeaderSize
 	for za0003 := range z.Streams {
 		s += z.Streams[za0003].Msgsize()
 	}

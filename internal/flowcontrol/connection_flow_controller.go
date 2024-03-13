@@ -131,5 +131,4 @@ func (c *connectionFlowController) RestoreState(state *qstate.Connection) {
 	c.bytesRead = protocol.ByteCount(state.Transport.ReceivedData)
 	c.sendWindow = protocol.ByteCount(state.Transport.RemoteMaxData)
 	c.bytesSent = protocol.ByteCount(state.Transport.SentData)
-	c.queueWindowUpdate()
 }

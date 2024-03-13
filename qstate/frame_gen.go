@@ -91,7 +91,7 @@ func (z *Frame) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "data":
-			err = z.Data.DecodeMsg(dc)
+			z.Data, err = dc.ReadBytes(z.Data)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -114,6 +114,12 @@ func (z *Frame) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
+		case "stream_type":
+			z.StreamType, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "StreamType")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -128,8 +134,8 @@ func (z *Frame) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 	// omitempty: check for empty values
-	zb0001Len := uint32(7)
-	var zb0001Mask uint8 /* 7 bits */
+	zb0001Len := uint32(8)
+	var zb0001Mask uint8 /* 8 bits */
 	_ = zb0001Mask
 	if z.StreamID == nil {
 		zb0001Len--
@@ -143,9 +149,17 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 		zb0001Len--
 		zb0001Mask |= 0x8
 	}
+	if z.Data == nil {
+		zb0001Len--
+		zb0001Mask |= 0x20
+	}
 	if z.SequenceNumber == nil {
 		zb0001Len--
 		zb0001Mask |= 0x40
+	}
+	if z.StreamType == "" {
+		zb0001Len--
+		zb0001Mask |= 0x80
 	}
 	// variable map header, size zb0001Len
 	err = en.Append(0x80 | uint8(zb0001Len))
@@ -232,15 +246,17 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "Token")
 		return
 	}
-	// write "data"
-	err = en.Append(0xa4, 0x64, 0x61, 0x74, 0x61)
-	if err != nil {
-		return
-	}
-	err = z.Data.EncodeMsg(en)
-	if err != nil {
-		err = msgp.WrapError(err, "Data")
-		return
+	if (zb0001Mask & 0x20) == 0 { // if not empty
+		// write "data"
+		err = en.Append(0xa4, 0x64, 0x61, 0x74, 0x61)
+		if err != nil {
+			return
+		}
+		err = en.WriteBytes(z.Data)
+		if err != nil {
+			err = msgp.WrapError(err, "Data")
+			return
+		}
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
 		// write "sequence_number"
@@ -261,6 +277,18 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
+	if (zb0001Mask & 0x80) == 0 { // if not empty
+		// write "stream_type"
+		err = en.Append(0xab, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65)
+		if err != nil {
+			return
+		}
+		err = en.WriteString(z.StreamType)
+		if err != nil {
+			err = msgp.WrapError(err, "StreamType")
+			return
+		}
+	}
 	return
 }
 
@@ -268,8 +296,8 @@ func (z *Frame) EncodeMsg(en *msgp.Writer) (err error) {
 func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// omitempty: check for empty values
-	zb0001Len := uint32(7)
-	var zb0001Mask uint8 /* 7 bits */
+	zb0001Len := uint32(8)
+	var zb0001Mask uint8 /* 8 bits */
 	_ = zb0001Mask
 	if z.StreamID == nil {
 		zb0001Len--
@@ -283,9 +311,17 @@ func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 		zb0001Len--
 		zb0001Mask |= 0x8
 	}
+	if z.Data == nil {
+		zb0001Len--
+		zb0001Mask |= 0x20
+	}
 	if z.SequenceNumber == nil {
 		zb0001Len--
 		zb0001Mask |= 0x40
+	}
+	if z.StreamType == "" {
+		zb0001Len--
+		zb0001Mask |= 0x80
 	}
 	// variable map header, size zb0001Len
 	o = append(o, 0x80|uint8(zb0001Len))
@@ -329,12 +365,10 @@ func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 		err = msgp.WrapError(err, "Token")
 		return
 	}
-	// string "data"
-	o = append(o, 0xa4, 0x64, 0x61, 0x74, 0x61)
-	o, err = z.Data.MarshalMsg(o)
-	if err != nil {
-		err = msgp.WrapError(err, "Data")
-		return
+	if (zb0001Mask & 0x20) == 0 { // if not empty
+		// string "data"
+		o = append(o, 0xa4, 0x64, 0x61, 0x74, 0x61)
+		o = msgp.AppendBytes(o, z.Data)
 	}
 	if (zb0001Mask & 0x40) == 0 { // if not empty
 		// string "sequence_number"
@@ -344,6 +378,11 @@ func (z *Frame) MarshalMsg(b []byte) (o []byte, err error) {
 		} else {
 			o = msgp.AppendUint64(o, *z.SequenceNumber)
 		}
+	}
+	if (zb0001Mask & 0x80) == 0 { // if not empty
+		// string "stream_type"
+		o = append(o, 0xab, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x5f, 0x74, 0x79, 0x70, 0x65)
+		o = msgp.AppendString(o, z.StreamType)
 	}
 	return
 }
@@ -430,7 +469,7 @@ func (z *Frame) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "data":
-			bts, err = z.Data.UnmarshalMsg(bts)
+			z.Data, bts, err = msgp.ReadBytesBytes(bts, z.Data)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -451,6 +490,12 @@ func (z *Frame) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					err = msgp.WrapError(err, "SequenceNumber")
 					return
 				}
+			}
+		case "stream_type":
+			z.StreamType, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "StreamType")
+				return
 			}
 		default:
 			bts, err = msgp.Skip(bts)
@@ -484,11 +529,12 @@ func (z *Frame) Msgsize() (s int) {
 	} else {
 		s += msgp.Int64Size
 	}
-	s += 6 + z.Token.Msgsize() + 5 + z.Data.Msgsize() + 16
+	s += 6 + z.Token.Msgsize() + 5 + msgp.BytesPrefixSize + len(z.Data) + 16
 	if z.SequenceNumber == nil {
 		s += msgp.NilSize
 	} else {
 		s += msgp.Uint64Size
 	}
+	s += 12 + msgp.StringPrefixSize + len(z.StreamType)
 	return
 }

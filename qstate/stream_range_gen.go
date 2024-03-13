@@ -31,7 +31,7 @@ func (z *StreamRange) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "data":
-			err = z.Data.DecodeMsg(dc)
+			z.Data, err = dc.ReadBytes(z.Data)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -65,7 +65,7 @@ func (z *StreamRange) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = z.Data.EncodeMsg(en)
+	err = en.WriteBytes(z.Data)
 	if err != nil {
 		err = msgp.WrapError(err, "Data")
 		return
@@ -82,11 +82,7 @@ func (z *StreamRange) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendInt64(o, z.Offset)
 	// string "data"
 	o = append(o, 0xa4, 0x64, 0x61, 0x74, 0x61)
-	o, err = z.Data.MarshalMsg(o)
-	if err != nil {
-		err = msgp.WrapError(err, "Data")
-		return
-	}
+	o = msgp.AppendBytes(o, z.Data)
 	return
 }
 
@@ -115,7 +111,7 @@ func (z *StreamRange) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "data":
-			bts, err = z.Data.UnmarshalMsg(bts)
+			z.Data, bts, err = msgp.ReadBytesBytes(bts, z.Data)
 			if err != nil {
 				err = msgp.WrapError(err, "Data")
 				return
@@ -134,6 +130,6 @@ func (z *StreamRange) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *StreamRange) Msgsize() (s int) {
-	s = 1 + 7 + msgp.Int64Size + 5 + z.Data.Msgsize()
+	s = 1 + 7 + msgp.Int64Size + 5 + msgp.BytesPrefixSize + len(z.Data)
 	return
 }

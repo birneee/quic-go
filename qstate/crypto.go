@@ -9,14 +9,14 @@ type Crypto struct {
 	TlsCipher string `msg:"tls_cipher" json:"tls_cipher"`
 	// used for header protection sent by peer.
 	// see RFC 9001 Section 5.4 Header Protection.
-	RemoteHeaderProtectionKey ByteSlice `msg:"remote_header_protection_key" json:"remote_header_protection_key"`
+	RemoteHeaderProtectionKey HexByteSlice `msg:"remote_header_protection_key" json:"remote_header_protection_key"`
 	// used for header protection sent to peer.
 	// see RFC 9001 Section 5.4 Header Protection.
-	HeaderProtectionKey ByteSlice `msg:"header_protection_key" json:"header_protection_key"`
+	HeaderProtectionKey HexByteSlice `msg:"header_protection_key" json:"header_protection_key"`
 	// secret used on packets sent from peer.
-	RemoteTrafficSecret ByteSlice `msg:"remote_traffic_secret" json:"remote_traffic_secret"`
+	RemoteTrafficSecret HexByteSlice `msg:"remote_traffic_secret" json:"remote_traffic_secret"`
 	// secret used on packets sent to peer.
-	TrafficSecret ByteSlice `msg:"traffic_secret" json:"traffic_secret"`
+	TrafficSecret HexByteSlice `msg:"traffic_secret" json:"traffic_secret"`
 }
 
 func (c *Crypto) ChangeVantagePoint() Crypto {

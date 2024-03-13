@@ -59,7 +59,7 @@ func putPacket(p *packet) {
 	packetPool.Put(p)
 }
 
-func (p *packet) PacketState() qstate.Packet {
+func (p *packet) Qstate() qstate.Packet {
 	ps := qstate.Packet{
 		PacketNumber: int64(p.PacketNumber),
 	}
@@ -83,6 +83,15 @@ func (p *packet) PacketState() qstate.Packet {
 			ps.Frames = append(ps.Frames, qstate.Frame{Type: "max_stream_data", StreamID: utils.New(int64(f.StreamID))})
 		case *wire.StreamDataBlockedFrame:
 			ps.Frames = append(ps.Frames, qstate.Frame{Type: "stream_data_blocked", StreamID: utils.New(int64(f.StreamID))}) // max_stream_data is already part of the stream state
+		case *wire.MaxStreamsFrame:
+			var streamType string
+			switch f.Type {
+			case protocol.StreamTypeBidi:
+				streamType = "bidirectional"
+			case protocol.StreamTypeUni:
+				streamType = "unidirectional"
+			}
+			ps.Frames = append(ps.Frames, qstate.Frame{Type: "max_streams", StreamType: streamType}) // current value is already part of the transport state
 		default:
 			panic(fmt.Sprintf("unexpected frame type: %s", reflect.ValueOf(frame.Frame).Type().String()))
 		}

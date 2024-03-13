@@ -21,8 +21,8 @@ type ConnectionRestoreConfig struct {
 	// DefaultRTT is set when state does not contain RTT
 	DefaultRTT     *time.Duration
 	MaxIdleTimeout time.Duration
-	// SendPing sends a ping frame immediately after restore, e.g., to trigger address migration
-	SendPing bool
+	// ImmediatePing sends a ping frame immediately after restore, e.g., to trigger address migration
+	ImmediatePing bool
 }
 
 func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *qstate.Connection) (*Config, *qstate.Connection) {

@@ -150,24 +150,6 @@ func (z *Parameters) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
-		case "max_idle_timeout":
-			if dc.IsNil() {
-				err = dc.ReadNil()
-				if err != nil {
-					err = msgp.WrapError(err, "MaxIdleTimeout")
-					return
-				}
-				z.MaxIdleTimeout = nil
-			} else {
-				if z.MaxIdleTimeout == nil {
-					z.MaxIdleTimeout = new(int64)
-				}
-				*z.MaxIdleTimeout, err = dc.ReadInt64()
-				if err != nil {
-					err = msgp.WrapError(err, "MaxIdleTimeout")
-					return
-				}
-			}
 		case "original_destination_connection_id":
 			if dc.IsNil() {
 				err = dc.ReadNil()
@@ -178,7 +160,7 @@ func (z *Parameters) DecodeMsg(dc *msgp.Reader) (err error) {
 				z.OriginalDestinationConnectionID = nil
 			} else {
 				if z.OriginalDestinationConnectionID == nil {
-					z.OriginalDestinationConnectionID = new(ByteSlice)
+					z.OriginalDestinationConnectionID = new(HexByteSlice)
 				}
 				err = z.OriginalDestinationConnectionID.DecodeMsg(dc)
 				if err != nil {
@@ -224,8 +206,8 @@ func (z *Parameters) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 	// omitempty: check for empty values
-	zb0001Len := uint32(11)
-	var zb0001Mask uint16 /* 11 bits */
+	zb0001Len := uint32(10)
+	var zb0001Mask uint16 /* 10 bits */
 	_ = zb0001Mask
 	if z.InitialMaxStreamDataBidiLocal == nil {
 		zb0001Len--
@@ -255,21 +237,17 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 		zb0001Len--
 		zb0001Mask |= 0x40
 	}
-	if z.MaxIdleTimeout == nil {
+	if z.OriginalDestinationConnectionID == nil {
 		zb0001Len--
 		zb0001Mask |= 0x80
 	}
-	if z.OriginalDestinationConnectionID == nil {
+	if z.ActiveConnectionIDLimit == 0 {
 		zb0001Len--
 		zb0001Mask |= 0x100
 	}
-	if z.ActiveConnectionIDLimit == 0 {
-		zb0001Len--
-		zb0001Mask |= 0x200
-	}
 	if z.MaxDatagramFrameSize == nil {
 		zb0001Len--
-		zb0001Mask |= 0x400
+		zb0001Mask |= 0x200
 	}
 	// variable map header, size zb0001Len
 	err = en.Append(0x80 | uint8(zb0001Len))
@@ -413,25 +391,6 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 		}
 	}
 	if (zb0001Mask & 0x80) == 0 { // if not empty
-		// write "max_idle_timeout"
-		err = en.Append(0xb0, 0x6d, 0x61, 0x78, 0x5f, 0x69, 0x64, 0x6c, 0x65, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74)
-		if err != nil {
-			return
-		}
-		if z.MaxIdleTimeout == nil {
-			err = en.WriteNil()
-			if err != nil {
-				return
-			}
-		} else {
-			err = en.WriteInt64(*z.MaxIdleTimeout)
-			if err != nil {
-				err = msgp.WrapError(err, "MaxIdleTimeout")
-				return
-			}
-		}
-	}
-	if (zb0001Mask & 0x100) == 0 { // if not empty
 		// write "original_destination_connection_id"
 		err = en.Append(0xd9, 0x22, 0x6f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x5f, 0x64, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 		if err != nil {
@@ -450,7 +409,7 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 			}
 		}
 	}
-	if (zb0001Mask & 0x200) == 0 { // if not empty
+	if (zb0001Mask & 0x100) == 0 { // if not empty
 		// write "active_connection_id_limit"
 		err = en.Append(0xba, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74)
 		if err != nil {
@@ -462,7 +421,7 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	}
-	if (zb0001Mask & 0x400) == 0 { // if not empty
+	if (zb0001Mask & 0x200) == 0 { // if not empty
 		// write "max_datagram_frame_size"
 		err = en.Append(0xb7, 0x6d, 0x61, 0x78, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x67, 0x72, 0x61, 0x6d, 0x5f, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x5f, 0x73, 0x69, 0x7a, 0x65)
 		if err != nil {
@@ -488,8 +447,8 @@ func (z *Parameters) EncodeMsg(en *msgp.Writer) (err error) {
 func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// omitempty: check for empty values
-	zb0001Len := uint32(11)
-	var zb0001Mask uint16 /* 11 bits */
+	zb0001Len := uint32(10)
+	var zb0001Mask uint16 /* 10 bits */
 	_ = zb0001Mask
 	if z.InitialMaxStreamDataBidiLocal == nil {
 		zb0001Len--
@@ -519,21 +478,17 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 		zb0001Len--
 		zb0001Mask |= 0x40
 	}
-	if z.MaxIdleTimeout == nil {
+	if z.OriginalDestinationConnectionID == nil {
 		zb0001Len--
 		zb0001Mask |= 0x80
 	}
-	if z.OriginalDestinationConnectionID == nil {
+	if z.ActiveConnectionIDLimit == 0 {
 		zb0001Len--
 		zb0001Mask |= 0x100
 	}
-	if z.ActiveConnectionIDLimit == 0 {
-		zb0001Len--
-		zb0001Mask |= 0x200
-	}
 	if z.MaxDatagramFrameSize == nil {
 		zb0001Len--
-		zb0001Mask |= 0x400
+		zb0001Mask |= 0x200
 	}
 	// variable map header, size zb0001Len
 	o = append(o, 0x80|uint8(zb0001Len))
@@ -604,15 +559,6 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 		}
 	}
 	if (zb0001Mask & 0x80) == 0 { // if not empty
-		// string "max_idle_timeout"
-		o = append(o, 0xb0, 0x6d, 0x61, 0x78, 0x5f, 0x69, 0x64, 0x6c, 0x65, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74)
-		if z.MaxIdleTimeout == nil {
-			o = msgp.AppendNil(o)
-		} else {
-			o = msgp.AppendInt64(o, *z.MaxIdleTimeout)
-		}
-	}
-	if (zb0001Mask & 0x100) == 0 { // if not empty
 		// string "original_destination_connection_id"
 		o = append(o, 0xd9, 0x22, 0x6f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x61, 0x6c, 0x5f, 0x64, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64)
 		if z.OriginalDestinationConnectionID == nil {
@@ -625,12 +571,12 @@ func (z *Parameters) MarshalMsg(b []byte) (o []byte, err error) {
 			}
 		}
 	}
-	if (zb0001Mask & 0x200) == 0 { // if not empty
+	if (zb0001Mask & 0x100) == 0 { // if not empty
 		// string "active_connection_id_limit"
 		o = append(o, 0xba, 0x61, 0x63, 0x74, 0x69, 0x76, 0x65, 0x5f, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64, 0x5f, 0x6c, 0x69, 0x6d, 0x69, 0x74)
 		o = msgp.AppendUint64(o, z.ActiveConnectionIDLimit)
 	}
-	if (zb0001Mask & 0x400) == 0 { // if not empty
+	if (zb0001Mask & 0x200) == 0 { // if not empty
 		// string "max_datagram_frame_size"
 		o = append(o, 0xb7, 0x6d, 0x61, 0x78, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x67, 0x72, 0x61, 0x6d, 0x5f, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x5f, 0x73, 0x69, 0x7a, 0x65)
 		if z.MaxDatagramFrameSize == nil {
@@ -779,23 +725,6 @@ func (z *Parameters) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					return
 				}
 			}
-		case "max_idle_timeout":
-			if msgp.IsNil(bts) {
-				bts, err = msgp.ReadNilBytes(bts)
-				if err != nil {
-					return
-				}
-				z.MaxIdleTimeout = nil
-			} else {
-				if z.MaxIdleTimeout == nil {
-					z.MaxIdleTimeout = new(int64)
-				}
-				*z.MaxIdleTimeout, bts, err = msgp.ReadInt64Bytes(bts)
-				if err != nil {
-					err = msgp.WrapError(err, "MaxIdleTimeout")
-					return
-				}
-			}
 		case "original_destination_connection_id":
 			if msgp.IsNil(bts) {
 				bts, err = msgp.ReadNilBytes(bts)
@@ -805,7 +734,7 @@ func (z *Parameters) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				z.OriginalDestinationConnectionID = nil
 			} else {
 				if z.OriginalDestinationConnectionID == nil {
-					z.OriginalDestinationConnectionID = new(ByteSlice)
+					z.OriginalDestinationConnectionID = new(HexByteSlice)
 				}
 				bts, err = z.OriginalDestinationConnectionID.UnmarshalMsg(bts)
 				if err != nil {
@@ -888,12 +817,6 @@ func (z *Parameters) Msgsize() (s int) {
 	}
 	s += 21
 	if z.MaxUDPPayloadSize == nil {
-		s += msgp.NilSize
-	} else {
-		s += msgp.Int64Size
-	}
-	s += 17
-	if z.MaxIdleTimeout == nil {
 		s += msgp.NilSize
 	} else {
 		s += msgp.Int64Size

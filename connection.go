@@ -1930,7 +1930,9 @@ func (s *connection) checkTransportParameters(params *wire.TransportParameters) 
 func (s *connection) applyTransportParameters() {
 	params := s.peerParams
 	// Our local idle timeout will always be > 0.
-	s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
+	if s.idleTimeout == 0 { // might be restored from qstate
+		s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
+	}
 	s.keepAliveInterval = min(s.config.KeepAlivePeriod, min(s.idleTimeout/2, protocol.MaxKeepAliveInterval))
 	s.streamsMap.UpdateLimits(params)
 	s.frameParser.SetAckDelayExponent(params.AckDelayExponent)
@@ -2647,6 +2649,7 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 			DestinationIP:   s.conn.RemoteAddr().(*net.UDPAddr).IP.String(),
 			DestinationPort: uint16(s.conn.RemoteAddr().(*net.UDPAddr).Port),
 			ChosenALPN:      s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol,
+			IdleTimeout:     int64(s.idleTimeout / time.Millisecond),
 		},
 	}
 
@@ -2788,6 +2791,10 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 		}
 	}
 
+	if state.Transport.IdleTimeout == 0 {
+		panic("unexpected")
+	}
+
 	s := &connection{
 		conn:              sendConn,
 		config:            conf,
@@ -2802,6 +2809,7 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 		cloned:            true,
 		sentFirstPacket:   true,
 		remoteAddrUpdates: make(chan net.UDPAddr, 2),
+		idleTimeout:       time.Duration(state.Transport.IdleTimeout) * time.Millisecond,
 	}
 
 	if conf.Tracer != nil {
@@ -2967,7 +2975,7 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 
 	s.connFlowController.RestoreState(state)
 
-	if restoreConf.SendPing {
+	if restoreConf.ImmediatePing {
 		err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
 		if err != nil {
 			return nil, nil, err

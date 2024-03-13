@@ -198,7 +198,7 @@ func (h *sentPacketHistory) PacketState() []qstate.Packet {
 		if packet == nil {
 			continue
 		}
-		ps := packet.PacketState()
+		ps := packet.Qstate()
 		if len(ps.Frames) == 0 {
 			continue // do not include empty packets
 		}

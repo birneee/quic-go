@@ -20,6 +20,9 @@ type Transport struct {
 	Parameters Parameters `msg:"parameters" json:"parameters"`
 	// TODO only include non-default parameters
 	RemoteParameters Parameters `msg:"remote_parameters" json:"remote_parameters"`
+	// minimum of max_idle_timout transport parameter advertised by both endpoints;
+	// 0 if default
+	IdleTimeout int64 `msg:"idle_timeout,omitzero" json:"idle_timeout,omitzero"`
 	// in byte;
 	// max data that can be received;
 	MaxData int64 `msg:"max_data" json:"max_data"`
@@ -92,6 +95,7 @@ func (t *Transport) ChangeVantagePoint(DestinationIP string, DestinationPort uin
 		DestinationIP:                  DestinationIP,
 		DestinationPort:                DestinationPort,
 		Parameters:                     t.RemoteParameters,
+		IdleTimeout:                    t.IdleTimeout,
 		RemoteParameters:               t.Parameters,
 		MaxData:                        t.RemoteMaxData,
 		RemoteMaxData:                  t.MaxData,

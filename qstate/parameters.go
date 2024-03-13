@@ -23,11 +23,9 @@ type Parameters struct {
 	DisableActiveMigration *bool `msg:"disable_active_migration,omitempty" json:"disable_active_migration,omitempty"`
 	// nil if default
 	MaxUDPPayloadSize *int64 `msg:"max_udp_payload_size,omitempty" json:"max_udp_payload_size,omitempty"`
-	// nil if default
-	MaxIdleTimeout *int64 `msg:"max_idle_timeout,omitempty" json:"max_idle_timeout,omitempty"`
 	// nil if client perspective
-	OriginalDestinationConnectionID *ByteSlice `msg:"original_destination_connection_id,omitempty" json:"original_destination_connection_id,omitempty"`
-	ActiveConnectionIDLimit         uint64     `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
+	OriginalDestinationConnectionID *HexByteSlice `msg:"original_destination_connection_id,omitempty" json:"original_destination_connection_id,omitempty"`
+	ActiveConnectionIDLimit         uint64        `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
 	// nil if default
 	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty"`
 }
@@ -58,12 +56,8 @@ func ToQStateParameters(p *wire.TransportParameters) Parameters {
 	if p.MaxUDPPayloadSize < 65527 {
 		s.MaxUDPPayloadSize = (*int64)(&p.MaxUDPPayloadSize)
 	}
-	if p.MaxIdleTimeout != 0 {
-		ms := int64(p.MaxIdleTimeout / time.Millisecond)
-		s.MaxIdleTimeout = &ms
-	}
 	if p.OriginalDestinationConnectionID.Len() > 0 {
-		b := ByteSlice(p.OriginalDestinationConnectionID.Bytes())
+		b := HexByteSlice(p.OriginalDestinationConnectionID.Bytes())
 		s.OriginalDestinationConnectionID = &b
 	}
 	if p.MaxDatagramFrameSize > 0 {
@@ -97,9 +91,6 @@ func RestoreTransportParameters(s *Parameters) *wire.TransportParameters {
 	}
 	if s.MaxUDPPayloadSize != nil {
 		p.MaxUDPPayloadSize = protocol.ByteCount(*s.MaxUDPPayloadSize)
-	}
-	if s.MaxIdleTimeout != nil {
-		p.MaxIdleTimeout = time.Duration(*s.MaxIdleTimeout) * time.Millisecond
 	}
 	if s.OriginalDestinationConnectionID != nil {
 		p.OriginalDestinationConnectionID = protocol.ParseConnectionID(*s.OriginalDestinationConnectionID)
