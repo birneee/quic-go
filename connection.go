@@ -1930,7 +1930,7 @@ func (s *connection) checkTransportParameters(params *wire.TransportParameters) 
 func (s *connection) applyTransportParameters() {
 	params := s.peerParams
 	// Our local idle timeout will always be > 0.
-	if s.idleTimeout == 0 { // might be restored from qstate
+	if s.idleTimeout == 0 || !s.cloned { // might be restored from qstate
 		s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
 	}
 	s.keepAliveInterval = min(s.config.KeepAlivePeriod, min(s.idleTimeout/2, protocol.MaxKeepAliveInterval))
@@ -2975,11 +2975,14 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 
 	s.connFlowController.RestoreState(state)
 
+	now := time.Now()
+
 	if restoreConf.ImmediatePing {
-		err = s.sendProbePacket(protocol.Encryption1RTT, time.Now())
+		err = s.sendProbePacket(protocol.Encryption1RTT, now)
 		if err != nil {
 			return nil, nil, err
 		}
+		s.maybeSendAckOnlyPacket(now)
 	}
 
 	go func() {

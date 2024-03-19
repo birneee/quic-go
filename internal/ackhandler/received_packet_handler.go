@@ -134,5 +134,7 @@ func restoreReceivedPacketHandler(s *qstate.Connection, spt sentPacketTracker, l
 	rph := newReceivedPacketHandler(spt, logger).(*receivedPacketHandler)
 	rph.appDataPackets.packetHistory.SetRanges(s.Transport.AckRanges)
 	rph.appDataPackets.largestObserved = protocol.PacketNumber(s.Transport.HighestObservedPacketNumber)
+	rph.appDataPackets.ackQueued = true
+	rph.appDataPackets.hasNewAck = len(s.Transport.AckRanges) != 0
 	return rph
 }

@@ -366,6 +366,9 @@ var _ = Describe("Handover", func() {
 		// compare handover states
 		clientState1.Transport.ConnectionIDs[0].StatelessResetToken = nil // clients are not configured to send stateless resets
 		clientState2.Transport.ConnectionIDs[0].StatelessResetToken = nil // clients are not configured to send stateless resets
+		Expect(clientState2.Transport.NextPacketNumber >= clientState1.Transport.NextPacketNumber).To(BeTrue())
+		clientState2.Transport.NextPacketNumber = -1
+		clientState1.Transport.NextPacketNumber = -1
 		Expect(clientState1).To(BeEquivalentTo(clientState2))
 		// transmit
 		err = openAndSend(clientConn3, message1, true)
