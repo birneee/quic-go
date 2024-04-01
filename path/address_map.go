@@ -8,17 +8,20 @@ type AddressMap[T any] interface {
 	Put(key net.Addr, value T)
 	Get(key net.Addr) (T, bool)
 	Delete(key net.Addr)
+	Length() int
 }
 
 type addressMap[T any] struct {
-	ipV4Map map[[4]byte]map[int]T
-	ipV6Map map[[16]byte]map[int]T
+	innerMap map[[16]byte]map[uint16]T
+}
+
+func (a addressMap[T]) Length() int {
+	return len(a.innerMap)
 }
 
 func newAddressMap[T any]() AddressMap[T] {
 	m := &addressMap[T]{
-		ipV4Map: map[[4]byte]map[int]T{},
-		ipV6Map: map[[16]byte]map[int]T{},
+		innerMap: map[[16]byte]map[uint16]T{},
 	}
 	return m
 }
@@ -28,53 +31,27 @@ func (a addressMap[T]) Put(key net.Addr, value T) {
 	if !ok {
 		panic("implement me")
 	}
-	if len(addr.IP) == 4 {
-		ipKey := *(*[4]byte)(addr.IP)
-		portMap, ok := a.ipV4Map[ipKey]
-		if !ok {
-			portMap = map[int]T{}
-			a.ipV4Map[ipKey] = portMap
-		}
-		portMap[addr.Port] = value
-		return
+	ipKey := *(*[16]byte)(addr.IP.To16())
+	portMap, ok := a.innerMap[ipKey]
+	if !ok {
+		portMap = map[uint16]T{}
+		a.innerMap[ipKey] = portMap
 	}
-	if len(addr.IP) == 16 {
-		ipKey := *(*[16]byte)(addr.IP)
-		portMap, ok := a.ipV6Map[ipKey]
-		if !ok {
-			portMap = map[int]T{}
-			a.ipV6Map[ipKey] = portMap
-		}
-		portMap[addr.Port] = value
-		return
-	}
-	panic("unexpected state")
+	portMap[uint16(addr.Port)] = value
 }
 
 func (a addressMap[T]) Get(key net.Addr) (T, bool) {
 	addr, ok := key.(*net.UDPAddr)
 	if !ok {
+		panic("implement me")
+	}
+	ipKey := *(*[16]byte)(addr.IP.To16())
+	portMap, ok := a.innerMap[ipKey]
+	if !ok {
 		return *new(T), false
 	}
-	if len(addr.IP) == 4 {
-		ipKey := *(*[4]byte)(addr.IP)
-		portMap, ok := a.ipV4Map[ipKey]
-		if !ok {
-			return *new(T), false
-		}
-		value, ok := portMap[addr.Port]
-		return value, ok
-	}
-	if len(addr.IP) == 16 {
-		ipKey := *(*[16]byte)(addr.IP)
-		portMap, ok := a.ipV6Map[ipKey]
-		if !ok {
-			return *new(T), false
-		}
-		value, ok := portMap[addr.Port]
-		return value, ok
-	}
-	return *new(T), false
+	value, ok := portMap[uint16(addr.Port)]
+	return value, ok
 }
 
 func (a addressMap[T]) Delete(key net.Addr) {

@@ -4,50 +4,56 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/klauspost/compress/zstd"
+	"github.com/tinylib/msgp/msgp"
 )
 
-type Codec interface {
-	Encode(dst []byte, connection *Connection) ([]byte, error)
-	Decode(connection *Connection, src []byte) error
+type Codec[T any] interface {
+	Encode(dst []byte, connection T) ([]byte, error)
+	Decode(connection T, src []byte) error
 }
 
-type StdJsonCodec struct{}
+type StdJsonCodec[T any] struct{}
 
-var _ Codec = &StdJsonCodec{}
+var _ Codec[*Connection] = &StdJsonCodec[*Connection]{}
 
-func (s StdJsonCodec) Encode(dst []byte, connection *Connection) ([]byte, error) {
+func (s StdJsonCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
 	buf := bytes.NewBuffer(dst)
 	enc := json.NewEncoder(buf)
 	err := enc.Encode(connection)
 	return buf.Bytes(), err
 }
 
-func (s StdJsonCodec) Decode(connection *Connection, src []byte) error {
+func (s StdJsonCodec[T]) Decode(connection T, src []byte) error {
 	return json.Unmarshal(src, connection)
 }
 
-type MsgpCodec struct{}
+type MarshlerAndUnmarshler interface {
+	msgp.Marshaler
+	msgp.Unmarshaler
+}
 
-var _ Codec = &MsgpCodec{}
+type MsgpCodec[T MarshlerAndUnmarshler] struct{}
 
-func (m MsgpCodec) Encode(dst []byte, connection *Connection) ([]byte, error) {
+var _ Codec[*Connection] = &MsgpCodec[*Connection]{}
+
+func (m MsgpCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
 	return connection.MarshalMsg(dst)
 }
 
-func (m MsgpCodec) Decode(connection *Connection, src []byte) error {
+func (m MsgpCodec[T]) Decode(connection T, src []byte) error {
 	_, err := connection.UnmarshalMsg(src)
 	return err
 }
 
-type MsgpZstdCodec struct {
+type MsgpZstdCodec[T MarshlerAndUnmarshler] struct {
 	zstdWriter *zstd.Encoder
 	zstdReader *zstd.Decoder
 	reusedBuf  [100_000]byte
 }
 
-var _ Codec = &MsgpZstdCodec{}
+var _ Codec[*Connection] = &MsgpZstdCodec[*Connection]{}
 
-func NewMsgpZstdCodec() Codec {
+func NewMsgpZstdCodec[T MarshlerAndUnmarshler]() Codec[T] {
 	writer, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
 	if err != nil {
 		panic(err)
@@ -56,13 +62,13 @@ func NewMsgpZstdCodec() Codec {
 	if err != nil {
 		panic(err)
 	}
-	return &MsgpZstdCodec{
+	return &MsgpZstdCodec[T]{
 		zstdWriter: writer,
 		zstdReader: reader,
 	}
 }
 
-func (m *MsgpZstdCodec) Encode(dst []byte, connection *Connection) ([]byte, error) {
+func (m *MsgpZstdCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
 	msgp, err := connection.MarshalMsg(m.reusedBuf[:0])
 	if err != nil {
 		return nil, err
@@ -71,7 +77,7 @@ func (m *MsgpZstdCodec) Encode(dst []byte, connection *Connection) ([]byte, erro
 	return dst, nil
 }
 
-func (m *MsgpZstdCodec) Decode(connection *Connection, src []byte) error {
+func (m *MsgpZstdCodec[T]) Decode(connection T, src []byte) error {
 	msgp, err := m.zstdReader.DecodeAll(src, m.reusedBuf[:0])
 	if err != nil {
 		return err
@@ -80,15 +86,15 @@ func (m *MsgpZstdCodec) Decode(connection *Connection, src []byte) error {
 	return err
 }
 
-type StdJsonZstdCodec struct {
+type StdJsonZstdCodec[T any] struct {
 	zstdWriter *zstd.Encoder
 	zstdReader *zstd.Decoder
 	reusedBuf  [100_000]byte
 }
 
-var _ Codec = &StdJsonZstdCodec{}
+var _ Codec[*Connection] = &StdJsonZstdCodec[*Connection]{}
 
-func NewStdJsonZstdCodec() Codec {
+func NewStdJsonZstdCodec[T any]() Codec[T] {
 	writer, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
 	if err != nil {
 		panic(err)
@@ -97,13 +103,13 @@ func NewStdJsonZstdCodec() Codec {
 	if err != nil {
 		panic(err)
 	}
-	return &StdJsonZstdCodec{
+	return &StdJsonZstdCodec[T]{
 		zstdWriter: writer,
 		zstdReader: reader,
 	}
 }
 
-func (m *StdJsonZstdCodec) Encode(dst []byte, connection *Connection) ([]byte, error) {
+func (m *StdJsonZstdCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
 	jsonBuf, err := json.Marshal(connection)
 	if err != nil {
 		return nil, err
@@ -112,7 +118,7 @@ func (m *StdJsonZstdCodec) Encode(dst []byte, connection *Connection) ([]byte, e
 	return dst, nil
 }
 
-func (m *StdJsonZstdCodec) Decode(connection *Connection, src []byte) error {
+func (m *StdJsonZstdCodec[T]) Decode(connection T, src []byte) error {
 	jsonBuf, err := m.zstdReader.DecodeAll(src, m.reusedBuf[:0])
 	if err != nil {
 		return err

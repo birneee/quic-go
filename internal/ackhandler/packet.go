@@ -92,6 +92,8 @@ func (p *packet) Qstate() qstate.Packet {
 				streamType = "unidirectional"
 			}
 			ps.Frames = append(ps.Frames, qstate.Frame{Type: "max_streams", StreamType: streamType}) // current value is already part of the transport state
+		case *wire.DatagramFrame:
+			// ignore
 		default:
 			panic(fmt.Sprintf("unexpected frame type: %s", reflect.ValueOf(frame.Frame).Type().String()))
 		}

@@ -617,7 +617,9 @@ runLoop:
 		case closeErr = <-s.closeChan:
 			break runLoop
 		case addr := <-s.remoteAddrUpdates:
-			s.updatePath(&addr)
+			if path.IsAddrMigrated(s.conn.RemoteAddr(), &addr) {
+				s.updatePath(&addr)
+			}
 		default:
 		}
 
@@ -3116,4 +3118,12 @@ func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offs
 			s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
 		}
 	}
+}
+
+func (s *connection) ConnectionIDs() []ConnectionID {
+	connIDs := make([]ConnectionID, 0, len(s.connIDGenerator.activeSrcConnIDs))
+	for _, connID := range s.connIDGenerator.activeSrcConnIDs {
+		connIDs = append(connIDs, connID)
+	}
+	return connIDs
 }

@@ -23,6 +23,7 @@ type ConnectionRestoreConfig struct {
 	MaxIdleTimeout time.Duration
 	// ImmediatePing sends a ping frame immediately after restore, e.g., to trigger address migration
 	ImmediatePing bool
+	MaxBandwidth  Bandwidth
 }
 
 func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *qstate.Connection) (*Config, *qstate.Connection) {
@@ -44,6 +45,7 @@ func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *qstate.Conne
 		Tracer:                         restoreConf.Tracer,
 		EnableDatagrams:                ownTransportParams.MaxDatagramFrameSize != nil && *ownTransportParams.MaxDatagramFrameSize != 0,
 		MaxIdleTimeout:                 restoreConf.MaxIdleTimeout,
+		MaxBandwidth:                   restoreConf.MaxBandwidth,
 	}
 	quicConf = populateConfig(quicConf)
 	quicConf.MaxStreamReceiveWindow = max(

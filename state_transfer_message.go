@@ -17,26 +17,26 @@ type StateTransferMessage interface {
 }
 
 type DataStateTransferMessage struct {
-	state []byte
+	State []byte
 }
 
 func (s DataStateTransferMessage) Serialize() ([]byte, error) {
 	b := make([]byte, 0, 1)
 	b = append(b, TransferMessageTypeState)
-	b = append(b, s.state...)
+	b = append(b, s.State...)
 	return b, nil
 }
 
 var _ StateTransferMessage = &DataStateTransferMessage{}
 
 type RequestStateTransferMessage struct {
-	connectionID protocol.ConnectionID
+	ConnectionID protocol.ConnectionID
 }
 
 func (r RequestStateTransferMessage) Serialize() ([]byte, error) {
 	b := make([]byte, 0, 1)
 	b = append(b, TransferMessageTypeRequest)
-	b = append(b, r.connectionID.Bytes()...)
+	b = append(b, r.ConnectionID.Bytes()...)
 	return b, nil
 }
 
@@ -49,7 +49,7 @@ func parseRequestTransferMessage(r *bytes.Reader) (*RequestStateTransferMessage,
 	}
 	connID := protocol.ParseConnectionID(bytes)
 	return &RequestStateTransferMessage{
-		connectionID: connID,
+		ConnectionID: connID,
 	}, nil
 }
 
@@ -59,6 +59,6 @@ func parseStateTransferMessage(r *bytes.Reader) (*DataStateTransferMessage, erro
 		return nil, err
 	}
 	return &DataStateTransferMessage{
-		state: bytes,
+		State: bytes,
 	}, nil
 }

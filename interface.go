@@ -231,6 +231,8 @@ type Connection interface {
 	// Destroy connection without sending an error to peer
 	Destroy()
 	ExtensionValues() *sync.Map[string, interface{}]
+	// Local connection IDs
+	ConnectionIDs() []ConnectionID
 }
 
 // An EarlyConnection is a connection that is handshaking.

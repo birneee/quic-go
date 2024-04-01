@@ -17,6 +17,7 @@ type StateTransferConnection interface {
 	CloseWithError(ApplicationErrorCode, string) error
 	RemoteAddr() net.Addr
 	QuicConn() Connection
+	ReceiveMessage() (StateTransferMessage, error)
 }
 
 type transferConnection struct {
@@ -84,6 +85,8 @@ func (c *transferConnection) runReceiveLoop() {
 				c.CloseWithError(ApplicationErrorCode(0), "blocked")
 				break
 			}
+		default:
+			panic("unexpected")
 		}
 	}
 }
@@ -110,7 +113,7 @@ func (c *transferConnection) sendMessage(message StateTransferMessage) error {
 
 func (c *transferConnection) SendState(state []byte) error {
 	message := &DataStateTransferMessage{
-		state: state,
+		State: state,
 	}
 	err := c.sendMessage(message)
 	if err != nil {
@@ -121,7 +124,7 @@ func (c *transferConnection) SendState(state []byte) error {
 
 func (c *transferConnection) SendRequest(connectionID protocol.ConnectionID) error {
 	message := &RequestStateTransferMessage{
-		connectionID: connectionID,
+		ConnectionID: connectionID,
 	}
 	err := c.sendMessage(message)
 	if err != nil {
@@ -135,7 +138,7 @@ func (c *transferConnection) ReceiveRequest() (protocol.ConnectionID, error) {
 	case <-c.ctx.Done():
 		return ConnectionID{}, c.closeError
 	case message := <-c.receivedRequests:
-		return message.connectionID, nil
+		return message.ConnectionID, nil
 	}
 }
 
@@ -144,7 +147,18 @@ func (c *transferConnection) ReceiveState() ([]byte, error) {
 	case <-c.ctx.Done():
 		return nil, c.closeError
 	case message := <-c.receivedStates:
-		return message.state, nil
+		return message.State, nil
+	}
+}
+
+func (c *transferConnection) ReceiveMessage() (StateTransferMessage, error) {
+	select {
+	case <-c.ctx.Done():
+		return nil, c.closeError
+	case m := <-c.receivedRequests:
+		return m, nil
+	case m := <-c.receivedStates:
+		return m, nil
 	}
 }
 

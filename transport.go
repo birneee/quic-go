@@ -621,7 +621,7 @@ func (t *Transport) MaybeSendStatelessReset(p ReceivedPacket) {
 	t.maybeSendStatelessReset(*p.receivedPacket)
 }
 
-// len(b) == size => not GSO
+// disable GSO by setting gsoSize to 0
 // inspired by quic-go/send_conn.go/sconn/Write
 func (t *Transport) Send(p []byte, gsoSize uint16, remoteAddr net.Addr, oob []byte, ecn protocol.ECN) error {
 	_, err := t.conn.WritePacket(p, remoteAddr, oob, gsoSize, ecn)
