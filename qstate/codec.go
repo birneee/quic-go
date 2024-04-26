@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/klauspost/compress/zstd"
+	"github.com/mailru/easyjson"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -45,83 +46,62 @@ func (m MsgpCodec[T]) Decode(connection T, src []byte) error {
 	return err
 }
 
-type MsgpZstdCodec[T MarshlerAndUnmarshler] struct {
+type EasyJsonCodec[T easyjson.MarshalerUnmarshaler] struct{}
+
+var _ Codec[*Connection] = &EasyJsonCodec[*Connection]{}
+
+func (e EasyJsonCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
+	w := bytes.NewBuffer(dst)
+	_, err := easyjson.MarshalToWriter(connection, w)
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+func (e EasyJsonCodec[T]) Decode(connection T, src []byte) error {
+	err := easyjson.Unmarshal(src, connection)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type zstdCodec[T any] struct {
+	inner      Codec[T]
 	zstdWriter *zstd.Encoder
 	zstdReader *zstd.Decoder
 	reusedBuf  [100_000]byte
 }
 
-var _ Codec[*Connection] = &MsgpZstdCodec[*Connection]{}
-
-func NewMsgpZstdCodec[T MarshlerAndUnmarshler]() Codec[T] {
-	writer, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+func NewZstdCodec[T any](inner Codec[T]) Codec[T] {
+	zstdWriter, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
 	if err != nil {
 		panic(err)
 	}
-	reader, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	zstdReader, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
 	if err != nil {
 		panic(err)
 	}
-	return &MsgpZstdCodec[T]{
-		zstdWriter: writer,
-		zstdReader: reader,
+	return &zstdCodec[T]{
+		inner:      inner,
+		zstdReader: zstdReader,
+		zstdWriter: zstdWriter,
 	}
 }
 
-func (m *MsgpZstdCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
-	msgp, err := connection.MarshalMsg(m.reusedBuf[:0])
-	if err != nil {
-		return nil, err
-	}
-	dst = m.zstdWriter.EncodeAll(msgp, dst[:0])
+var _ Codec[*Connection] = &zstdCodec[*Connection]{}
+
+func (z *zstdCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
+	plain, _ := z.inner.Encode(z.reusedBuf[:0], connection)
+	dst = z.zstdWriter.EncodeAll(plain, dst[:0])
 	return dst, nil
 }
 
-func (m *MsgpZstdCodec[T]) Decode(connection T, src []byte) error {
-	msgp, err := m.zstdReader.DecodeAll(src, m.reusedBuf[:0])
+func (z *zstdCodec[T]) Decode(connection T, src []byte) error {
+	plain, err := z.zstdReader.DecodeAll(src, z.reusedBuf[:0])
 	if err != nil {
 		return err
 	}
-	_, err = connection.UnmarshalMsg(msgp)
-	return err
-}
-
-type StdJsonZstdCodec[T any] struct {
-	zstdWriter *zstd.Encoder
-	zstdReader *zstd.Decoder
-	reusedBuf  [100_000]byte
-}
-
-var _ Codec[*Connection] = &StdJsonZstdCodec[*Connection]{}
-
-func NewStdJsonZstdCodec[T any]() Codec[T] {
-	writer, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
-	if err != nil {
-		panic(err)
-	}
-	reader, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
-	if err != nil {
-		panic(err)
-	}
-	return &StdJsonZstdCodec[T]{
-		zstdWriter: writer,
-		zstdReader: reader,
-	}
-}
-
-func (m *StdJsonZstdCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
-	jsonBuf, err := json.Marshal(connection)
-	if err != nil {
-		return nil, err
-	}
-	dst = m.zstdWriter.EncodeAll(jsonBuf, dst[:0])
-	return dst, nil
-}
-
-func (m *StdJsonZstdCodec[T]) Decode(connection T, src []byte) error {
-	jsonBuf, err := m.zstdReader.DecodeAll(src, m.reusedBuf[:0])
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(jsonBuf, connection)
+	return z.inner.Decode(connection, plain)
 }

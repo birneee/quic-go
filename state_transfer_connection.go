@@ -31,9 +31,13 @@ type transferConnection struct {
 
 var _ StateTransferConnection = &transferConnection{}
 
-func DialStateTransfer(ctx context.Context, addr string, config *StateTransferConfig) (StateTransferConnection, error) {
+func DialStateTransfer(transport *Transport, ctx context.Context, addr string, config *StateTransferConfig) (StateTransferConnection, error) {
 	config = config.Populate()
-	quicConn, err := DialAddrEarly(ctx, addr, config.TlsConfig, config.QuicConfig)
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		return nil, err
+	}
+	quicConn, err := transport.DialEarly(ctx, udpAddr, config.TlsConfig, config.QuicConfig)
 	if err != nil {
 		return nil, err
 	}

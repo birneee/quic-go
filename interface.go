@@ -233,6 +233,7 @@ type Connection interface {
 	ExtensionValues() *sync.Map[string, interface{}]
 	// Local connection IDs
 	ConnectionIDs() []ConnectionID
+	RequeueReceivedPacketsInTransport(transport *Transport)
 }
 
 // An EarlyConnection is a connection that is handshaking.

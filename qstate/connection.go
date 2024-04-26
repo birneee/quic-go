@@ -1,4 +1,5 @@
 //go:generate msgp
+//go:generate go run github.com/mailru/easyjson/...@latest --all
 package qstate
 
 type Connection struct {

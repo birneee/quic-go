@@ -76,14 +76,17 @@ func (s *Transport) OriginalDestinationConnectionID() []byte {
 	}
 }
 
-func (s *Transport) PutBack(streamID int64, offset int64, data []byte) {
+func (s *Transport) GetStream(streamID int64) *Stream {
 	for i := range s.Streams {
 		if s.Streams[i].StreamID == streamID {
-			s.Streams[i].PutBack(offset, data)
-			return
+			return &s.Streams[i]
 		}
 	}
 	panic("no such stream")
+}
+
+func (s *Transport) PutBack(streamID int64, offset int64, data []byte) {
+	s.GetStream(streamID).PutBack(offset, data)
 }
 
 func (t *Transport) ChangeVantagePoint(DestinationIP string, DestinationPort uint16) Transport {

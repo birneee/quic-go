@@ -237,6 +237,44 @@ func (c *MockEarlyConnectionCloseWithErrorCall) DoAndReturn(f func(qerr.Applicat
 	return c
 }
 
+// ConnectionIDs mocks base method.
+func (m *MockEarlyConnection) ConnectionIDs() []protocol.ConnectionID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConnectionIDs")
+	ret0, _ := ret[0].([]protocol.ConnectionID)
+	return ret0
+}
+
+// ConnectionIDs indicates an expected call of ConnectionIDs.
+func (mr *MockEarlyConnectionMockRecorder) ConnectionIDs() *MockEarlyConnectionConnectionIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectionIDs", reflect.TypeOf((*MockEarlyConnection)(nil).ConnectionIDs))
+	return &MockEarlyConnectionConnectionIDsCall{Call: call}
+}
+
+// MockEarlyConnectionConnectionIDsCall wrap *gomock.Call
+type MockEarlyConnectionConnectionIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEarlyConnectionConnectionIDsCall) Return(arg0 []protocol.ConnectionID) *MockEarlyConnectionConnectionIDsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEarlyConnectionConnectionIDsCall) Do(f func() []protocol.ConnectionID) *MockEarlyConnectionConnectionIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEarlyConnectionConnectionIDsCall) DoAndReturn(f func() []protocol.ConnectionID) *MockEarlyConnectionConnectionIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ConnectionState mocks base method.
 func (m *MockEarlyConnection) ConnectionState() quic.ConnectionState {
 	m.ctrl.T.Helper()
@@ -880,6 +918,42 @@ func (c *MockEarlyConnectionRemoteAddrCall) Do(f func() net.Addr) *MockEarlyConn
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockEarlyConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *MockEarlyConnectionRemoteAddrCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RequeueReceivedPacketsInTransport mocks base method.
+func (m *MockEarlyConnection) RequeueReceivedPacketsInTransport(arg0 *quic.Transport) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RequeueReceivedPacketsInTransport", arg0)
+}
+
+// RequeueReceivedPacketsInTransport indicates an expected call of RequeueReceivedPacketsInTransport.
+func (mr *MockEarlyConnectionMockRecorder) RequeueReceivedPacketsInTransport(arg0 any) *MockEarlyConnectionRequeueReceivedPacketsInTransportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequeueReceivedPacketsInTransport", reflect.TypeOf((*MockEarlyConnection)(nil).RequeueReceivedPacketsInTransport), arg0)
+	return &MockEarlyConnectionRequeueReceivedPacketsInTransportCall{Call: call}
+}
+
+// MockEarlyConnectionRequeueReceivedPacketsInTransportCall wrap *gomock.Call
+type MockEarlyConnectionRequeueReceivedPacketsInTransportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEarlyConnectionRequeueReceivedPacketsInTransportCall) Return() *MockEarlyConnectionRequeueReceivedPacketsInTransportCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEarlyConnectionRequeueReceivedPacketsInTransportCall) Do(f func(*quic.Transport)) *MockEarlyConnectionRequeueReceivedPacketsInTransportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEarlyConnectionRequeueReceivedPacketsInTransportCall) DoAndReturn(f func(*quic.Transport)) *MockEarlyConnectionRequeueReceivedPacketsInTransportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

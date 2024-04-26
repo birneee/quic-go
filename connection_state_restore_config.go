@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/quic-go/quic-go/logging"
 	"github.com/quic-go/quic-go/qstate"
+	"net"
 	"net/netip"
 	"time"
 )
@@ -22,8 +23,9 @@ type ConnectionRestoreConfig struct {
 	DefaultRTT     *time.Duration
 	MaxIdleTimeout time.Duration
 	// ImmediatePing sends a ping frame immediately after restore, e.g., to trigger address migration
-	ImmediatePing bool
-	MaxBandwidth  Bandwidth
+	ImmediatePing   bool
+	MaxBandwidth    Bandwidth
+	IgnoreMigrateTo []net.Addr
 }
 
 func (restoreConf *ConnectionRestoreConfig) GenerateQuicConf(state *qstate.Connection) (*Config, *qstate.Connection) {

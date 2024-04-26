@@ -2856,6 +2856,9 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 	}
 
 	s.preSetup()
+	for _, addr := range restoreConf.IgnoreMigrateTo {
+		s.pathManager.IgnoreMigrateTo(addr)
+	}
 	s.ctx, s.ctxCancel = context.WithCancelCause(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
 
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.RestoreAckHandler(
@@ -3029,7 +3032,7 @@ func (s *connection) AddProxy(config *ProxyConfig) ProxySetupResponse {
 	}
 
 	config = config.Clone()
-	hquicConn, err := DialStateTransfer(context.Background(), config.Addr, &StateTransferConfig{
+	hquicConn, err := DialStateTransfer(s.transport, context.Background(), config.Addr, &StateTransferConfig{
 		QuicConfig: config.Config,
 		TlsConfig:  config.TlsConf,
 	})
@@ -3126,4 +3129,15 @@ func (s *connection) ConnectionIDs() []ConnectionID {
 		connIDs = append(connIDs, connID)
 	}
 	return connIDs
+}
+
+func (s *connection) RequeueReceivedPacketsInTransport(transport *Transport) {
+	for {
+		select {
+		case p := <-s.receivedPackets:
+			transport.handlePacket(p)
+		default:
+			break
+		}
+	}
 }

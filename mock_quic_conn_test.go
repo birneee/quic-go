@@ -236,6 +236,44 @@ func (c *MockQUICConnCloseWithErrorCall) DoAndReturn(f func(qerr.ApplicationErro
 	return c
 }
 
+// ConnectionIDs mocks base method.
+func (m *MockQUICConn) ConnectionIDs() []protocol.ConnectionID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConnectionIDs")
+	ret0, _ := ret[0].([]protocol.ConnectionID)
+	return ret0
+}
+
+// ConnectionIDs indicates an expected call of ConnectionIDs.
+func (mr *MockQUICConnMockRecorder) ConnectionIDs() *MockQUICConnConnectionIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectionIDs", reflect.TypeOf((*MockQUICConn)(nil).ConnectionIDs))
+	return &MockQUICConnConnectionIDsCall{Call: call}
+}
+
+// MockQUICConnConnectionIDsCall wrap *gomock.Call
+type MockQUICConnConnectionIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQUICConnConnectionIDsCall) Return(arg0 []protocol.ConnectionID) *MockQUICConnConnectionIDsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQUICConnConnectionIDsCall) Do(f func() []protocol.ConnectionID) *MockQUICConnConnectionIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQUICConnConnectionIDsCall) DoAndReturn(f func() []protocol.ConnectionID) *MockQUICConnConnectionIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ConnectionState mocks base method.
 func (m *MockQUICConn) ConnectionState() ConnectionState {
 	m.ctrl.T.Helper()
@@ -879,6 +917,42 @@ func (c *MockQUICConnRemoteAddrCall) Do(f func() net.Addr) *MockQUICConnRemoteAd
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockQUICConnRemoteAddrCall) DoAndReturn(f func() net.Addr) *MockQUICConnRemoteAddrCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RequeueReceivedPacketsInTransport mocks base method.
+func (m *MockQUICConn) RequeueReceivedPacketsInTransport(arg0 *Transport) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RequeueReceivedPacketsInTransport", arg0)
+}
+
+// RequeueReceivedPacketsInTransport indicates an expected call of RequeueReceivedPacketsInTransport.
+func (mr *MockQUICConnMockRecorder) RequeueReceivedPacketsInTransport(arg0 any) *MockQUICConnRequeueReceivedPacketsInTransportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequeueReceivedPacketsInTransport", reflect.TypeOf((*MockQUICConn)(nil).RequeueReceivedPacketsInTransport), arg0)
+	return &MockQUICConnRequeueReceivedPacketsInTransportCall{Call: call}
+}
+
+// MockQUICConnRequeueReceivedPacketsInTransportCall wrap *gomock.Call
+type MockQUICConnRequeueReceivedPacketsInTransportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQUICConnRequeueReceivedPacketsInTransportCall) Return() *MockQUICConnRequeueReceivedPacketsInTransportCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQUICConnRequeueReceivedPacketsInTransportCall) Do(f func(*Transport)) *MockQUICConnRequeueReceivedPacketsInTransportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQUICConnRequeueReceivedPacketsInTransportCall) DoAndReturn(f func(*Transport)) *MockQUICConnRequeueReceivedPacketsInTransportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
