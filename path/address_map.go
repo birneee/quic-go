@@ -45,13 +45,26 @@ func (a addressMap[T]) Get(key net.Addr) (T, bool) {
 	if !ok {
 		panic("implement me")
 	}
-	ipKey := *(*[16]byte)(addr.IP.To16())
+	ipKey := IpTo16(addr.IP)
 	portMap, ok := a.innerMap[ipKey]
 	if !ok {
 		return *new(T), false
 	}
 	value, ok := portMap[uint16(addr.Port)]
 	return value, ok
+}
+
+func IpTo16(ip net.IP) [16]byte {
+	switch len(ip) {
+	case net.IPv4len:
+		return *(*[16]byte)(net.IPv4(ip[0], ip[1], ip[2], ip[3]))
+	case net.IPv6len:
+		return *(*[16]byte)(ip)
+	case 0:
+		return [16]byte{}
+	default:
+		panic("unexpected length")
+	}
 }
 
 func (a addressMap[T]) Delete(key net.Addr) {

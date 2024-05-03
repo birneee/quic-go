@@ -1034,7 +1034,7 @@ var _ = Describe("Connection", func() {
 			It("doesn't support connection migration", func() {
 				unpacker.EXPECT().UnpackShortHeader(gomock.Any(), gomock.Any()).Return(protocol.PacketNumber(10), protocol.PacketNumberLen2, protocol.KeyPhaseZero, []byte{0} /* one PADDING frame */, nil)
 				packet := getShortHeaderPacket(srcConnID, 0x42, nil)
-				packet.remoteAddr = &net.IPAddr{IP: net.IPv4(192, 168, 0, 100)}
+				packet.remoteAddr = &net.UDPAddr{IP: net.IPv4(192, 168, 0, 100), Port: 12345}
 				tracer.EXPECT().ReceivedShortHeaderPacket(gomock.Any(), protocol.ByteCount(len(packet.data)), gomock.Any(), gomock.Any())
 				Expect(conn.handlePacketImpl(packet)).To(BeTrue())
 			})
