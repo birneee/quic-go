@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"context"
 	"github.com/quic-go/quic-go/handover"
 	"github.com/quic-go/quic-go/qstate"
 	"net"
@@ -93,7 +94,9 @@ type stream struct {
 var _ Stream = &stream{}
 
 // newStream creates a new Stream
-func newStream(streamID protocol.StreamID,
+func newStream(
+	ctx context.Context,
+	streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 ) *stream {
@@ -107,7 +110,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController)
+	s.sendStream = *newSendStream(ctx, streamID, senderForSendStream, flowController)
 	senderForReceiveStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {

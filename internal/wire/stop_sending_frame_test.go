@@ -1,7 +1,6 @@
 package wire
 
 import (
-	"bytes"
 	"io"
 
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -17,22 +16,21 @@ var _ = Describe("STOP_SENDING frame", func() {
 		It("parses a sample frame", func() {
 			data := encodeVarInt(0xdecafbad)             // stream ID
 			data = append(data, encodeVarInt(0x1337)...) // error code
-			b := bytes.NewReader(data)
-			frame, err := parseStopSendingFrame(b, protocol.Version1)
+			frame, l, err := parseStopSendingFrame(data, protocol.Version1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(frame.StreamID).To(Equal(protocol.StreamID(0xdecafbad)))
 			Expect(frame.ErrorCode).To(Equal(qerr.StreamErrorCode(0x1337)))
-			Expect(b.Len()).To(BeZero())
+			Expect(l).To(Equal(len(data)))
 		})
 
 		It("errors on EOFs", func() {
 			data := encodeVarInt(0xdecafbad)               // stream ID
 			data = append(data, encodeVarInt(0x123456)...) // error code
-			b := bytes.NewReader(data)
-			_, err := parseStopSendingFrame(b, protocol.Version1)
+			_, l, err := parseStopSendingFrame(data, protocol.Version1)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(l).To(Equal(len(data)))
 			for i := range data {
-				_, err := parseStopSendingFrame(bytes.NewReader(data[:i]), protocol.Version1)
+				_, _, err := parseStopSendingFrame(data[:i], protocol.Version1)
 				Expect(err).To(MatchError(io.EOF))
 			}
 		})
@@ -57,7 +55,7 @@ var _ = Describe("STOP_SENDING frame", func() {
 				StreamID:  0xdeadbeef,
 				ErrorCode: 0x1234567,
 			}
-			Expect(frame.Length(protocol.Version1)).To(Equal(1 + quicvarint.Len(0xdeadbeef) + quicvarint.Len(0x1234567)))
+			Expect(frame.Length(protocol.Version1)).To(BeEquivalentTo(1 + quicvarint.Len(0xdeadbeef) + quicvarint.Len(0x1234567)))
 		})
 	})
 })

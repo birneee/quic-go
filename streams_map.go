@@ -48,6 +48,7 @@ func (streamOpenErr) Timeout() bool     { return false }
 var errTooManyOpenStreams = errors.New("too many open streams")
 
 type streamsMap struct {
+	ctx         context.Context // not used for cancellations, but carries the values associated with the connection
 	perspective protocol.Perspective
 
 	maxIncomingBidiStreams uint64
@@ -67,6 +68,7 @@ type streamsMap struct {
 var _ streamManager = &streamsMap{}
 
 func newStreamsMap(
+	ctx context.Context,
 	sender streamSender,
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController,
 	maxIncomingBidiStreams uint64,
@@ -74,6 +76,7 @@ func newStreamsMap(
 	perspective protocol.Perspective,
 ) streamManager {
 	m := &streamsMap{
+		ctx:                    ctx,
 		perspective:            perspective,
 		newFlowController:      newFlowController,
 		maxIncomingBidiStreams: maxIncomingBidiStreams,
@@ -89,7 +92,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(id, m.sender, m.newFlowController(id))
+			return newStream(m.ctx, id, m.sender, m.newFlowController(id))
 		},
 		m.sender.queueControlFrame,
 	)
@@ -97,7 +100,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeBidi,
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id))
+			return newStream(m.ctx, id, m.sender, m.newFlowController(id))
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -106,7 +109,7 @@ func (m *streamsMap) initMaps() {
 		protocol.StreamTypeUni,
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id))
+			return newSendStream(m.ctx, id, m.sender, m.newFlowController(id))
 		},
 		m.sender.queueControlFrame,
 	)

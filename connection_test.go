@@ -54,14 +54,22 @@ var _ = Describe("Connection", func() {
 	destConnID := protocol.ParseConnectionID([]byte{8, 7, 6, 5, 4, 3, 2, 1})
 	clientDestConnID := protocol.ParseConnectionID([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 
-	getCoalescedPacket := func(pn protocol.PacketNumber, isLongHeader bool) *coalescedPacket {
+	getCoalescedPacket := func(pn protocol.PacketNumber, encLevel protocol.EncryptionLevel) *coalescedPacket {
 		buffer := getPacketBuffer()
 		buffer.Data = append(buffer.Data, []byte("foobar")...)
 		packet := &coalescedPacket{buffer: buffer}
-		if isLongHeader {
+		if encLevel != protocol.Encryption1RTT {
+			var typ protocol.PacketType
+			//nolint:exhaustive
+			switch encLevel {
+			case protocol.EncryptionInitial:
+				typ = protocol.PacketTypeInitial
+			case protocol.EncryptionHandshake:
+				typ = protocol.PacketTypeHandshake
+			}
 			packet.longHdrPackets = []*longHeaderPacket{{
 				header: &wire.ExtendedHeader{
-					Header:       wire.Header{},
+					Header:       wire.Header{Type: typ},
 					PacketNumber: pn,
 				},
 				length: 6, // foobar
@@ -1326,14 +1334,14 @@ var _ = Describe("Connection", func() {
 					sph.EXPECT().SendMode(gomock.Any()).Return(ackhandler.SendNone)
 					sph.EXPECT().QueueProbePacket(encLevel)
 					sph.EXPECT().ECNMode(gomock.Any())
-					p := getCoalescedPacket(123, enc != protocol.Encryption1RTT)
+					p := getCoalescedPacket(123, encLevel)
 					packer.EXPECT().MaybePackProbePacket(encLevel, gomock.Any(), conn.version).Return(p, nil)
 					sph.EXPECT().SentPacket(gomock.Any(), protocol.PacketNumber(123), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 					conn.sentPacketHandler = sph
 					runConn()
 					sent := make(chan struct{})
 					sender.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(*packetBuffer, uint16, protocol.ECN) { close(sent) })
-					if enc == protocol.Encryption1RTT {
+					if encLevel == protocol.Encryption1RTT {
 						tracer.EXPECT().SentShortHeaderPacket(gomock.Any(), p.shortHdrPacket.Length, gomock.Any(), gomock.Any(), gomock.Any())
 					} else {
 						tracer.EXPECT().SentLongHeaderPacket(gomock.Any(), p.longHdrPackets[0].length, gomock.Any(), gomock.Any(), gomock.Any())
@@ -1349,13 +1357,13 @@ var _ = Describe("Connection", func() {
 					sph.EXPECT().SendMode(gomock.Any()).Return(ackhandler.SendNone)
 					sph.EXPECT().ECNMode(gomock.Any()).Return(protocol.ECT0)
 					sph.EXPECT().QueueProbePacket(encLevel).Return(false)
-					p := getCoalescedPacket(123, enc != protocol.Encryption1RTT)
+					p := getCoalescedPacket(123, encLevel)
 					packer.EXPECT().MaybePackProbePacket(encLevel, gomock.Any(), conn.version).Return(p, nil)
 					sph.EXPECT().SentPacket(gomock.Any(), protocol.PacketNumber(123), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 					runConn()
 					sent := make(chan struct{})
 					sender.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(*packetBuffer, uint16, protocol.ECN) { close(sent) })
-					if enc == protocol.Encryption1RTT {
+					if encLevel == protocol.Encryption1RTT {
 						tracer.EXPECT().SentShortHeaderPacket(gomock.Any(), p.shortHdrPacket.Length, logging.ECT0, gomock.Any(), gomock.Any())
 					} else {
 						tracer.EXPECT().SentLongHeaderPacket(gomock.Any(), p.longHdrPackets[0].length, logging.ECT0, gomock.Any(), gomock.Any())
@@ -2477,6 +2485,40 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
+	Context("datagrams", func() {
+		It("doesn't allow datagrams if the peer didn't enable support", func() {
+			conn.peerParams = &wire.TransportParameters{MaxDatagramFrameSize: 0}
+			Expect(conn.SendDatagram(make([]byte, 200))).To(MatchError("datagram support disabled"))
+		})
+
+		It("sends a datagram", func() {
+			conn.peerParams = &wire.TransportParameters{MaxDatagramFrameSize: 1000}
+			Expect(conn.SendDatagram([]byte("foobar"))).To(Succeed())
+			f := conn.datagramQueue.Peek()
+			Expect(f).ToNot(BeNil())
+			Expect(f.Data).To(Equal([]byte("foobar")))
+		})
+
+		It("says when a datagram is too big", func() {
+			conn.peerParams = &wire.TransportParameters{MaxDatagramFrameSize: 1000}
+			err := conn.SendDatagram(make([]byte, 2000))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(BeAssignableToTypeOf(&DatagramTooLargeError{}))
+			derr := err.(*DatagramTooLargeError)
+			Expect(derr.MaxDatagramPayloadSize).To(BeNumerically("<", 1000))
+			fmt.Println(derr.MaxDatagramPayloadSize)
+			Expect(conn.SendDatagram(make([]byte, derr.MaxDatagramPayloadSize))).To(Succeed())
+		})
+
+		It("receives datagrams", func() {
+			conn.config.EnableDatagrams = true
+			conn.datagramQueue.HandleDatagramFrame(&wire.DatagramFrame{Data: []byte("foobar")})
+			data, err := conn.ReceiveDatagram(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(Equal([]byte("foobar")))
+		})
+	})
+
 	It("returns the local address", func() {
 		Expect(conn.LocalAddr()).To(Equal(localAddr))
 	})
@@ -3167,7 +3209,7 @@ var _ = Describe("Client Connection", func() {
 		// the connection to immediately break down
 		It("fails on Initial-level ACK for unsent packet", func() {
 			ack := &wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: 2, Largest: 2}}}
-			initialPacket := testutils.ComposeInitialPacket(destConnID, srcConnID, destConnID, []wire.Frame{ack}, protocol.PerspectiveServer, conn.version)
+			initialPacket := testutils.ComposeInitialPacket(destConnID, srcConnID, destConnID, nil, []wire.Frame{ack}, protocol.PerspectiveServer, conn.version)
 			tracer.EXPECT().ReceivedLongHeaderPacket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 			Expect(conn.handlePacketImpl(wrapPacket(initialPacket))).To(BeFalse())
 		})
@@ -3179,7 +3221,7 @@ var _ = Describe("Client Connection", func() {
 				IsApplicationError: true,
 				ReasonPhrase:       "mitm attacker",
 			}
-			initialPacket := testutils.ComposeInitialPacket(destConnID, srcConnID, destConnID, []wire.Frame{connCloseFrame}, protocol.PerspectiveServer, conn.version)
+			initialPacket := testutils.ComposeInitialPacket(destConnID, srcConnID, destConnID, nil, []wire.Frame{connCloseFrame}, protocol.PerspectiveServer, conn.version)
 			tracer.EXPECT().ReceivedLongHeaderPacket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 			Expect(conn.handlePacketImpl(wrapPacket(initialPacket))).To(BeTrue())
 		})
@@ -3197,7 +3239,7 @@ var _ = Describe("Client Connection", func() {
 
 			tracer.EXPECT().ReceivedRetry(gomock.Any())
 			conn.handlePacketImpl(wrapPacket(testutils.ComposeRetryPacket(newSrcConnID, destConnID, destConnID, []byte("foobar"), conn.version)))
-			initialPacket := testutils.ComposeInitialPacket(conn.connIDManager.Get(), srcConnID, conn.connIDManager.Get(), nil, protocol.PerspectiveServer, conn.version)
+			initialPacket := testutils.ComposeInitialPacket(conn.connIDManager.Get(), srcConnID, conn.connIDManager.Get(), nil, nil, protocol.PerspectiveServer, conn.version)
 			tracer.EXPECT().DroppedPacket(gomock.Any(), protocol.InvalidPacketNumber, gomock.Any(), gomock.Any())
 			Expect(conn.handlePacketImpl(wrapPacket(initialPacket))).To(BeFalse())
 		})
