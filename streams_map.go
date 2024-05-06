@@ -400,7 +400,7 @@ func (m *streamsMap) StoreState(state *qstate.Connection, sph ackhandler.SentPac
 	state.Transport.RemoteMaxBidirectionalStreams = int64(m.incomingBidiStreams.maxStream.StreamID(protocol.StreamTypeUni, m.perspective.Opposite()))
 }
 
-func (m *streamsMap) Restore(state *qstate.Connection) (*RestoredStreams, error) {
+func (m *streamsMap) restoreStreams(state *qstate.Connection) (*RestoredStreams, error) {
 	restoredStreams := &RestoredStreams{
 		BidiStreams:    make(map[StreamID]Stream, 0),
 		ReceiveStreams: make(map[StreamID]ReceiveStream, 0),
@@ -438,17 +438,6 @@ func (m *streamsMap) Restore(state *qstate.Connection) (*RestoredStreams, error)
 		}
 	}
 
-	m.outgoingUniStreams.nextStream = protocol.StreamID(state.Transport.NextUnidirectionalStream).StreamNum()
-	m.outgoingBidiStreams.nextStream = protocol.StreamID(state.Transport.NextBidirectionalStream).StreamNum()
-	m.outgoingUniStreams.maxStream = protocol.StreamID(state.Transport.MaxUnidirectionalStreams).StreamNum()
-	m.outgoingBidiStreams.maxStream = protocol.StreamID(state.Transport.MaxBidirectionalStreams).StreamNum()
-	m.incomingUniStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextUnidirectionalStream).StreamNum()
-	m.incomingUniStreams.nextStreamToOpen = m.incomingUniStreams.nextStreamToAccept
-	m.incomingUniStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxUnidirectionalStreams).StreamNum()
-	m.incomingBidiStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextBidirectionalStream).StreamNum()
-	m.incomingBidiStreams.nextStreamToOpen = m.incomingBidiStreams.nextStreamToAccept
-	m.incomingBidiStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxBidirectionalStreams).StreamNum()
-
 	return restoredStreams, nil
 }
 
@@ -464,4 +453,28 @@ func (m *streamsMap) SendStreams() []flowcontrol.SendStream {
 		sendStreams = append(sendStreams, e.stream)
 	}
 	return sendStreams
+}
+
+// must be called after all field required by the newFlowController function are set
+func restoreStreamMap(
+	state *qstate.Connection,
+	sender streamSender,
+	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController,
+) (func() (*RestoredStreams, error), streamManager, error) {
+	s := newStreamsMap(sender, newFlowController, uint64(state.Transport.MaxBidirectionalStreams), uint64(state.Transport.MaxUnidirectionalStreams), state.Transport.Perspective()).(*streamsMap)
+
+	s.outgoingUniStreams.nextStream = protocol.StreamID(state.Transport.NextUnidirectionalStream).StreamNum()
+	s.outgoingBidiStreams.nextStream = protocol.StreamID(state.Transport.NextBidirectionalStream).StreamNum()
+	s.outgoingUniStreams.maxStream = protocol.StreamID(state.Transport.MaxUnidirectionalStreams).StreamNum()
+	s.outgoingBidiStreams.maxStream = protocol.StreamID(state.Transport.MaxBidirectionalStreams).StreamNum()
+	s.incomingUniStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextUnidirectionalStream).StreamNum()
+	s.incomingUniStreams.nextStreamToOpen = s.incomingUniStreams.nextStreamToAccept
+	s.incomingUniStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxUnidirectionalStreams).StreamNum()
+	s.incomingBidiStreams.nextStreamToAccept = protocol.StreamID(state.Transport.RemoteNextBidirectionalStream).StreamNum()
+	s.incomingBidiStreams.nextStreamToOpen = s.incomingBidiStreams.nextStreamToAccept
+	s.incomingBidiStreams.maxStream = protocol.StreamID(state.Transport.RemoteMaxBidirectionalStreams).StreamNum()
+
+	return func() (*RestoredStreams, error) {
+		return s.restoreStreams(state)
+	}, s, nil
 }

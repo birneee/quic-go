@@ -190,3 +190,9 @@ func (p *FrameParser) isAllowedAtEncLevel(f Frame, encLevel protocol.EncryptionL
 func (p *FrameParser) SetAckDelayExponent(exp uint8) {
 	p.ackDelayExponent = exp
 }
+
+func RestoreFrameParser(supportsDatagrams bool, ackDelayExponent uint8) *FrameParser {
+	fp := NewFrameParser(supportsDatagrams)
+	fp.SetAckDelayExponent(ackDelayExponent)
+	return fp
+}

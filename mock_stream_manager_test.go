@@ -503,45 +503,6 @@ func (c *MockStreamManagerResetFor0RTTCall) DoAndReturn(f func()) *MockStreamMan
 	return c
 }
 
-// Restore mocks base method.
-func (m *MockStreamManager) Restore(arg0 *qstate.Connection) (*RestoredStreams, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Restore", arg0)
-	ret0, _ := ret[0].(*RestoredStreams)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Restore indicates an expected call of Restore.
-func (mr *MockStreamManagerMockRecorder) Restore(arg0 any) *MockStreamManagerRestoreCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restore", reflect.TypeOf((*MockStreamManager)(nil).Restore), arg0)
-	return &MockStreamManagerRestoreCall{Call: call}
-}
-
-// MockStreamManagerRestoreCall wrap *gomock.Call
-type MockStreamManagerRestoreCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStreamManagerRestoreCall) Return(arg0 *RestoredStreams, arg1 error) *MockStreamManagerRestoreCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStreamManagerRestoreCall) Do(f func(*qstate.Connection) (*RestoredStreams, error)) *MockStreamManagerRestoreCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStreamManagerRestoreCall) DoAndReturn(f func(*qstate.Connection) (*RestoredStreams, error)) *MockStreamManagerRestoreCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SendStreams mocks base method.
 func (m *MockStreamManager) SendStreams() []flowcontrol.SendStream {
 	m.ctrl.T.Helper()

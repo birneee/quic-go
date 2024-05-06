@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/qstate"
 
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/qerr"
@@ -211,4 +212,35 @@ func (h *connIDManager) Get() protocol.ConnectionID {
 
 func (h *connIDManager) SetHandshakeComplete() {
 	h.handshakeComplete = true
+}
+
+func restoreConnIDManager(
+	state *qstate.Connection,
+	addStatelessResetToken func(protocol.StatelessResetToken),
+	removeStatelessResetToken func(protocol.StatelessResetToken),
+	queueControlFrame func(wire.Frame),
+) (*connIDManager, error) {
+
+	m := newConnIDManager(ConnectionID{}, addStatelessResetToken, removeStatelessResetToken, queueControlFrame)
+	m.SetHandshakeComplete()
+
+	activeConnID := state.Transport.RemoteConnectionIDs[0]
+	m.activeConnectionID = protocol.ParseConnectionID(activeConnID.ConnectionID)
+	m.activeSequenceNumber = activeConnID.SequenceNumber
+	if activeConnID.StatelessResetToken != nil {
+		m.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(m.rand.Int31n(protocol.PacketsPerConnectionID))
+		m.activeStatelessResetToken = (*protocol.StatelessResetToken)(activeConnID.StatelessResetToken)
+	}
+	for _, connectionID := range state.Transport.RemoteConnectionIDs[1:] {
+		newConnectionIDFrame := &wire.NewConnectionIDFrame{
+			SequenceNumber:      connectionID.SequenceNumber,
+			ConnectionID:        protocol.ParseConnectionID(connectionID.ConnectionID),
+			StatelessResetToken: protocol.StatelessResetToken(*(connectionID.StatelessResetToken)),
+		}
+		err := m.Add(newConnectionIDFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
 }

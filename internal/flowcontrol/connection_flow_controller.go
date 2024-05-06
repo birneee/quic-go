@@ -126,9 +126,26 @@ func (c *connectionFlowController) StoreState(state *qstate.Connection, sendStre
 	}
 }
 
-func (c *connectionFlowController) RestoreState(state *qstate.Connection) {
+func RestoreConnectionFlowController(
+	state *qstate.Connection,
+	receiveWindow protocol.ByteCount,
+	maxReceiveWindow protocol.ByteCount,
+	queueWindowUpdate func(),
+	allowWindowIncrease func(size protocol.ByteCount) bool,
+	rttStats *utils.RTTStats,
+	logger utils.Logger,
+) ConnectionFlowController {
+	c := NewConnectionFlowController(
+		receiveWindow,
+		maxReceiveWindow,
+		queueWindowUpdate,
+		allowWindowIncrease,
+		rttStats,
+		logger,
+	).(*connectionFlowController)
 	c.receiveWindow = protocol.ByteCount(state.Transport.MaxData)
 	c.bytesRead = protocol.ByteCount(state.Transport.ReceivedData)
 	c.sendWindow = protocol.ByteCount(state.Transport.RemoteMaxData)
 	c.bytesSent = protocol.ByteCount(state.Transport.SentData)
+	return c
 }

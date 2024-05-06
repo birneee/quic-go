@@ -2,6 +2,7 @@ package quic
 
 import (
 	"fmt"
+	"github.com/quic-go/quic-go/qstate"
 
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/qerr"
@@ -135,4 +136,33 @@ func (m *connIDGenerator) ReplaceWithClosed(connClose []byte) {
 		connIDs = append(connIDs, connID)
 	}
 	m.replaceWithClosed(connIDs, connClose)
+}
+
+func restoreConnIDGenerator(
+	state *qstate.Connection,
+	peerParams *wire.TransportParameters,
+	addConnectionID func(protocol.ConnectionID),
+	runner connRunner,
+	queueControlFrame func(wire.Frame),
+) *connIDGenerator {
+	connID := protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID)
+	g := newConnIDGenerator(
+		connID,
+		nil, // nil after handshake is completed
+		addConnectionID,
+		runner.GetStatelessResetToken,
+		runner.Remove,
+		runner.Retire,
+		runner.ReplaceWithClosed,
+		queueControlFrame,
+		&protocol.DefaultConnectionIDGenerator{ConnLen: connID.Len()},
+	)
+	activeScrConnIDMap := make(map[uint64]protocol.ConnectionID)
+	for _, connectionID := range state.Transport.ConnectionIDs {
+		activeScrConnIDMap[connectionID.SequenceNumber] = protocol.ParseConnectionID(connectionID.ConnectionID)
+	}
+	g.activeSrcConnIDs = activeScrConnIDMap
+	g.highestSeq = state.Transport.ConnectionIDs[len(state.Transport.ConnectionIDs)-1].SequenceNumber
+	g.SetMaxActiveConnIDs(peerParams.ActiveConnectionIDLimit)
+	return g
 }

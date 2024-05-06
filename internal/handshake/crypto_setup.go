@@ -681,22 +681,24 @@ func (h *cryptoSetup) StoreHandoverState(s *qstate.Connection) {
 	h.aead.store(s)
 }
 
-func RestoreCryptoSetupFromHandoverState(state *qstate.Connection, tracer *logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
+func RestoreCryptoSetup(state *qstate.Connection, tracer *logging.ConnectionTracer, logger utils.Logger, rttStats *utils.RTTStats, ourParams *wire.TransportParameters, peerParams *wire.TransportParameters) (CryptoSetup, error) {
 	cs := &cryptoSetup{
-		initialSealer: nil,
-		initialOpener: nil,
-		aead:          restoreUpdatableAEAD(state, rttStats, tracer, logger),
-		events:        make([]Event, 0, 16),
-		ourParams:     ourParams,
-		rttStats:      rttStats,
-		tracer:        tracer,
-		logger:        logger,
-		perspective:   state.Transport.Perspective(),
-		version:       protocol.Version(state.Transport.Version),
-		has1RTTOpener: true,
-		has1RTTSealer: true,
-		peerParams:    peerParams,
-		conn:          handover.NewFakeTlsQuicConn(state.Transport.ChosenALPN), // no longer important after handshake
+		initialSealer:   nil,
+		initialOpener:   nil,
+		aead:            restoreUpdatableAEAD(state, rttStats, tracer, logger),
+		events:          make([]Event, 0, 16),
+		ourParams:       ourParams,
+		rttStats:        rttStats,
+		tracer:          tracer,
+		logger:          logger,
+		perspective:     state.Transport.Perspective(),
+		version:         protocol.Version(state.Transport.Version),
+		has1RTTOpener:   true,
+		has1RTTSealer:   true,
+		peerParams:      peerParams,
+		conn:            handover.NewFakeTlsQuicConn(state.Transport.ChosenALPN), // no longer important after handshake
+		handshakeOpener: nil,                                                     // handshake confirmed
+		handshakeSealer: nil,                                                     // handshake confirmed
 	}
 
 	return cs, nil

@@ -80,3 +80,11 @@ func (m *cryptoStreamManager) Drop(encLevel protocol.EncryptionLevel) error {
 		panic(fmt.Sprintf("dropped unexpected encryption level: %s", encLevel))
 	}
 }
+
+func restoreCryptoStreamManager(cryptoHandler cryptoDataHandler) *cryptoStreamManager {
+	c := &cryptoStreamManager{
+		cryptoHandler: cryptoHandler,
+		oneRTTStream:  newCryptoStream(),
+	}
+	return c
+}

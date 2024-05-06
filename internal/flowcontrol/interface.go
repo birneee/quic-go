@@ -38,7 +38,6 @@ type ConnectionFlowController interface {
 	flowController
 	Reset() error
 	StoreState(state *qstate.Connection, sendStreams []SendStream)
-	RestoreState(state *qstate.Connection)
 }
 
 type connectionFlowControllerI interface {

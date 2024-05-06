@@ -987,6 +987,7 @@ func restoreSendPacketHandler(s *qstate.Connection,
 	h.DropPackets(protocol.EncryptionInitial)
 	h.DropPackets(protocol.EncryptionHandshake)
 	h.setHighest1RTTPacketNumber(protocol.PacketNumber(s.Transport.NextPacketNumber - 1))
+	h.SetHandshakeConfirmed()
 
 	rtt := s.Metrics.SmoothedRTT
 	if rtt != nil && *rtt != 0 {

@@ -60,3 +60,11 @@ func (p *pathManager) IsIgnoreSendTo(addr net.Addr) bool {
 	_, ok := p.ignoreSend.Get(addr)
 	return ok
 }
+
+func RestorePathManager(ignoreMigrationTo []net.Addr) PathManager {
+	pm := NewPathManager()
+	for _, addr := range ignoreMigrationTo {
+		pm.IgnoreMigrateTo(addr)
+	}
+	return pm
+}

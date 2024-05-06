@@ -178,6 +178,9 @@ var _ = Describe("Handover", func() {
 		go func() { // server 2
 			defer GinkgoRecover()
 			serverState := <-serverStateChan
+			//j, err := json.Marshal(serverState)
+			//Expect(err).ToNot(HaveOccurred())
+			//log.Print(string(j))
 			Expect(serverState.Transport.VantagePoint).To(Equal("server"))
 			conn, _, err := quic.Restore(nil, &serverState, &quic.ConnectionRestoreConfig{
 				MaxIdleTimeout: MaxIdleTimeout,

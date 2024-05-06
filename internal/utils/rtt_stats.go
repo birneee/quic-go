@@ -129,3 +129,9 @@ func (r *RTTStats) ExpireSmoothedMetrics() {
 	r.meanDeviation = max(r.meanDeviation, (r.smoothedRTT - r.latestRTT).Abs())
 	r.smoothedRTT = max(r.smoothedRTT, r.latestRTT)
 }
+
+func RestoreRTTStats(maxAckDelay time.Duration) *RTTStats {
+	r := &RTTStats{}
+	r.SetMaxAckDelay(maxAckDelay)
+	return r
+}

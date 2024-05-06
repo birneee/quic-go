@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
@@ -14,6 +15,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,7 +58,6 @@ type streamManager interface {
 	ResetFor0RTT()
 	UseResetMaps()
 	StoreState(state *qstate.Connection, sph ackhandler.SentPacketHandler, config *handover.ConnectionStateStoreConf)
-	Restore(state *qstate.Connection) (*RestoredStreams, error)
 	SendStreams() []flowcontrol.SendStream
 }
 
@@ -128,6 +129,9 @@ func (e *errCloseForRecreating) Error() string {
 
 var connTracingID uint64        // to be accessed atomically
 func nextConnTracingID() uint64 { return atomic.AddUint64(&connTracingID, 1) }
+
+const ChanLenHandoverStateRequests = 10
+const ChanLenRemoteAddrUpdates = 2
 
 // A Connection is a QUIC connection
 type connection struct {
@@ -559,7 +563,7 @@ func (s *connection) preSetup() {
 	s.sendingScheduled = make(chan struct{}, 1)
 	s.handshakeCtx, s.handshakeCtxCancel = context.WithCancel(context.Background())
 	s.pathUpdateCtx = utils.NewCounterContext()
-	s.handoverStateRequests = make(chan HandoverStateRequest, 10)
+	s.handoverStateRequests = make(chan HandoverStateRequest, ChanLenHandoverStateRequests)
 
 	now := time.Now()
 	s.lastPacketReceivedTime = now
@@ -2665,6 +2669,9 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 			StatelessResetToken: (*qstate.StatelessResetToken)(&statelessResetToken),
 		})
 	}
+	sort.Slice(state.Transport.ConnectionIDs, func(i, j int) bool {
+		return state.Transport.ConnectionIDs[i].SequenceNumber < state.Transport.ConnectionIDs[j].SequenceNumber
+	})
 
 	// store dest conn ids
 	state.Transport.RemoteConnectionIDs = append(state.Transport.RemoteConnectionIDs, qstate.ConnectionID{
@@ -2738,7 +2745,7 @@ func (s *connection) awaitHandshakeConfirmed() error {
 
 // Restore session from H-QUIC state
 // if t is nil, a new transport on a new socket will be created
-func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
+func Restore(transport *Transport, state *qstate.Connection, restoreConf *ConnectionRestoreConfig) (Connection, *RestoredStreams, error) {
 	conf, state := restoreConf.GenerateQuicConf(state)
 
 	logger := utils.DefaultLogger.WithPrefix("clone")
@@ -2747,24 +2754,24 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 	if err != nil {
 		return nil, nil, err
 	}
-	if t == nil {
+	if transport == nil {
 		pconn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 		if err != nil {
 			return nil, nil, err
 		}
-		t = &Transport{
+		transport = &Transport{
 			Conn:               pconn,
 			isSingleUse:        true,
 			restoredHQUIC:      true,
 			ConnectionIDLength: state.Transport.ConnectionIDLength(),
 		}
 	}
-	if err := t.init(true); err != nil {
+	if err := transport.init(true); err != nil {
 		panic(err)
 	}
-	packetHandlerManager := t.handlerMap
-	sendConn := newSendConn(
-		t.conn,
+	runner := transport.handlerMap
+	conn := newSendConn(
+		transport.conn,
 		&net.UDPAddr{
 			IP:   net.ParseIP(state.Transport.DestinationIP),
 			Port: int(state.Transport.DestinationPort),
@@ -2772,8 +2779,8 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 		packetInfo{addr: restoreConf.LocalAddr},
 		logger,
 	)
-	if t.connIDLen != state.Transport.ConnectionIDLength() {
-		panic(fmt.Sprintf("transport connection ID length %d does not match state connection ID length %d", t.connIDLen, state.Transport.ConnectionIDLength()))
+	if transport.connIDLen != state.Transport.ConnectionIDLength() {
+		panic(fmt.Sprintf("transport connection ID length %d does not match state connection ID length %d", transport.connIDLen, state.Transport.ConnectionIDLength()))
 	}
 
 	// This should stay empty because this is no longer required after the Handshake
@@ -2787,7 +2794,7 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 	var tokenGenerator *handshake.TokenGenerator
 	if perspective == protocol.PerspectiveServer {
 		var err error
-		tokenGenerator = handshake.NewTokenGenerator(*t.TokenGeneratorKey)
+		tokenGenerator = handshake.NewTokenGenerator(*transport.TokenGeneratorKey)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2797,115 +2804,225 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 		panic("unexpected")
 	}
 
-	s := &connection{
-		conn:              sendConn,
-		config:            conf,
-		srcConnIDLen:      state.Transport.ConnectionIDLength(),
-		perspective:       perspective,
-		logID:             oDCID.String(),
-		logger:            logger,
-		versionNegotiated: false,
-		version:           protocol.Version(state.Transport.Version),
-		runner:            packetHandlerManager,
-		tokenGenerator:    tokenGenerator,
-		cloned:            true,
-		sentFirstPacket:   true,
-		remoteAddrUpdates: make(chan net.UDPAddr, 2),
-		idleTimeout:       time.Duration(state.Transport.IdleTimeout) * time.Millisecond,
-	}
+	ownParams := qstate.RestoreTransportParameters(&state.Transport.Parameters)
+	peerParams := qstate.RestoreTransportParameters(&state.Transport.RemoteParameters)
 
+	rttStats := utils.RestoreRTTStats(peerParams.MaxAckDelay)
+
+	var tracer *logging.ConnectionTracer
 	if conf.Tracer != nil {
-		s.tracer = conf.Tracer(
+		tracer = conf.Tracer(
 			context.WithValue(context.Background(), ConnectionTracingKey, tracingID),
 			perspective,
 			oDCID,
 		)
 	}
 
-	s.connIDManager = newConnIDManager(
-		protocol.ParseConnectionID(state.Transport.RemoteConnectionIDs[0].ConnectionID),
-		func(token protocol.StatelessResetToken) { s.runner.AddResetToken(token, s) },
-		s.runner.RemoveResetToken,
-		s.queueControlFrame,
-	)
-
-	s.connIDGenerator = newConnIDGenerator(
-		protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID),
-		utils.New(protocol.ParseConnectionID(state.Transport.RemoteConnectionIDs[0].ConnectionID)),
-		func(connID protocol.ConnectionID) { s.runner.Add(connID, s) },
-		s.runner.GetStatelessResetToken,
-		s.runner.Remove,
-		s.runner.Retire,
-		s.runner.ReplaceWithClosed,
-		s.queueControlFrame,
-		&protocol.DefaultConnectionIDGenerator{ConnLen: s.srcConnIDLen},
-	)
-
-	// this has to happen before the server calls applyTransportParameters
-	{
-		var maxSN uint64
-		activeScrConnIDMap := make(map[uint64]protocol.ConnectionID, 0)
-		for _, connectionID := range state.Transport.ConnectionIDs {
-			activeScrConnIDMap[connectionID.SequenceNumber] = protocol.ParseConnectionID(connectionID.ConnectionID)
-			if connectionID.SequenceNumber > maxSN {
-				maxSN = connectionID.SequenceNumber
-			}
-		}
-		s.connIDGenerator.activeSrcConnIDs = activeScrConnIDMap
-		s.connIDGenerator.highestSeq = uint64(maxSN)
-	}
-
-	s.preSetup()
-	for _, addr := range restoreConf.IgnoreMigrateTo {
-		s.pathManager.IgnoreMigrateTo(addr)
-	}
-	s.ctx, s.ctxCancel = context.WithCancelCause(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
-
-	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.RestoreAckHandler(
+	sentPacketHandler, receivedPacketHandler := ackhandler.RestoreAckHandler(
 		state,
-		getMaxPacketSize(s.conn.RemoteAddr()),
-		s.rttStats, // available after preSetup
-		s.conn.capabilities().ECN,
-		s.tracer,
-		s.logger,
+		getMaxPacketSize(conn.RemoteAddr()),
+		rttStats,
+		conn.capabilities().ECN,
+		tracer,
+		logger,
 	)
-	s.sentPacketHandler.SetInitialCongestionWindow(s.config.InitialCongestionWindow)
-	s.sentPacketHandler.SetMaxBandwidth(s.config.MaxBandwidth)
+	sentPacketHandler.SetInitialCongestionWindow(conf.InitialCongestionWindow)
+	sentPacketHandler.SetMaxBandwidth(conf.MaxBandwidth)
 
-	s.mtuDiscoverer = newMTUDiscoverer(s.rttStats, getMaxPacketSize(s.conn.RemoteAddr()), s.sentPacketHandler.SetMaxDatagramSize)
+	srcConnIDLen := state.Transport.ConnectionIDLength()
 
-	ownParams := qstate.RestoreTransportParameters(&state.Transport.Parameters)
-	s.peerParams = qstate.RestoreTransportParameters(&state.Transport.RemoteParameters)
-
-	if s.config.EnableDatagrams {
-		ownParams.MaxDatagramFrameSize = wire.MaxDatagramSize
-	}
-	if s.tracer != nil && s.tracer.SentTransportParameters != nil {
-		s.tracer.SentTransportParameters(ownParams)
-	}
-
-	// s.peerParams must be restored
-	cs, err := handshake.RestoreCryptoSetupFromHandoverState(state, s.tracer, s.logger, s.rttStats, ownParams, s.peerParams)
+	cryptoStreamHandler, err := handshake.RestoreCryptoSetup(state, tracer, logger, rttStats, ownParams, peerParams)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	s.cryptoStreamHandler = cs
-	s.cryptoStreamManager = newCryptoStreamManager(cs, s.initialStream, s.handshakeStream, newCryptoStream())
-	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)
+	unpacker := newPacketUnpacker(cryptoStreamHandler, srcConnIDLen)
+
+	retransmissionQueue := newRetransmissionQueue()
+
+	mtuDiscoverer := newMTUDiscoverer(rttStats, getMaxPacketSize(conn.RemoteAddr()), sentPacketHandler.SetMaxDatagramSize)
+
+	ctx, ctxCancel := context.WithCancelCause(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
+
+	canceledCtx, canceledCtxCancel := context.WithCancel(context.Background())
+	canceledCtxCancel()
+
+	closedChan := make(chan struct{})
+	close(closedChan)
+
+	now := time.Now()
+
+	idleTimeout := time.Duration(state.Transport.IdleTimeout) * time.Millisecond
+
+	s := &connection{
+		//handshakeDestConnID: zero,
+		origDestConnID: oDCID,
+		//retrySrcConnID: zero,
+		srcConnIDLen: srcConnIDLen,
+		perspective:  perspective,
+		version:      protocol.Version(state.Transport.Version),
+		config:       conf,
+		conn:         conn,
+		//sendQueue: after,
+		//streamsMap: after,
+		//connIDManager: after,
+		//connIDGenerator: after,
+		rttStats:              rttStats,
+		cryptoStreamManager:   restoreCryptoStreamManager(cryptoStreamHandler),
+		sentPacketHandler:     sentPacketHandler,
+		receivedPacketHandler: receivedPacketHandler,
+		retransmissionQueue:   retransmissionQueue,
+		//framer: after,
+		//windowUpdateQueue: after,
+		//connFlowController: after,
+		tokenStoreKey:  "",
+		tokenGenerator: tokenGenerator,
+
+		unpacker:    unpacker,
+		frameParser: *wire.RestoreFrameParser(conf.EnableDatagrams, peerParams.AckDelayExponent),
+		// packer: after
+		mtuDiscoverer: mtuDiscoverer,
+
+		initialStream:       nil,
+		handshakeStream:     nil,
+		oneRTTStream:        nil,
+		cryptoStreamHandler: cryptoStreamHandler,
+
+		receivedPackets:  make(chan receivedPacket, protocol.MaxConnUnprocessedPackets),
+		sendingScheduled: make(chan struct{}, 1),
+
+		// closeOnce: zero
+		closeChan: make(chan closeError, 1),
+
+		ctx:                ctx,
+		ctxCancel:          ctxCancel,
+		handshakeCtx:       canceledCtx,
+		handshakeCtxCancel: canceledCtxCancel,
+
+		//undecryptablePackets: default
+		//undecryptablePacketsToProcess: default
+
+		earlyConnReadyChan: closedChan,
+		sentFirstPacket:    true,
+		droppedInitialKeys: true,
+		handshakeComplete:  true,
+		handshakeConfirmed: true,
+
+		receivedRetry:       false,
+		versionNegotiated:   false,
+		receivedFirstPacket: true,
+
+		idleTimeout:            idleTimeout,
+		creationTime:           now,
+		lastPacketReceivedTime: now,
+		// firstAckElicitingPacketAfterIdleSentTime: default
+		// pacingDeadline: default
+
+		peerParams: peerParams,
+
+		//timer: default
+
+		keepAlivePingSent: false,
+		keepAliveInterval: min(idleTimeout/2, protocol.MaxKeepAliveInterval),
+
+		pathManager: path.RestorePathManager(restoreConf.IgnoreMigrateTo),
+
+		//datagramQueue: after,
+
+		//connStateMutex: default,
+		//connState: default,
+
+		logID:  oDCID.String(),
+		tracer: tracer,
+		logger: logger,
+
+		runner:                runner,
+		cloned:                true,
+		pathUpdateCtx:         utils.NewCounterContext(),
+		handoverStateRequests: make(chan HandoverStateRequest, ChanLenHandoverStateRequests),
+		//extensionValues: default
+		transport:         transport,
+		remoteAddrUpdates: make(chan net.UDPAddr, ChanLenRemoteAddrUpdates),
+	}
+
+	datagramQueue := newDatagramQueue(s.scheduleSending, logger)
+	s.datagramQueue = datagramQueue
+
+	s.sendQueue = newSendQueue2(conn, s)
+
+	connIDManager, err := restoreConnIDManager(
+		state,
+		func(token protocol.StatelessResetToken) { runner.AddResetToken(token, s) },
+		runner.RemoveResetToken,
+		s.queueControlFrame,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	s.connIDManager = connIDManager
+
+	s.connIDGenerator = newConnIDGenerator(
+		protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID),
+		utils.New(protocol.ParseConnectionID(state.Transport.RemoteConnectionIDs[0].ConnectionID)),
+		func(connID protocol.ConnectionID) { runner.Add(connID, s) },
+		runner.GetStatelessResetToken,
+		runner.Remove,
+		runner.Retire,
+		runner.ReplaceWithClosed,
+		s.queueControlFrame,
+		&protocol.DefaultConnectionIDGenerator{ConnLen: srcConnIDLen},
+	)
+
+	connFlowController := flowcontrol.RestoreConnectionFlowController(
+		state,
+		protocol.ByteCount(conf.InitialConnectionReceiveWindow),
+		protocol.ByteCount(conf.MaxConnectionReceiveWindow),
+		s.onHasConnectionWindowUpdate,
+		func(size protocol.ByteCount) bool {
+			if conf.AllowConnectionWindowIncrease == nil {
+				return true
+			}
+			return conf.AllowConnectionWindowIncrease(s, uint64(size))
+		},
+		rttStats,
+		logger,
+	)
+	s.connFlowController = connFlowController
+
+	restoreStreams, streamsMap, err := restoreStreamMap(state, s, s.newFlowController)
+	if err != nil {
+		return nil, nil, err
+	}
+	s.streamsMap = streamsMap
+
+	framer := newFramer(streamsMap)
+	s.framer = framer
+
+	// this has to happen before the server calls applyTransportParameters, and after s.framer is asigned
+	s.connIDGenerator = restoreConnIDGenerator(
+		state,
+		peerParams,
+		func(connID protocol.ConnectionID) { runner.Add(connID, s) },
+		runner,
+		s.queueControlFrame,
+	)
+
+	s.windowUpdateQueue = newWindowUpdateQueue(streamsMap, connFlowController, framer.QueueControlFrame)
+
 	s.packer = newPacketPacker(
 		protocol.ParseConnectionID(state.Transport.ConnectionIDs[0].ConnectionID),
-		s.connIDManager.Get,
-		s.initialStream,
-		s.handshakeStream,
-		s.sentPacketHandler,
-		s.retransmissionQueue,
-		cs,
-		s.framer,
-		s.receivedPacketHandler,
-		s.datagramQueue,
-		s.perspective,
+		connIDManager.Get,
+		nil,
+		nil,
+		sentPacketHandler,
+		retransmissionQueue,
+		cryptoStreamHandler,
+		framer,
+		receivedPacketHandler,
+		datagramQueue,
+		perspective,
 	)
+
 	if len(tlsConf.ServerName) > 0 {
 		s.tokenStoreKey = tlsConf.ServerName
 	} else {
@@ -2924,63 +3041,15 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 		}
 	}
 
+	if s.tracer != nil && s.tracer.SentTransportParameters != nil {
+		s.tracer.SentTransportParameters(ownParams)
+	}
 	if s.tracer != nil && s.tracer.RestoredTransportParameters != nil {
 		s.tracer.RestoredTransportParameters(s.peerParams)
 	}
-
-	for _, connectionID := range state.Transport.RemoteConnectionIDs {
-		if protocol.ParseConnectionID(connectionID.ConnectionID) == s.connIDManager.activeConnectionID {
-			s.connIDManager.activeSequenceNumber = connectionID.SequenceNumber
-
-			if connectionID.StatelessResetToken != nil {
-				s.connIDManager.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(s.connIDManager.rand.Int31n(protocol.PacketsPerConnectionID))
-				s.connIDManager.activeStatelessResetToken = new(protocol.StatelessResetToken)
-				copy(s.connIDManager.activeStatelessResetToken[:], connectionID.StatelessResetToken[:])
-			}
-			continue
-		}
-		newConnectionIDFrame := &wire.NewConnectionIDFrame{
-			SequenceNumber: connectionID.SequenceNumber,
-			ConnectionID:   protocol.ParseConnectionID(connectionID.ConnectionID),
-		}
-		copy(newConnectionIDFrame.StatelessResetToken[:], connectionID.StatelessResetToken[:])
-		err := s.connIDManager.Add(newConnectionIDFrame)
-
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if perspective == protocol.PerspectiveClient {
-		s.handshakeComplete = true
-		s.handleHandshakeComplete()
-		s.handleHandshakeConfirmed()
-	} else {
-		s.handshakeComplete = true
-		s.undecryptablePackets = nil
-		s.connIDManager.SetHandshakeComplete()
-		s.connIDGenerator.SetHandshakeComplete()
-		s.handleHandshakeConfirmed()
-		s.applyTransportParameters()
-		// On the server side, the early session is ready as soon as we processed
-		// the client's transport parameters.
-		close(s.earlyConnReadyChan)
-	}
-
 	if s.tracer != nil && s.tracer.ChoseALPN != nil {
 		s.tracer.ChoseALPN(s.cryptoStreamHandler.ConnectionState().NegotiatedProtocol)
 	}
-
-	s.receivedFirstPacket = true
-
-	restoredStreams, err := s.streamsMap.Restore(state)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	s.connFlowController.RestoreState(state)
-
-	now := time.Now()
 
 	if restoreConf.ImmediatePing {
 		err = s.sendProbePacket(protocol.Encryption1RTT, now)
@@ -2992,17 +3061,31 @@ func Restore(t *Transport, state *qstate.Connection, restoreConf *ConnectionRest
 
 	go func() {
 		_ = s.run() // returns as soon as the session is closed
-		if t.isSingleUse {
-			t.Close()
+		if transport.isSingleUse {
+			transport.Close()
 		}
 	}()
 
+	if !conf.DisablePathMTUDiscovery && conn.capabilities().DF {
+		maxPacketSize := peerParams.MaxUDPPayloadSize
+		if maxPacketSize == 0 {
+			maxPacketSize = protocol.MaxByteCount
+		}
+		mtuDiscoverer.Start(min(maxPacketSize, protocol.MaxPacketBufferSize))
+	}
+
 	if s.logger.Debug() {
-		b, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(state)
+		b, err := json.Marshal(state)
 		if err != nil {
 			panic(err)
 		}
 		s.logger.Debugf("restored handover state: %s", string(b))
+	}
+
+	// must be called after s.perspective, s.peerParams, s.rttStats, s.connFlowController, s.windowUpdateQueue and s.logger is assigned
+	restoredStreams, err := restoreStreams()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return s, restoredStreams, nil
