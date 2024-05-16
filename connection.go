@@ -1940,16 +1940,14 @@ func (s *connection) checkTransportParameters(params *wire.TransportParameters) 
 func (s *connection) applyTransportParameters() {
 	params := s.peerParams
 	// Our local idle timeout will always be > 0.
-	if s.idleTimeout == 0 || !s.cloned { // might be restored from qstate
-		s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
-	}
+	s.idleTimeout = utils.MinNonZeroDuration(s.config.MaxIdleTimeout, params.MaxIdleTimeout)
 	s.keepAliveInterval = min(s.config.KeepAlivePeriod, min(s.idleTimeout/2, protocol.MaxKeepAliveInterval))
 	s.streamsMap.UpdateLimits(params)
 	s.frameParser.SetAckDelayExponent(params.AckDelayExponent)
 	s.connFlowController.UpdateSendWindow(params.InitialMaxData)
 	s.rttStats.SetMaxAckDelay(params.MaxAckDelay)
 	s.connIDGenerator.SetMaxActiveConnIDs(params.ActiveConnectionIDLimit)
-	if params.StatelessResetToken != nil && s.connIDManager.activeSequenceNumber == 0 {
+	if params.StatelessResetToken != nil {
 		s.connIDManager.SetStatelessResetToken(*params.StatelessResetToken)
 	}
 	// We don't support connection migration yet, so we don't have any use for the preferred_address.

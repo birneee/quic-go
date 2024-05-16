@@ -32,6 +32,8 @@ type VersionNumber = Version
 // Bandwidth in bit per second
 type Bandwidth = congestion.Bandwidth
 
+const InitialPacketSize = protocol.InitialPacketSize
+
 const (
 	// Version1 is RFC 9000
 	Version1 = protocol.Version1
