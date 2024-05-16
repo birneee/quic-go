@@ -2869,7 +2869,7 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 
 	sentPacketHandler, receivedPacketHandler := ackhandler.RestoreAckHandler(
 		state,
-		getMaxPacketSize(conn.RemoteAddr()),
+		protocol.ByteCount(conf.InitialPacketSize),
 		rttStats,
 		conn.capabilities().ECN,
 		tracer,
@@ -2888,8 +2888,6 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 	unpacker := newPacketUnpacker(cryptoStreamHandler, srcConnIDLen)
 
 	retransmissionQueue := newRetransmissionQueue()
-
-	mtuDiscoverer := newMTUDiscoverer(rttStats, getMaxPacketSize(conn.RemoteAddr()), sentPacketHandler.SetMaxDatagramSize)
 
 	ctx, ctxCancel := context.WithCancelCause(context.WithValue(context.Background(), ConnectionTracingKey, tracingID))
 
@@ -2930,7 +2928,8 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 		unpacker:    unpacker,
 		frameParser: *wire.RestoreFrameParser(conf.EnableDatagrams, peerParams.AckDelayExponent),
 		// packer: after
-		mtuDiscoverer: mtuDiscoverer,
+		//mtuDiscoverer: after,
+		//maxPayloadSizeEstimate: after,
 
 		initialStream:       nil,
 		handshakeStream:     nil,
@@ -2993,6 +2992,15 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 		transport:         transport,
 		remoteAddrUpdates: make(chan net.UDPAddr, ChanLenRemoteAddrUpdates),
 	}
+
+	maxPacketSize := protocol.ByteCount(protocol.MaxPacketBufferSize)
+	if peerParams.MaxUDPPayloadSize > 0 && peerParams.MaxUDPPayloadSize < maxPacketSize {
+		maxPacketSize = peerParams.MaxUDPPayloadSize
+	}
+	mtuDiscoverer := newMTUDiscoverer(rttStats, protocol.ByteCount(conf.InitialPacketSize), maxPacketSize, s.onMTUIncreased, tracer)
+	s.mtuDiscoverer = mtuDiscoverer
+
+	s.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(protocol.ByteCount(s.config.InitialPacketSize))))
 
 	datagramQueue := newDatagramQueue(s.scheduleSending, logger)
 	s.datagramQueue = datagramQueue
@@ -3116,11 +3124,7 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 	}()
 
 	if !conf.DisablePathMTUDiscovery && conn.capabilities().DF {
-		maxPacketSize := peerParams.MaxUDPPayloadSize
-		if maxPacketSize == 0 {
-			maxPacketSize = protocol.MaxByteCount
-		}
-		mtuDiscoverer.Start(min(maxPacketSize, protocol.MaxPacketBufferSize))
+		mtuDiscoverer.Start()
 	}
 
 	if s.logger.Debug() {
