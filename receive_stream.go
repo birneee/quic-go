@@ -418,7 +418,7 @@ func (s *receiveStream) restoreReceiveState(state *qstate.Stream) {
 	}
 
 	if s.frameQueue.readPos == s.finalOffset {
-		s.finRead = true
+		s.completed = true
 	}
 	for _, streamRange := range state.ReadQueue {
 		frameOffset := protocol.ByteCount(streamRange.Offset)
@@ -446,5 +446,5 @@ func (s *receiveStream) ReadOffset() protocol.ByteCount {
 }
 
 func (s *receiveStream) ReadFin() bool {
-	return s.finRead
+	return s.completed
 }

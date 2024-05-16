@@ -385,7 +385,7 @@ var newConnection2 = func(
 	tokenGenerator *handshake.TokenGenerator,
 	clientAddressValidated bool,
 	tracer *logging.ConnectionTracer,
-	tracingID uint64,
+	tracingID ConnectionTracingID,
 	logger utils.Logger,
 	v protocol.Version,
 	transport *Transport,
@@ -2992,7 +2992,7 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 	)
 	s.connFlowController = connFlowController
 
-	restoreStreams, streamsMap, err := restoreStreamMap(state, s, s.newFlowController)
+	restoreStreams, streamsMap, err := restoreStreamMap(ctx, state, s, s.newFlowController)
 	if err != nil {
 		return nil, nil, err
 	}

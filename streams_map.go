@@ -460,11 +460,12 @@ func (m *streamsMap) SendStreams() []flowcontrol.SendStream {
 
 // must be called after all field required by the newFlowController function are set
 func restoreStreamMap(
+	ctx context.Context,
 	state *qstate.Connection,
 	sender streamSender,
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController,
 ) (func() (*RestoredStreams, error), streamManager, error) {
-	s := newStreamsMap(sender, newFlowController, uint64(state.Transport.MaxBidirectionalStreams), uint64(state.Transport.MaxUnidirectionalStreams), state.Transport.Perspective()).(*streamsMap)
+	s := newStreamsMap(ctx, sender, newFlowController, uint64(state.Transport.MaxBidirectionalStreams), uint64(state.Transport.MaxUnidirectionalStreams), state.Transport.Perspective()).(*streamsMap)
 
 	s.outgoingUniStreams.nextStream = protocol.StreamID(state.Transport.NextUnidirectionalStream).StreamNum()
 	s.outgoingBidiStreams.nextStream = protocol.StreamID(state.Transport.NextBidirectionalStream).StreamNum()
