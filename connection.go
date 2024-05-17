@@ -2695,7 +2695,17 @@ func (s *connection) handover(destroy bool, config *handover.ConnectionStateStor
 		s.pathManager.IgnoreSendTo(s.RemoteAddr())
 	}
 
+	var connectionState qstate.ConnectionState
+	if s.handshakeConfirmed {
+		connectionState = qstate.ConnectionStateConfirmed
+	} else if s.handshakeComplete {
+		connectionState = qstate.ConnectionStateComplete
+	} else {
+		panic("unexpected handshake state")
+	}
+
 	state := qstate.Connection{
+		State: connectionState,
 		Transport: qstate.Transport{
 			VantagePoint:    s.perspective.String(),
 			Version:         uint32(s.version),
@@ -2898,6 +2908,10 @@ func Restore(transport *Transport, state *qstate.Connection, restoreConf *Connec
 	now := time.Now()
 
 	idleTimeout := time.Duration(state.Transport.IdleTimeout) * time.Millisecond
+
+	if state.State != qstate.ConnectionStateConfirmed {
+		panic("unexptected connections state")
+	}
 
 	s := &connection{
 		//handshakeDestConnID: zero,

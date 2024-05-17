@@ -24,6 +24,12 @@ func (z *Connection) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
+		case "state":
+			err = z.State.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "State")
+				return
+			}
 		case "transport":
 			err = z.Transport.DecodeMsg(dc)
 			if err != nil {
@@ -55,9 +61,19 @@ func (z *Connection) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Connection) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 3
+	// map header, size 4
+	// write "state"
+	err = en.Append(0x84, 0xa5, 0x73, 0x74, 0x61, 0x74, 0x65)
+	if err != nil {
+		return
+	}
+	err = z.State.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "State")
+		return
+	}
 	// write "transport"
-	err = en.Append(0x83, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
+	err = en.Append(0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
 	if err != nil {
 		return
 	}
@@ -92,9 +108,16 @@ func (z *Connection) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Connection) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 3
+	// map header, size 4
+	// string "state"
+	o = append(o, 0x84, 0xa5, 0x73, 0x74, 0x61, 0x74, 0x65)
+	o, err = z.State.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "State")
+		return
+	}
 	// string "transport"
-	o = append(o, 0x83, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
+	o = append(o, 0xa9, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x70, 0x6f, 0x72, 0x74)
 	o, err = z.Transport.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "Transport")
@@ -135,6 +158,12 @@ func (z *Connection) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
+		case "state":
+			bts, err = z.State.UnmarshalMsg(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "State")
+				return
+			}
 		case "transport":
 			bts, err = z.Transport.UnmarshalMsg(bts)
 			if err != nil {
@@ -167,6 +196,6 @@ func (z *Connection) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Connection) Msgsize() (s int) {
-	s = 1 + 10 + z.Transport.Msgsize() + 7 + z.Crypto.Msgsize() + 8 + z.Metrics.Msgsize()
+	s = 1 + 6 + z.State.Msgsize() + 10 + z.Transport.Msgsize() + 7 + z.Crypto.Msgsize() + 8 + z.Metrics.Msgsize()
 	return
 }

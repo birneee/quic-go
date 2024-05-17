@@ -36,6 +36,8 @@ func easyjson28548e40DecodeGithubComQuicGoQuicGoQstate(in *jlexer.Lexer, out *Co
 			continue
 		}
 		switch key {
+		case "state":
+			out.State = ConnectionState(in.String())
 		case "transport":
 			easyjson28548e40DecodeGithubComQuicGoQuicGoQstate1(in, &out.Transport)
 		case "crypto":
@@ -57,8 +59,13 @@ func easyjson28548e40EncodeGithubComQuicGoQuicGoQstate(out *jwriter.Writer, in C
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"transport\":"
+		const prefix string = ",\"state\":"
 		out.RawString(prefix[1:])
+		out.String(string(in.State))
+	}
+	{
+		const prefix string = ",\"transport\":"
+		out.RawString(prefix)
 		easyjson28548e40EncodeGithubComQuicGoQuicGoQstate1(out, in.Transport)
 	}
 	{
