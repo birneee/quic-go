@@ -79,6 +79,7 @@ func (p *skippingPacketNumberGenerator) Pop() (bool, protocol.PacketNumber) {
 	return false, next
 }
 
+// TODO using crypto random is slow
 func (p *skippingPacketNumberGenerator) generateNewSkip() {
 	// make sure that there are never two consecutive packet numbers that are skipped
 	p.nextToSkip = p.next + 3 + protocol.PacketNumber(p.rng.Int31n(int32(2*p.period)))

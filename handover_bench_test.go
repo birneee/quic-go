@@ -56,7 +56,7 @@ func runClient(b *testing.B, newClient func() (Connection, error), clientCtxCanc
 	stream.Write([]byte{1})
 	msg, err := io.ReadAll(stream)
 	require.NoError(b, err)
-	require.Equal(b, len(msg), msgLen)
+	require.Equal(b, msgLen, len(msg))
 	for i := 0; i < len(msg); i++ {
 		require.Equal(b, byte(i), msg[i])
 	}
