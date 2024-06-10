@@ -94,6 +94,9 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 	if completed {
 		s.sender.onStreamCompleted(s.streamID)
 	}
+	if n > 0 {
+		s.sender.onStreamDataReadByApplication(s.streamID, uint64(s.readOffset())-uint64(n), n)
+	}
 	return n, err
 }
 
@@ -345,5 +348,13 @@ func (s *receiveStream) signalRead() {
 	select {
 	case s.readChan <- struct{}{}:
 	default:
+	}
+}
+
+func (s *receiveStream) readOffset() protocol.ByteCount {
+	if s.currentFrame != nil {
+		return s.frameQueue.readPos - protocol.ByteCount(len(s.currentFrame)) + protocol.ByteCount(s.readPosInFrame)
+	} else {
+		return s.frameQueue.readPos
 	}
 }

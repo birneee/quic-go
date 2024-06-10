@@ -2443,3 +2443,21 @@ func (s *connection) NextConnection(ctx context.Context) (Connection, error) {
 func estimateMaxPayloadSize(mtu protocol.ByteCount) protocol.ByteCount {
 	return mtu - 1 /* type byte */ - 20 /* maximum connection ID length */ - 16 /* tag size */
 }
+
+func (s *connection) onStreamDataReadByApplication(id protocol.StreamID, offset uint64, n int) {
+	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
+		s.tracer.StreamDataMoved(id, offset, n, "transport", "application")
+	}
+}
+
+func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offset uint64, n int) {
+	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
+		select {
+		case <-s.ctx.Done():
+			// do not log, because tracer might be closed
+			//TODO fix: might still be closed already
+		default:
+			s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
+		}
+	}
+}
