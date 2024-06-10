@@ -81,6 +81,7 @@ var _ = Describe("Send Stream", func() {
 				defer GinkgoRecover()
 				defer close(done)
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				n, err := strWithTimeout.Write([]byte("foobar"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(6))
@@ -105,6 +106,7 @@ var _ = Describe("Send Stream", func() {
 			go func() {
 				defer GinkgoRecover()
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				n, err := strWithTimeout.Write([]byte("foobar"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(6))
@@ -137,6 +139,7 @@ var _ = Describe("Send Stream", func() {
 			go func() {
 				defer GinkgoRecover()
 				mockSender.EXPECT().onHasStreamData(streamID).Times(2)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 				n, err := strWithTimeout.Write([]byte("foo"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(3))
@@ -164,6 +167,7 @@ var _ = Describe("Send Stream", func() {
 			go func() {
 				defer GinkgoRecover()
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				n, err := strWithTimeout.Write(getData(5000))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5000))
@@ -189,6 +193,7 @@ var _ = Describe("Send Stream", func() {
 				defer GinkgoRecover()
 				defer close(done)
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				_, err := strWithTimeout.Write(getData(protocol.MaxPacketBufferSize + 3))
 				Expect(err).ToNot(HaveOccurred())
 			}()
@@ -212,6 +217,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("only unblocks Write once a previously buffered STREAM frame has been fully dequeued", func() {
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			_, err := strWithTimeout.Write([]byte("foobar"))
 			Expect(err).ToNot(HaveOccurred())
 			done := make(chan struct{})
@@ -219,6 +225,7 @@ var _ = Describe("Send Stream", func() {
 				defer GinkgoRecover()
 				defer close(done)
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				_, err := str.Write(getData(protocol.MaxPacketBufferSize))
 				Expect(err).ToNot(HaveOccurred())
 			}()
@@ -252,6 +259,7 @@ var _ = Describe("Send Stream", func() {
 				defer GinkgoRecover()
 				defer close(done)
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				n, err := strWithTimeout.Write(bytes.Repeat([]byte{0}, 100))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(100))
@@ -283,6 +291,7 @@ var _ = Describe("Send Stream", func() {
 				defer GinkgoRecover()
 				defer close(done)
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				n, err := strWithTimeout.Write(s)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(3))
@@ -335,6 +344,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(done)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					_, err := str.Write([]byte("foobar"))
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -353,6 +363,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(done)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					_, err := str.Write([]byte("foobar"))
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -393,6 +404,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks after the deadline", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				str.SetWriteDeadline(deadline)
 				n, err := strWithTimeout.Write(getData(5000))
@@ -403,6 +415,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks when the deadline is changed to the past", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				str.SetWriteDeadline(time.Now().Add(time.Hour))
 				done := make(chan struct{})
 				go func() {
@@ -427,6 +440,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(writeReturned)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					var err error
 					n, err = strWithTimeout.Write(getData(5000))
 					Expect(err).To(MatchError(errDeadline))
@@ -451,6 +465,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(writeReturned)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					_, err := strWithTimeout.Write(getData(5000))
 					Expect(err).To(MatchError(errDeadline))
 				}()
@@ -467,6 +482,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("doesn't unblock if the deadline is changed before the first one expires", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline1 := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				deadline2 := time.Now().Add(scaleDuration(100 * time.Millisecond))
 				str.SetWriteDeadline(deadline1)
@@ -489,6 +505,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks earlier, when a new deadline is set", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				deadline1 := time.Now().Add(scaleDuration(200 * time.Millisecond))
 				deadline2 := time.Now().Add(scaleDuration(50 * time.Millisecond))
 				done := make(chan struct{})
@@ -561,6 +578,7 @@ var _ = Describe("Send Stream", func() {
 			It("doesn't send a FIN when there's still data", func() {
 				const frameHeaderLen protocol.ByteCount = 4
 				mockSender.EXPECT().onHasStreamData(streamID).Times(2)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				_, err := strWithTimeout.Write([]byte("foobar"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(str.Close()).To(Succeed())
@@ -585,6 +603,7 @@ var _ = Describe("Send Stream", func() {
 					defer GinkgoRecover()
 					defer close(done)
 					mockSender.EXPECT().onHasStreamData(streamID)
+					mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 					_, err := strWithTimeout.Write(getData(5000))
 					Expect(err).ToNot(HaveOccurred())
 					mockSender.EXPECT().onHasStreamData(streamID)
@@ -677,6 +696,7 @@ var _ = Describe("Send Stream", func() {
 		It("says when it has data for sending", func() {
 			mockFC.EXPECT().UpdateSendWindow(gomock.Any()).Return(true)
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()
@@ -695,6 +715,7 @@ var _ = Describe("Send Stream", func() {
 		It("doesn't say it has data for sending if the MAX_STREAM_DATA frame was reordered", func() {
 			mockFC.EXPECT().UpdateSendWindow(gomock.Any()).Return(false) // reordered frame
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()
@@ -733,6 +754,7 @@ var _ = Describe("Send Stream", func() {
 				mockSender.EXPECT().queueControlFrame(gomock.Any()).MaxTimes(1)
 				mockSender.EXPECT().onHasStreamData(streamID).MaxTimes(1)
 				mockSender.EXPECT().onStreamCompleted(streamID).MaxTimes(1)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount).MaxTimes(1)
 				mockFC.EXPECT().AddBytesSent(gomock.Any()).MaxTimes(1)
 				errChan := make(chan error)
@@ -755,6 +777,7 @@ var _ = Describe("Send Stream", func() {
 			It("unblocks Write", func() {
 				mockSender.EXPECT().queueControlFrame(gomock.Any())
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 				mockFC.EXPECT().AddBytesSent(gomock.Any())
 				writeReturned := make(chan struct{})
@@ -783,6 +806,7 @@ var _ = Describe("Send Stream", func() {
 			It("doesn't pop STREAM frames after being canceled", func() {
 				mockSender.EXPECT().queueControlFrame(gomock.Any())
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 				mockFC.EXPECT().AddBytesSent(gomock.Any())
 				writeReturned := make(chan struct{})
@@ -807,6 +831,7 @@ var _ = Describe("Send Stream", func() {
 			It("doesn't pop STREAM frames after being canceled, for large writes", func() {
 				mockSender.EXPECT().queueControlFrame(gomock.Any())
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 				mockFC.EXPECT().AddBytesSent(gomock.Any())
 				writeReturned := make(chan struct{})
@@ -836,6 +861,7 @@ var _ = Describe("Send Stream", func() {
 			It("ignores acknowledgements for STREAM frames after it was cancelled", func() {
 				mockSender.EXPECT().queueControlFrame(gomock.Any())
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 				mockFC.EXPECT().AddBytesSent(gomock.Any())
 				writeReturned := make(chan struct{})
@@ -911,6 +937,7 @@ var _ = Describe("Send Stream", func() {
 
 			It("unblocks Write", func() {
 				mockSender.EXPECT().onHasStreamData(streamID)
+				mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 				mockSender.EXPECT().queueControlFrame(gomock.Any())
 				done := make(chan struct{})
 				go func() {
@@ -1048,6 +1075,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("queues lost STREAM frames", func() {
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			mockFC.EXPECT().SendWindowSize().Return(protocol.ByteCount(9999))
 			mockFC.EXPECT().AddBytesSent(protocol.ByteCount(6))
 			done := make(chan struct{})
@@ -1075,6 +1103,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("doesn't queue retransmissions for a stream that was canceled", func() {
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			mockFC.EXPECT().SendWindowSize().Return(protocol.MaxByteCount)
 			mockFC.EXPECT().AddBytesSent(protocol.ByteCount(6))
 			done := make(chan struct{})
@@ -1108,6 +1137,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("says when a stream is completed", func() {
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()
@@ -1149,6 +1179,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("says when a stream is completed, if Close() is called before popping the frame", func() {
 			mockSender.EXPECT().onHasStreamData(streamID).Times(2)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()
@@ -1172,6 +1203,7 @@ var _ = Describe("Send Stream", func() {
 
 		It("doesn't say it's completed when there are frames waiting to be retransmitted", func() {
 			mockSender.EXPECT().onHasStreamData(streamID)
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			done := make(chan struct{})
 			go func() {
 				defer GinkgoRecover()
@@ -1219,6 +1251,7 @@ var _ = Describe("Send Stream", func() {
 		It("retransmits data until everything has been acknowledged", func() {
 			const dataLen = 1 << 22 // 4 MB
 			mockSender.EXPECT().onHasStreamData(streamID).AnyTimes()
+			mockSender.EXPECT().onStreamDataWrittenByApplication(gomock.Any(), gomock.Any(), gomock.Any())
 			mockFC.EXPECT().SendWindowSize().DoAndReturn(func() protocol.ByteCount {
 				return protocol.ByteCount(mrand.Intn(500)) + 50
 			}).AnyTimes()
