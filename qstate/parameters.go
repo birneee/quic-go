@@ -10,24 +10,24 @@ import (
 
 type Parameters struct {
 	// nil if default
-	InitialMaxStreamDataBidiLocal *int64 `msg:"initial_max_stream_data_bidi_local,omitempty" json:"initial_max_stream_data_bidi_local,omitempty"`
+	InitialMaxStreamDataBidiLocal *int64 `msg:"initial_max_stream_data_bidi_local,omitempty" json:"initial_max_stream_data_bidi_local,omitempty" cbor:"1,keyasint,omitempty"`
 	// nil if default
-	InitialMaxStreamDataBidiRemote *int64 `msg:"initial_max_stream_data_bidi_remote,omitempty" json:"initial_max_stream_data_bidi_remote,omitempty"`
+	InitialMaxStreamDataBidiRemote *int64 `msg:"initial_max_stream_data_bidi_remote,omitempty" json:"initial_max_stream_data_bidi_remote,omitempty" cbor:"2,keyasint,omitempty"`
 	// nil if default
-	InitialMaxStreamDataUni *int64 `msg:"initial_max_stream_data_uni,omitempty" json:"initial_max_stream_data_uni,omitempty"`
+	InitialMaxStreamDataUni *int64 `msg:"initial_max_stream_data_uni,omitempty" json:"initial_max_stream_data_uni,omitempty" cbor:"3,keyasint,omitempty"`
 	// nil if default
-	MaxAckDelay *int64 `msg:"max_ack_delay,omitempty" json:"max_ack_delay,omitempty"`
+	MaxAckDelay *int64 `msg:"max_ack_delay,omitempty" json:"max_ack_delay,omitempty" cbor:"4,keyasint,omitempty"`
 	// nil if default
-	AckDelayExponent *uint8 `msg:"ack_delay_exponent,omitempty" json:"ack_delay_exponent,omitempty"`
+	AckDelayExponent *uint8 `msg:"ack_delay_exponent,omitempty" json:"ack_delay_exponent,omitempty" cbor:"5,keyasint,omitempty"`
 	// nil if default
-	DisableActiveMigration *bool `msg:"disable_active_migration,omitempty" json:"disable_active_migration,omitempty"`
+	DisableActiveMigration *bool `msg:"disable_active_migration,omitempty" json:"disable_active_migration,omitempty" cbor:"6,keyasint,omitempty"`
 	// nil if default
-	MaxUDPPayloadSize *int64 `msg:"max_udp_payload_size,omitempty" json:"max_udp_payload_size,omitempty"`
+	MaxUDPPayloadSize *int64 `msg:"max_udp_payload_size,omitempty" json:"max_udp_payload_size,omitempty" cbor:"7,keyasint,omitempty"`
 	// nil if client perspective
-	OriginalDestinationConnectionID *HexByteSlice `msg:"original_destination_connection_id,omitempty" json:"original_destination_connection_id,omitempty"`
-	ActiveConnectionIDLimit         uint64        `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty"`
+	OriginalDestinationConnectionID *HexByteSlice `msg:"original_destination_connection_id,omitempty" json:"original_destination_connection_id,omitempty" cbor:"8,keyasint,omitempty"`
+	ActiveConnectionIDLimit         uint64        `msg:"active_connection_id_limit,omitempty" json:"active_connection_id_limit,omitempty" cbor:"9,keyasint,omitempty"`
 	// nil if default
-	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty"`
+	MaxDatagramFrameSize *int64 `msg:"max_datagram_frame_size,omitempty" json:"max_datagram_frame_size,omitempty" cbor:"10,keyasint,omitempty"`
 }
 
 func ToQStateParameters(p *wire.TransportParameters) Parameters {

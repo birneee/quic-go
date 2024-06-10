@@ -3,6 +3,7 @@ package qstate
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/klauspost/compress/zstd"
 	"github.com/mailru/easyjson"
 	"github.com/tinylib/msgp/msgp"
@@ -66,6 +67,18 @@ func (e EasyJsonCodec[T]) Decode(connection T, src []byte) error {
 	}
 	return nil
 }
+
+type CborCodec[T any] struct{}
+
+func (c CborCodec[T]) Encode(dst []byte, connection T) ([]byte, error) {
+	return cbor.Marshal(connection)
+}
+
+func (c CborCodec[T]) Decode(connection T, src []byte) error {
+	return cbor.Unmarshal(src, connection)
+}
+
+var _ Codec[*Connection] = &CborCodec[*Connection]{}
 
 type zstdCodec[T any] struct {
 	inner      Codec[T]

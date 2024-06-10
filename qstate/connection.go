@@ -3,10 +3,10 @@
 package qstate
 
 type Connection struct {
-	State     ConnectionState `msg:"state" json:"state"`
-	Transport Transport       `msg:"transport" json:"transport"`
-	Crypto    Crypto          `msg:"crypto" json:"crypto"`
-	Metrics   Metrics         `msg:"metrics" json:"metrics"`
+	State     ConnectionState `msg:"state" json:"state" cbor:"1,keyasint"`
+	Transport Transport       `msg:"transport" json:"transport" cbor:"2,keyasint"`
+	Crypto    Crypto          `msg:"crypto" json:"crypto" cbor:"3,keyasint"`
+	Metrics   Metrics         `msg:"metrics" json:"metrics" cbor:"4,keyasint"`
 }
 
 // ChangeVantagePoint creates an estimated connection state of the peer

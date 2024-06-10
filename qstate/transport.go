@@ -4,53 +4,53 @@ package qstate
 import "github.com/quic-go/quic-go/internal/protocol"
 
 type Transport struct {
-	Version    uint32 `msg:"version" json:"version"`
-	ChosenALPN string `msg:"chosen_alpn" json:"chosen_alpn"`
+	Version    uint32 `msg:"version" json:"version" cbor:"1,keyasint"`
+	ChosenALPN string `msg:"chosen_alpn" json:"chosen_alpn" cbor:"2,keyasint"`
 	// client or server
-	VantagePoint string `msg:"vantage_point" json:"vantage_point"`
+	VantagePoint string `msg:"vantage_point" json:"vantage_point" cbor:"3,keyasint"`
 	// active connection IDs;
 	// must be sorted ascending by sequence number;
-	ConnectionIDs []ConnectionID `msg:"connection_ids" json:"connection_ids"`
+	ConnectionIDs []ConnectionID `msg:"connection_ids" json:"connection_ids" cbor:"4,keyasint"`
 	// active peer connection IDs;
 	// must be sorted ascending by sequence number;
-	RemoteConnectionIDs []ConnectionID `msg:"remote_connection_ids" json:"remote_connection_ids"`
-	DestinationIP       string         `msg:"dst_ip" json:"dst_ip"`
-	DestinationPort     uint16         `msg:"dst_port" json:"dst_port"`
+	RemoteConnectionIDs []ConnectionID `msg:"remote_connection_ids" json:"remote_connection_ids" cbor:"5,keyasint"`
+	DestinationIP       string         `msg:"dst_ip" json:"dst_ip" cbor:"6,keyasint"`
+	DestinationPort     uint16         `msg:"dst_port" json:"dst_port" cbor:"7,keyasint"`
 	// TODO only include non-default parameters
-	Parameters Parameters `msg:"parameters" json:"parameters"`
+	Parameters Parameters `msg:"parameters" json:"parameters" cbor:"8,keyasint"`
 	// TODO only include non-default parameters
-	RemoteParameters Parameters `msg:"remote_parameters" json:"remote_parameters"`
+	RemoteParameters Parameters `msg:"remote_parameters" json:"remote_parameters" cbor:"9,keyasint"`
 	// minimum of max_idle_timout transport parameter advertised by both endpoints;
 	// 0 if default
-	IdleTimeout int64 `msg:"idle_timeout,omitzero" json:"idle_timeout,omitzero"`
+	IdleTimeout int64 `msg:"idle_timeout,omitzero" json:"idle_timeout,omitzero" cbor:"10,keyasint,omitzero"`
 	// in byte;
 	// max data that can be received;
-	MaxData int64 `msg:"max_data" json:"max_data"`
+	MaxData int64 `msg:"max_data" json:"max_data" cbor:"11,keyasint"`
 	// in byte;
 	// max data that can be sent;
-	RemoteMaxData int64 `msg:"remote_max_data" json:"remote_max_data"`
+	RemoteMaxData int64 `msg:"remote_max_data" json:"remote_max_data" cbor:"12,keyasint"`
 	// in byte
-	SentData int64 `msg:"sent_data" json:"sent_data"`
+	SentData int64 `msg:"sent_data" json:"sent_data" cbor:"13,keyasint"`
 	// in byte
-	ReceivedData                   int64 `msg:"received_data" json:"received_data"`
-	MaxBidirectionalStreams        int64 `msg:"max_bidirectional_streams" json:"max_bidirectional_streams"`
-	MaxUnidirectionalStreams       int64 `msg:"max_unidirectional_streams" json:"max_unidirectional_streams"`
-	RemoteMaxBidirectionalStreams  int64 `msg:"remote_max_bidirectional_streams" json:"remote_max_bidirectional_streams"`
-	RemoteMaxUnidirectionalStreams int64 `msg:"remote_max_unidirectional_streams" json:"remote_max_unidirectional_streams"`
-	NextUnidirectionalStream       int64 `msg:"next_unidirectional_stream" json:"next_unidirectional_stream"`
-	NextBidirectionalStream        int64 `msg:"next_bidirectional_stream" json:"next_bidirectional_stream"`
+	ReceivedData                   int64 `msg:"received_data" json:"received_data" cbor:"14,keyasint"`
+	MaxBidirectionalStreams        int64 `msg:"max_bidirectional_streams" json:"max_bidirectional_streams" cbor:"15,keyasint"`
+	MaxUnidirectionalStreams       int64 `msg:"max_unidirectional_streams" json:"max_unidirectional_streams" cbor:"16,keyasint"`
+	RemoteMaxBidirectionalStreams  int64 `msg:"remote_max_bidirectional_streams" json:"remote_max_bidirectional_streams" cbor:"17,keyasint"`
+	RemoteMaxUnidirectionalStreams int64 `msg:"remote_max_unidirectional_streams" json:"remote_max_unidirectional_streams" cbor:"18,keyasint"`
+	NextUnidirectionalStream       int64 `msg:"next_unidirectional_stream" json:"next_unidirectional_stream" cbor:"19,keyasint"`
+	NextBidirectionalStream        int64 `msg:"next_bidirectional_stream" json:"next_bidirectional_stream" cbor:"20,keyasint"`
 	// next unidirectional stream to accept from remote
-	RemoteNextUnidirectionalStream int64 `msg:"remote_next_unidirectional_stream" json:"remote_next_unidirectional_stream"`
+	RemoteNextUnidirectionalStream int64 `msg:"remote_next_unidirectional_stream" json:"remote_next_unidirectional_stream" cbor:"21,keyasint"`
 	// next bidirectional stream to accept from remote
-	RemoteNextBidirectionalStream int64    `msg:"remote_next_bidirectional_stream" json:"remote_next_bidirectional_stream"`
-	Streams                       []Stream `msg:"streams" json:"streams"`
-	NextPacketNumber              int64    `msg:"next_packet_number" json:"next_packet_number"`
-	HighestObservedPacketNumber   int64    `msg:"highest_observed_packet_number" json:"highest_observed_packet_number"`
+	RemoteNextBidirectionalStream int64    `msg:"remote_next_bidirectional_stream" json:"remote_next_bidirectional_stream" cbor:"22,keyasint"`
+	Streams                       []Stream `msg:"streams" json:"streams" cbor:"23,keyasint"`
+	NextPacketNumber              int64    `msg:"next_packet_number" json:"next_packet_number" cbor:"24,keyasint"`
+	HighestObservedPacketNumber   int64    `msg:"highest_observed_packet_number" json:"highest_observed_packet_number" cbor:"25,keyasint"`
 	// received packet numbers
-	AckRanges [][2]int64 `msg:"ack_ranges" json:"ack_ranges"`
+	AckRanges [][2]int64 `msg:"ack_ranges" json:"ack_ranges" cbor:"26,keyasint"`
 	// acknowledged packets by peer
-	RemoteAckRanges [][2]int64 `msg:"remote_ack_ranges" json:"remote_ack_ranges"`
-	PendingAcks     []Packet   `msg:"pending_acks" json:"pending_acks"`
+	RemoteAckRanges [][2]int64 `msg:"remote_ack_ranges" json:"remote_ack_ranges" cbor:"27,keyasint"`
+	PendingAcks     []Packet   `msg:"pending_acks" json:"pending_acks" cbor:"28,keyasint"`
 }
 
 func (c *Transport) Perspective() protocol.Perspective {

@@ -45,6 +45,11 @@ func BenchmarkSize(b *testing.B) {
 				state := nonDefaultState()
 				encodedState, err := codec.Encode(nil, &state)
 				require.NoError(b, err)
+				//tmp, err := os.CreateTemp("", "*.cbor")
+				//require.NoError(b, err)
+				//_, err = tmp.Write(encodedState)
+				//require.NoError(b, err)
+				//fmt.Printf("stored encoded state: %s\n", tmp.Name())
 				sizes = append(sizes, float64(len(encodedState)))
 			}
 			mean, stdDev := stat.MeanStdDev(sizes, nil)

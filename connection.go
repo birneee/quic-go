@@ -3265,6 +3265,7 @@ func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offs
 		select {
 		case <-s.ctx.Done():
 			// do not log, because tracer might be closed
+			//TODO fix: might still be closed already
 		default:
 			s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
 		}
