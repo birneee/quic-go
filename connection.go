@@ -3254,24 +3254,6 @@ func (s *connection) ExtensionValues() *sync2.Map[string, interface{}] {
 	return &s.extensionValues
 }
 
-func (s *connection) onStreamDataReadByApplication(id protocol.StreamID, offset uint64, n int) {
-	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
-		s.tracer.StreamDataMoved(id, offset, n, "transport", "application")
-	}
-}
-
-func (s *connection) onStreamDataWrittenByApplication(id protocol.StreamID, offset uint64, n int) {
-	if s.tracer != nil && s.tracer.StreamDataMoved != nil {
-		select {
-		case <-s.ctx.Done():
-			// do not log, because tracer might be closed
-			//TODO fix: might still be closed already
-		default:
-			s.tracer.StreamDataMoved(id, offset, n, "application", "transport")
-		}
-	}
-}
-
 func (s *connection) ConnectionIDs() []ConnectionID {
 	connIDs := make([]ConnectionID, 0, len(s.connIDGenerator.activeSrcConnIDs))
 	for _, connID := range s.connIDGenerator.activeSrcConnIDs {

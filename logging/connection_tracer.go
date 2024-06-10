@@ -36,7 +36,6 @@ type ConnectionTracer struct {
 	LossTimerCanceled                func()
 	ECNStateUpdated                  func(state ECNState, trigger ECNStateTrigger)
 	ChoseALPN                        func(protocol string)
-	StreamDataMoved                  func(id StreamID, offset uint64, n int, from string, to string)
 	// Close is called when the connection is closed.
 	Close func()
 	Debug func(name, msg string)
@@ -251,13 +250,6 @@ func NewMultiplexedConnectionTracer(tracers ...*ConnectionTracer) *ConnectionTra
 			for _, t := range tracers {
 				if t.ChoseALPN != nil {
 					t.ChoseALPN(protocol)
-				}
-			}
-		},
-		StreamDataMoved: func(id StreamID, offset uint64, n int, from string, to string) {
-			for _, t := range tracers {
-				if t.StreamDataMoved != nil {
-					t.StreamDataMoved(id, offset, n, from, to)
 				}
 			}
 		},

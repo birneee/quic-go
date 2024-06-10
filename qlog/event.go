@@ -594,23 +594,3 @@ func (e eventALPNInformation) IsNil() bool        { return false }
 func (e eventALPNInformation) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("chosen_alpn", e.chosenALPN)
 }
-
-type eventStreamDataMoved struct {
-	streamID logging.StreamID
-	offset   uint64
-	length   uint64
-	from     string
-	to       string
-}
-
-func (e eventStreamDataMoved) Category() category { return categoryTransport }
-func (e eventStreamDataMoved) Name() string       { return "stream_data_moved" }
-func (e eventStreamDataMoved) IsNil() bool        { return false }
-
-func (e eventStreamDataMoved) MarshalJSONObject(enc *gojay.Encoder) {
-	enc.Int64Key("stream_id", int64(e.streamID))
-	enc.Uint64Key("offset", e.offset)
-	enc.Uint64Key("length", e.length)
-	enc.StringKeyOmitEmpty("from", e.from)
-	enc.StringKeyOmitEmpty("to", e.to)
-}

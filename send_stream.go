@@ -166,7 +166,6 @@ func (s *sendStream) write(p []byte) (bool /* is newly completed */, int, error)
 			if !deadline.IsZero() {
 				if !time.Now().Before(deadline) {
 					s.dataForWriting = nil
-					s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 					return false, bytesWritten, errDeadline
 				}
 				if deadlineTimer == nil {
@@ -202,18 +201,14 @@ func (s *sendStream) write(p []byte) (bool /* is newly completed */, int, error)
 	}
 
 	if bytesWritten == len(p) {
-		s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 		return false, bytesWritten, nil
 	}
 	if s.closeForShutdownErr != nil {
-		//TODO call onStreamDataWrittenByApplication but the tracer might be closed already
 		return false, bytesWritten, s.closeForShutdownErr
 	} else if s.cancelWriteErr != nil {
 		s.cancellationFlagged = true
-		s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 		return s.isNewlyCompleted(), bytesWritten, s.cancelWriteErr
 	}
-	s.sender.onStreamDataWrittenByApplication(s.streamID, uint64(s.writeOffset)-uint64(bytesWritten), bytesWritten)
 	return false, bytesWritten, nil
 }
 

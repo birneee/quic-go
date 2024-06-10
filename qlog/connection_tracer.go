@@ -112,9 +112,6 @@ func NewConnectionTracer(w io.WriteCloser, p logging.Perspective, odcid protocol
 		ChoseALPN: func(protocol string) {
 			t.recordEvent(time.Now(), eventALPNInformation{chosenALPN: protocol})
 		},
-		StreamDataMoved: func(id logging.StreamID, offset uint64, n int, from string, to string) {
-			t.recordEvent(time.Now(), eventStreamDataMoved{streamID: id, offset: offset, length: uint64(n), from: from, to: to})
-		},
 		Debug: func(name, msg string) {
 			t.Debug(name, msg)
 		},

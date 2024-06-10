@@ -100,9 +100,6 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 	if completed {
 		s.sender.onStreamCompleted(s.streamID)
 	}
-	if n > 0 {
-		s.sender.onStreamDataReadByApplication(s.streamID, uint64(s.readOffset())-uint64(n), n)
-	}
 	return n, err
 }
 
