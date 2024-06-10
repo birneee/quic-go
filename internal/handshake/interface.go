@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"github.com/quic-go/quic-go/qstate"
@@ -92,7 +93,7 @@ type Event struct {
 
 // CryptoSetup handles the handshake and protecting / unprotecting packets
 type CryptoSetup interface {
-	StartHandshake() error
+	StartHandshake(context.Context) error
 	io.Closer
 	ChangeConnectionID(protocol.ConnectionID)
 	GetSessionTicket() ([]byte, error)
