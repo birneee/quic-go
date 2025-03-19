@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("frame sorter", func() {
+var _ = FDescribe("frame sorter", func() {
 	var s *frameSorter
 
 	checkGaps := func(expectedGaps []byteInterval) {
@@ -1339,6 +1339,57 @@ var _ = Describe("frame sorter", func() {
 			})
 			checkCallbackCalled(t1)
 			checkCallbackNotCalled(t2)
+			checkCallbackNotCalled(t3)
+		})
+
+		// ---xxx---===-----
+		//   +++++++++++
+		// =>
+		// --+++++++++++--
+		It("case 36", func() {
+			f1 := getData(3)
+			cb1, t1 := getCallback()
+			f2 := getData(3)
+			cb2, t2 := getCallback()
+			f3 := getData(11)
+			cb3, t3 := getCallback()
+			Expect(s.Push(f1, 3, cb1)).To(Succeed()) // 3 - 6
+			Expect(s.Push(f2, 9, cb2)).To(Succeed()) // 9 - 12
+			Expect(s.Push(f3, 2, cb3)).To(Succeed()) // 2 - 13
+			checkQueue(map[protocol.ByteCount][]byte{
+				2: f3,
+			})
+			checkGaps([]byteInterval{
+				{Start: 0, End: 2},
+				{Start: 13, End: protocol.MaxByteCount},
+			})
+			checkCallbackCalled(t1)
+			checkCallbackCalled(t2)
+			checkCallbackNotCalled(t3)
+		})
+
+		// ---xxxxx----=====---
+		// ++++++++++++++++++
+		// =>
+		// ++++++++++++++++++--
+		FIt("case 37", func() {
+			f1 := getData(5)
+			cb1, t1 := getCallback()
+			f2 := getData(5)
+			cb2, t2 := getCallback()
+			f3 := getData(18)
+			cb3, t3 := getCallback()
+			Expect(s.Push(f1, 3, cb1)).To(Succeed())  // 3 - 8
+			Expect(s.Push(f2, 12, cb2)).To(Succeed()) // 12 - 17
+			Expect(s.Push(f3, 0, cb3)).To(Succeed())  // 0 - 18
+			checkQueue(map[protocol.ByteCount][]byte{
+				0: f3,
+			})
+			checkGaps([]byteInterval{
+				{Start: 18, End: protocol.MaxByteCount},
+			})
+			checkCallbackCalled(t1)
+			checkCallbackCalled(t2)
 			checkCallbackNotCalled(t3)
 		})
 
